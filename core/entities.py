@@ -1,3 +1,13 @@
+import os
+from datetime import datetime
+
+RISK_LABELS = [
+    "Sem Capacete",
+    "Sem Colete",
+    "Sem Oculos",
+]
+
+
 class Detection:
     def __init__(self, label, confidence, x1, y1, x2, y2):
         self.label = label
@@ -25,16 +35,7 @@ class Detection:
     
     @property
     def is_risk(self):
-        return self.label.startswith("Sem")
-
-
-d1 = Detection("Sem Capacete", 0.92, 0, 0, 100, 100)
-d2 = Detection("Com Capacete", 0.88, 0, 0, 100, 100)
-
-print(d1.is_risk)   # True
-print(d2.is_risk)   # False
-
-
+        return self.label in RISK_LABELS
 
 
 class IncidentEntry:
@@ -43,5 +44,11 @@ class IncidentEntry:
         self.confidence = confidence
         self.timestamp = timestamp
         self.img_path = img_path
-
-
+    
+    @property
+    def img_name(self):
+        return os.path.basename(self.img_path)
+    
+    @property
+    def time_short(self):
+        return self.timestamp.strftime("%H:%M:%S")
