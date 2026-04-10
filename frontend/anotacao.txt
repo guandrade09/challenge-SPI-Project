@@ -1,0 +1,9 @@
+Esta sendo feito em REACT JS, na liguagem de typescript,
+As dependencias são:>  lucide-react     react-router-dom    vite-plugin-svgr    @tailwindcss/postcss
+
+
+comandos a serem rodados:
+
+
+cd frontend
+npm install             #Ja esta incluso as dependencias
