@@ -1,6 +1,8 @@
-import cv2
+import sys
+sys.path.append("ml_service")
 
-from camera import Camera
+import cv2
+from inference.camera import Camera
 
 def main():
     camera = Camera(0)
@@ -8,14 +10,13 @@ def main():
     if not camera.is_opened():
         print("Não conseguiu abrir camera")
         return
-    
     print("Camera aberta")
 
     while True:
         ret, frame = camera.read()
         
         if not ret:
-            print("falha ao ler frame")
+            print("Falha ao ler frame")
             break
 
         cv2.imshow("Camera Test", frame)
@@ -28,5 +29,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
