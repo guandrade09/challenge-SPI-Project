@@ -4,7 +4,7 @@ import { cn } from '../../../utils/cn';
 
 export const AlertPanel = ({ message, isCritical = false }) => {
   return (
-    <div className="rounded-[50px] overflow-hidden shadow-2xl w-full max-w-[420px] ml-auto mt-12">
+    <div className="rounded-[40px] overflow-hidden shadow-2xl w-full max-w-[420px]">
       {/* Cabeçalho */}
       <div className={cn(
         "py-6 text-center transition-colors duration-500",
