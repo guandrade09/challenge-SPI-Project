@@ -8,8 +8,8 @@ export const DetectionCard = ({ label, isChecked, onToggle }) => {
     <div 
       onClick={onToggle}
       className={cn(
-        "flex items-center justify-between px-8 py-3 rounded-full shadow-xl transition-all duration-200 cursor-pointer mb-4 w-full max-w-[320px] ml-auto",
-        "bg-white hover:bg-zinc-100 active:scale-95 select-none border border-zinc-200"
+        "flex items-center justify-between px-8 py-3 rounded-full rounded-full shadow-xl transition-all duration-200 cursor-pointer w-full max-w-[320px] border border-zinc-200",
+        "bg-white hover:bg-zinc-100 active:scale-95 select-none"
       )}
     >
       <div className="flex items-center gap-4">
