@@ -4,3 +4,9 @@ export const CAMERA_STATUS = {
   ONLINE: 'online',
   OFFLINE: 'offline'
 };
+
+export const PANEL_STATUS = {
+  PRONTO: 'pronto',
+  ATENCAO: 'atencao',
+  ALERTA: 'alerta'
+}
