@@ -2,6 +2,7 @@
 import React from 'react';
 import { CameraView, DetectionPanel, AlertPanel } from './components'; 
 import { useMonitoramentoStore } from './store/useMonitoramentoStore';
+import { PANEL_STATUS } from './constants';
 
 const DETECTION_CONFIG = [
   { id: 'colete', label: 'DETECTAR COLETE' },
@@ -13,40 +14,43 @@ const MonitoramentoPage = () => {
   const { status } = useMonitoramentoStore();
 
   return (
-    // 1. CONTAINER PRINCIPAL: Centraliza o Grid na tela. 
-    // Removido py-4, mb-10 duplicados do App.jsx
-    <div className="w-full max-w-7xl mx-auto px-6 md:px-12 py-12 min-h-[85vh] flex items-center justify-center">
+    <div className="w-full bg-gradient-to-tr from-neutral-500 to-neutral-950 min-h-screen">
       
-      {/* 2. GRID DE LAYOUT: Define as duas colunas */}
-      {/* cols-1 (mobile, um abaixo do outro) -> cols-2 (desktop, lado a lado) */}
-      <main className="w-full grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-12 items-center justify-items-center">
+      {/* Container de conteúdo com largura máxima e padding, centralizado */}
+      <div className="max-w-7xl mx-auto px-6 md:px-12 py-12 flex items-center justify-center">
         
-        {/* COLUNA ESQUERDA: Câmera */}
-        {/* Usamos flex justify-end para alinhar a câmera com o meio do layout, vinda da esquerda */}
-        <div className="w-full flex justify-end items-center relative z-10">
-          <CameraView 
-            status={status}
-            streamUrl="" 
-          />
-        </div>
-
-        {/* COLUNA DIREITA: Controles e Alerta */}
-        {/* Usamos items-start para alinhar os painéis com a borda esquerda da coluna deles (meio da tela) */}
-        <div className="w-full flex flex-col gap-10 items-center md:items-start ml-0 md:ml-auto">
+        {/* cols-1 (mobile) -> cols-2 (desktop) */}
+        <main className="w-full grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-12 items-center justify-items-center">
           
-          {/* Alinhamento do Painel de Detecção */}
-          <div className="w-full flex justify-center md:justify-start">
-             <DetectionPanel options={DETECTION_CONFIG} />
+          {/* COLUNA ESQUERDA: Câmera */}
+          <div className="w-full flex justify-end items-center relative z-10">
+            <CameraView 
+              status={status}
+              streamUrl="" 
+            />
           </div>
 
-          {/* Alinhamento do Painel de Alerta */}
-          <div className="w-full flex justify-center md:justify-start">
-            <AlertPanel message="Q coisinha chata de codar ein" isCritical={true} />
-          </div>
-          
-        </div>
+          {/* COLUNA DIREITA: Controles e Alerta */}
+          <div className="w-full flex flex-col gap-10 items-center md:items-start ml-0 md:ml-auto">
+            
+            {/*Painel de Detecção*/}
+            <div className="w-full flex justify-center md:justify-center">
+               <DetectionPanel options={DETECTION_CONFIG} />
+            </div>
 
-      </main>
+            {/*Painel de Alerta*/}
+            <div className="w-full flex justify-center md:justify-center">
+              {/* FUTURAMENTE RECEBIMENTO DE MENSAGEM E STATUS DO MONITORAMENTO*/}
+              <AlertPanel 
+                message="MENSAGEM VINDA DA API (pov: n tem api ainda) " 
+                status={PANEL_STATUS.PRONTO} 
+              />
+            </div>
+            
+          </div>
+
+        </main>
+      </div>
     </div>
   );
 };

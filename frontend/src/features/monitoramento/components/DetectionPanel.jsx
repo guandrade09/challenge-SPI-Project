@@ -7,7 +7,7 @@ export const DetectionPanel = ({ options }) => {
   const { detections, toggleDetection } = useMonitoramentoStore();
 
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex flex-col items-center gap-2 w-full">
       {options.map((option) => (
         <DetectionCard
           key={option.id}
