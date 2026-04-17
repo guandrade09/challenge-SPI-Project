@@ -6,8 +6,8 @@ export const CameraView = ({ status, streamUrl }) => {
   const isOnline = status === 'online';
 
   return (
-    /* 1. MUDANÇA: Usamos aspect-[3/4] para criar o formato vertical (mais alto) */
-    <div className="relative bg-black rounded-[45px] aspect-[3/4] w-full max-w-[480px] overflow-hidden border-[12px] border-black shadow-xl flex flex-col relative">
+    /* CARD MAIOR */
+    <div className="relative bg-black rounded-[45px] aspect-[2/3] w-full max-w-[480px] overflow-hidden border-[12px] border-black shadow-xl flex flex-col relative">
       
       {/* Espaço superior preto (Header interno) */}
       <div className="h-14 bg-black w-full" />
