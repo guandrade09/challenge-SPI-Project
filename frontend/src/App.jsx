@@ -1,7 +1,8 @@
 // src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { NavBar } from './layouts/NavBar';
-import MonitoramentoPage from './features/monitoramento/monitoramento';
+import MonitoramentoPage from './features/monitoramentoPage/MonitoramentoPage';
+import LogsPage from './features/logsPage/LogsPage'
 
 function App() {
   return (
@@ -14,7 +15,9 @@ function App() {
 
         <main className="flex-1 flex flex-col">
           <Routes>
-            <Route path="/" element={<MonitoramentoPage />} />
+            <Route path="/" />
+            <Route path="/monitoramento" element={<MonitoramentoPage />} />
+            <Route path="/logs" element={<LogsPage />} />
           </Routes>
         </main>
       </div>
