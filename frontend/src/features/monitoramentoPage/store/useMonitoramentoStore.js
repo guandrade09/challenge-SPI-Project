@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { CAMERA_STATUS } from '../constants';
+import { CAMERA_STATUS } from '../enums';
 
 export const useMonitoramentoStore = create((set) => ({
   status: CAMERA_STATUS.IDLE,

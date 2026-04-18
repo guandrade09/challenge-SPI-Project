@@ -1,21 +1,15 @@
 import React from 'react';
-// Removi o ShieldAlert pois não estava sendo usado no exemplo fornecido, 
-// mas você pode mantê-lo se for usar.
 import { cn } from '../../../utils/cn';
-import { PANEL_STATUS } from '../constants'; // Importando o "Enum"
+import { PANEL_STATUS } from '../enums'; // Importando o "Enum"
 
-// Alteramos a prop recebida de 'PANEL_STATUS' para 'status' para evitar conflito
 export const AlertPanel = ({ message, status }) => {
   
-  // Criamos um mapeamento de estilos baseado nos valores do Enum.
-  // Isso deixa o código do renderizador muito mais limpo do que ternários aninhados.
   const statusStyles = {
     [PANEL_STATUS.PRONTO]: "bg-green-600 animate-pulse",
     [PANEL_STATUS.ATENCAO]: "bg-yellow-600 animate-pulse",
     [PANEL_STATUS.ALERTA]: "bg-red-600 animate-pulse",
   };
 
-  // Define um estilo padrão caso um status inválido seja passado
   const currentHeaderClass = statusStyles[status] || "bg-gray-600"; 
   
   // Define o texto do título baseado no status (opcional, para deixar dinâmico)
@@ -33,7 +27,7 @@ export const AlertPanel = ({ message, status }) => {
       {/* Cabeçalho */}
       <div className={cn(
         "py-6 text-center transition-colors duration-500",
-        currentHeaderClass // Aplica a classe baseada no status
+        currentHeaderClass
       )}>
         <h2 className="text-4xl font-normal tracking-[0.1em] text-white uppercase">
           {getHeaderText()}
