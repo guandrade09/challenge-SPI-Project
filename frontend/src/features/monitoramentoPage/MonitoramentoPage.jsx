@@ -2,7 +2,7 @@
 import React from 'react';
 import { CameraView, DetectionPanel, AlertPanel } from './components'; 
 import { useMonitoramentoStore } from './store/useMonitoramentoStore';
-import { PANEL_STATUS } from './constants';
+import { PANEL_STATUS } from './enums';
 
 const DETECTION_CONFIG = [
   { id: 'colete', label: 'DETECTAR COLETE' },
