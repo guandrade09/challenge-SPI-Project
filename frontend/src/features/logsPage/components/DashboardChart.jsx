@@ -10,9 +10,9 @@ const data = [
 
 export const DashboardChart = ({ title }) => {
   return (
-    <div className="w-full max-w-md bg-[#D9D9D9] rounded-[50px] overflow-hidden shadow-2xl flex flex-col">
+    <div className="w-full max-w-md bg-[#D9D9D9] rounded-[40px] overflow-hidden shadow-2xl flex flex-col h-full">
       {/* Cabeçalho */}
-      <div className="bg-[#B59481] py-3 text-center">
+      <div className="bg-[#B59481] py-3 text-center shrink-0">
         <span className="text-zinc-800 font-bold text-xs uppercase tracking-widest">
           {title || "TITULO DO GRAFICO DE PIZZA"}
         </span>
