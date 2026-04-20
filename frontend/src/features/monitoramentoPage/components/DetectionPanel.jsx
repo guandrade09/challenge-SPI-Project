@@ -1,6 +1,6 @@
 import React from 'react';
 import { DetectionCard } from './DetectionCard';
-import { useMonitoramentoStore } from '../store/useMonitoramentoStore';
+import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 
 export const DetectionPanel = ({ options }) => {
   // Pegamos o estado e a função de disparar o toggle da nossa Store (Zustand)

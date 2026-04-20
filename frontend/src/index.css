@@ -6,6 +6,18 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+@theme{
+  --color-panel-bg: #D9D9D9;
+  --color-panel-header: #B59481;
+  --color-card-white: #ffffff;
+
+  --radius-panel: 40px;
+  --radius-inner: 30px;
+  --radius-grafico: 10px;
+
+  --spacing-panel-gap: 2rem;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;

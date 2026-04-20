@@ -1,63 +1,53 @@
 // src/features/logsPage/components/DetectionLineChart.jsx
 import React from 'react';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer 
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BasePanel } from '../../../components/shared/BasePanel';
 
-const data = [
-  { hora: '08:00', alertas: 5 },
-  { hora: '10:00', alertas: 12 },
-  { hora: '12:00', alertas: 8 },
-  { hora: '14:00', alertas: 25 },
-  { hora: '16:00', alertas: 18 },
-  { hora: '18:00', alertas: 10 },
-];
-
-export const DetectionLineChart = ({ title }) => {
+export const DetectionLineChart = ({ title, data }) => {
   return (
-    <div className="w-full max-w-md bg-[#D9D9D9] rounded-[40px] overflow-hidden shadow-2xl flex flex-col">
-      <div className="bg-[#B59481] py-3 text-center">
-        <span className="text-zinc-800 font-bold text-xs uppercase tracking-widest">
-          {title || "TENDÊNCIA DE ALERTAS (HOJE)"}
-        </span>
-      </div>
-
-      <div className="p-6 h-[250px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ccc" />
-            <XAxis 
-              dataKey="hora" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: '#3f3f46', fontSize: 10 }} 
-            />
-            <YAxis 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: '#3f3f46', fontSize: 10 }} 
-            />
-            <Tooltip 
-              contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="alertas" 
-              stroke="#d84d4d" 
-              strokeWidth={3}
-              dot={{ fill: '#aa3bff', r: 4 }}
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <BasePanel title={title || "GRAFICO DE LINHAS"} isGraf={true}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart 
+          data={data} 
+          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#000000" />
+          
+          <XAxis 
+            dataKey="hora" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fill: '#000000', fontSize: 10 }} 
+            dy={10} // Empurra as labels das horas um pouco para baixo
+          />
+          
+          <YAxis 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fill: '#000000', fontSize: 10 }}
+            dx={-5} // Afasta os números do eixo Y da grade
+          />
+          
+          <Tooltip 
+            contentStyle={{ 
+              borderRadius: '15px', 
+              border: 'none', 
+              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+              fontSize: '12px'
+            }}
+          />
+          
+          <Line 
+            type="monotone" 
+            dataKey="alertas" 
+            stroke="#d84d4d" 
+            strokeWidth={4}
+            dot={{ fill: '#aa3bff', r: 4, strokeWidth: 2, stroke: '#fff' }}
+            activeDot={{ r: 7, strokeWidth: 0 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </BasePanel>
   );
 };
 

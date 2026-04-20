@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '../../../utils/cn';
-import { PANEL_STATUS } from '../enums'; // Importando o "Enum"
+import { PANEL_STATUS } from '../../../enums/enums'; // Importando o "Enum"
 
 export const AlertPanel = ({ message, status }) => {
   

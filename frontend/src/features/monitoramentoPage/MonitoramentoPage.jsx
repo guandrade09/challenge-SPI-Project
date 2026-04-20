@@ -1,8 +1,7 @@
 // src/features/monitoramento/monitoramento.jsx
 import React from 'react';
 import { CameraView, DetectionPanel, AlertPanel } from './components'; 
-import { useMonitoramentoStore } from './store/useMonitoramentoStore';
-import { PANEL_STATUS } from './enums';
+import { PANEL_STATUS } from '../../enums/enums';
 
 const DETECTION_CONFIG = [
   { id: 'colete', label: 'DETECTAR COLETE' },
@@ -10,8 +9,7 @@ const DETECTION_CONFIG = [
   { id: 'capacete', label: 'DETECTAR CAPACETE' },
 ];
 
-const MonitoramentoPage = () => {
-  const { status } = useMonitoramentoStore();
+export const MonitoramentoPage = () => {
 
   return (
     <div className="w-full bg-gradient-to-tr from-neutral-500 to-neutral-950 min-h-screen">

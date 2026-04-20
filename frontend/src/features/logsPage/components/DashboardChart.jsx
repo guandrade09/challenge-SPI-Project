@@ -1,25 +1,11 @@
 // src/features/logsPage/components/DashboardChart.jsx
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { BasePanel } from '../../../components/shared/BasePanel';
 
-const data = [
-  { name: 'Acerto', value: 400, color: '#00ff00' },
-  { name: 'Erro', value: 300, color: '#ff0000' },
-  { name: 'Acerto com erro', value: 300, color: '#0000ff' },
-];
-
-export const DashboardChart = ({ title }) => {
+export const DashboardChart = ({ title, data = [] }) => {
   return (
-    <div className="w-full max-w-md bg-[#D9D9D9] rounded-[50px] overflow-hidden shadow-2xl flex flex-col">
-      {/* Cabeçalho */}
-      <div className="bg-[#B59481] py-3 text-center">
-        <span className="text-zinc-800 font-bold text-xs uppercase tracking-widest">
-          {title || "TITULO DO GRAFICO DE PIZZA"}
-        </span>
-      </div>
-
-      {/* Área do Gráfico */}
-      <div className="w-full h-64">
+    <BasePanel title={title || "GRAFICO DE PIZZA"} isGraf={true}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -33,19 +19,13 @@ export const DashboardChart = ({ title }) => {
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip 
+             contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+          />
         </PieChart>
       </ResponsiveContainer>
-        </div>
-    </div>
+    </BasePanel>
   );
 };
-
-const LegendItem = ({ color, label }) => (
-  <div className="flex items-center gap-2">
-    <div className={`w-3 h-3 ${color} border border-black/20`}></div>
-    <span className="text-[10px] font-bold text-zinc-700 uppercase">{label}</span>
-  </div>
-);
 
 export default DashboardChart;
