@@ -2,7 +2,7 @@
 import React from 'react';
 import { BasePanel } from '../../../components/shared/BasePanel';
 import { AiToggleButton } from '../../../components/shared/chatAi/AiToggleButton';
-import { LogSettingsButton } from './LogSettingsButton';
+import { LogSettingsButton, LogSkeleton } from './';
 
 export const LogPanel = ({ title, logs = [] }) => {
   
@@ -27,8 +27,11 @@ export const LogPanel = ({ title, logs = [] }) => {
             </div>
           ))
         ) : (
-          <div className="flex flex-col gap-4 italic text-zinc-400 text-center py-10">
-            Aguardando novos logs...
+          <div className="flex flex-col items-center justify-center h-full">
+            <LogSkeleton />
+            <span className="mt-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest animate-bounce">
+                Aguardando Logs...
+             </span>
           </div>
         )}
       </div>
