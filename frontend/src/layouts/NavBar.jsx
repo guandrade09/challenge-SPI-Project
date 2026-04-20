@@ -1,8 +1,10 @@
 import React from 'react';
 import { Home, Camera, LogsIcon, Settings } from 'lucide-react';
-import { NavLink } from 'react-router-dom'; // Importação necessária
+import { NavLink } from 'react-router-dom';
 import { cn } from "../utils/cn";
+import { AiToggleButton } from '../components/shared/chatAi/AiToggleButton';
 
+// Removi o chatbot daqui para não tentar navegar para uma rota inexistente
 const navItems = [
   { id: 'logs', icon: LogsIcon, label: 'Logs', path: '/logs' },
   { id: 'home', icon: Home, label: 'Home', path: '/' },
@@ -21,7 +23,6 @@ export const NavBar = () => {
             title={item.label}
             className={({ isActive }) => cn(
               "transition-all duration-300 border-b-2 pb-1 mx-6 px-3 py-1.5 rounded-md",
-              
               isActive 
                 ? "text-white border-white opacity-100 animate-pulse" 
                 : "text-zinc-300/70 border-transparent hover:text-white hover:opacity-100 hover:bg-white/5"
@@ -32,6 +33,14 @@ export const NavBar = () => {
             )}
           </NavLink>
         ))}
+
+        {/* Divisor visual opcional */}
+        <div className="w-[1px] h-6 bg-white opacity- mx-2" />
+
+        {/* Botão de IA anexado no final */}
+        <div className="mx-6 text-white animate-pulse">
+           <AiToggleButton />
+        </div>
       </div>
     </nav>
   );
