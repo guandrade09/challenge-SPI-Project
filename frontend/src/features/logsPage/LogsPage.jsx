@@ -6,6 +6,7 @@ import { AiChatSidebar } from '../../components/shared/chatAi/AiChatSidebar';
 // Importando o componente que você criou (ajustado o nome do arquivo/import)
 import { RenderColumn } from './RenderColumn'; 
 
+// Graficos
 import { 
   AreaDetectionChart, 
   AnomalyScatterChart,
@@ -16,11 +17,14 @@ import {
   MLConfusionMatrix, 
   InferenceLatencyChart,
   OperationalRadar, 
+  ConfidenceDistribution,
+  ResourceMonitor,
 
 } from './components/graficos';
 
 import { LogPanel, LogReportModal } from './components/painelLog';
 
+// Logs para test
 import { 
   dummyLogs, 
   colunasLogs, 
@@ -33,6 +37,8 @@ import {
   anomalyData, 
   reportSummaryMock,
   radarData,
+  confidenceData,
+  resourceData,
 } from './test';
 
 const COMPONENT_MAP = {
@@ -47,10 +53,12 @@ const COMPONENT_MAP = {
   area: { label: "Ocupação de Área", component: <AreaDetectionChart data={areaLogs} /> },
   latency: { label: "Latência ESP32-P4", component: <InferenceLatencyChart data={latencyLogs} /> },
   matrix: { label: "Matriz de Confusão", component: <MLConfusionMatrix data={confusionMatrixData} /> },
+  confidence: { label: 'Termometro de Incerteza', component: <ConfidenceDistribution data={confidenceData} />},
+  monitorcpu : { label: 'Temperatura CPUs', component: <ResourceMonitor data={resourceData} /> },
 
   // Logs
   // Coluna 3
-  pizza: { label: "Grafico de Pizza", component: <DashboardChart data={pizzaLogs} />},
+  pizza: { label: "Grafico de detecções", component: <DashboardChart data={pizzaLogs} />},
   linha: { label: "Grafico de Linha", component: <DetectionLineChart data={lineLogs} />},
   composed: { label: "Análise Composta", component: <DetectionComposedChart data={composedLogs} /> },
   barra: { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} /> },
@@ -60,8 +68,8 @@ const COMPONENT_MAP = {
 
 const DASHBOARD_CONFIG = {
   col1: [['logs']],
-  col2: [['anomaly', 'area'], ['matrix', 'latency', ]],
-  col3: [['pizza', 'linha', 'barra'], ['radar', 'composed']]
+  col2: [['area', 'latency', 'composed',], ['matrix', 'anomaly', 'monitorcpu', ]],
+  col3: [['pizza', 'linha', 'barra',], ['radar', 'confidence',]]
 };
 
 const LogsPage = () => {
