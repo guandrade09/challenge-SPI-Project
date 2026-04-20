@@ -1,48 +1,44 @@
 // src/features/logsPage/components/LogReportModal.jsx
 import React from 'react';
-import { X, FileText, CheckCircle2 } from 'lucide-react';
+import { FileText, CheckCircle2 } from 'lucide-react';
+import { PopupModal } from '../../../../components/shared/PopupModal';
 
 export const LogReportModal = ({ isOpen, onClose, data }) => {
-  if (!isOpen) return null;
+  if (!data) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      
-      {/* Modal Card */}
-      <div className="relative w-full max-w-md bg-panel-bg rounded-panel shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-        <div className="bg-panel-header p-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <FileText size={18} className="text-zinc-800" />
-            <h3 className="font-bold text-xs uppercase tracking-widest text-zinc-800">Resumo do Relatório</h3>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-black/5 rounded-full transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="p-8 flex flex-col items-center text-center">
-          <CheckCircle2 size={48} className="text-green-600 mb-4 animate-bounce" />
-          
-          <span className="text-[10px] font-bold text-zinc-400 uppercase mb-1">Status: {data.status}</span>
-          <p className="text-zinc-700 text-sm leading-relaxed mb-6">
+    <PopupModal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      title="Resumo do Relatório" 
+      icon={FileText}
+    >
+      <div className="flex flex-col items-center text-center">
+        <CheckCircle2 size={48} className="text-green-600 mb-4 animate-bounce" />
+        
+        <span className="text-[10px] font-bold text-black uppercase mb-1">
+          Status: {data.status}
+        </span>
+        
+        {/* CONTAINER DO SCROLL: Ajustado com max-h e custom-scrollbar */}
+        <div className="w-full max-h-[300px] bg-white/50 rounded-xl border border-zinc-200 mb-6 text-left overflow-y-auto custom-scrollbar">
+          <p className="text-[12px] text-zinc-800 font-medium p-4 leading-relaxed whitespace-pre-wrap">
             {data.resumo}
           </p>
-
-          <div className="w-full p-4 bg-white/50 rounded-xl border border-zinc-200 mb-6 text-left">
-            <p className="text-[10px] text-zinc-500 uppercase font-mono">Gerado em: {data.data_geracao}</p>
-          </div>
-
-          <button 
-            disabled 
-            className="w-full py-3 bg-zinc-400 text-white rounded-xl font-bold text-xs uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            Download PDF (Em breve)
-          </button>
         </div>
+
+        <p className='text-[10px] text-black mb-4 font-mono'>
+          Gerado em: {data.data_geracao}
+        </p>
+
+        <button 
+          disabled 
+          className="w-full py-3 bg-zinc-400 text-white rounded-xl font-bold text-xs uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          Download PDF (Em breve)
+        </button>
       </div>
-    </div>
+    </PopupModal>
   );
 };
 

@@ -5,7 +5,6 @@ import { BasePanel } from '../../../../components/shared/BasePanel';
 
 export const DetectionBarChart = ({ title, data }) => {
   return (
-    <BasePanel title={title || "GRAFICO DE COLUNA"} isGraf={true} allowFullScreen={true}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
@@ -48,7 +47,6 @@ export const DetectionBarChart = ({ title, data }) => {
         />
         </BarChart>
       </ResponsiveContainer>
-    </BasePanel>
   );
 };
 

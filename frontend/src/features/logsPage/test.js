@@ -1,9 +1,24 @@
-export const dummyLogs = [
-  { timestamp: '14:21:05', message: 'Câmera 01 conectada' },
-  { timestamp: '14:22:10', message: 'Alerta: Detecção de capacete ausente,' },
-  { timestamp: '14:23:15', message: 'Alerta: Detecção de vestimenta de segurança ausente, e mais coisa que não fazem sentido e teste para não caber na tela' },
-  { timestamp: '14:24:20', message: 'Pronto: Detecção de oculos de proteção' },
+// src/mocks/test.js
+
+const rawLogs = [
+  { timestamp: '14:21:05', topic: 'Sistema', logs: 'Inicializando protocolo MQTT...' },
+  { timestamp: '14:22:10', topic: 'Segurança', logs: 'Operário detectado sem capacete na Zona B.' },
+  { timestamp: '14:23:15', topic: 'Erro Crítico', logs: 'Vestimenta ausente em área de risco. Este é um log extenso para testar se o texto quebra corretamente no card e se o scroll do painel funciona como esperado.' },
+  { timestamp: '14:24:20', topic: 'IA', logs: 'Detecção de óculos de proteção confirmada.' },
+  { timestamp: '14:25:30', topic: 'Hardware', logs: 'ESP32-P4 atingiu 72°C. Iniciando resfriamento.' },
+  { timestamp: '14:27:00', topic: 'Estufa', logs: 'Umidade acima do limite (85%). Atuadores ativados.' },
+  { timestamp: '14:28:45', topic: 'Rede', logs: 'Queda de frames detectada na Câmera 01.' },
+  { timestamp: '14:30:10', topic: 'Invasão', logs: 'Objeto não identificado próximo à Área Restrita 02.' },
+  { timestamp: '14:32:00', topic: 'Suporte', logs: 'Sincronização de relógio NTP concluída com o servidor local.' },
+  { timestamp: '14:35:15', topic: 'ML', logs: 'Nova classe "Luva de Proteção" adicionada às estatísticas.' },
+  { timestamp: '14:38:20', topic: 'Status', logs: 'Verificação de scroll ativa. O botão fixo deve estar visível aqui.' }
 ];
+
+// Aqui criamos a dummyLogs combinando topic e logs na string message
+export const dummyLogs = rawLogs.map(item => ({
+  ...item,
+  message: `${item.topic}: ${item.logs}`
+}));
 
 export const lineLogs = [
   { hora: '00:00', alertas: 20},
@@ -22,9 +37,10 @@ export const lineLogs = [
 ];
 
 export const pizzaLogs = [
-  { name: 'Acerto', value: 30, color: '#00ff00' },
-  { name: 'Erro', value: 100, color: '#ff0000' },
-  { name: 'Acerto com erro', value: 20, color: '#0000ff' },
+    { name: 'Capacete', value: 450, color: '#B59481' }, // Cor padrão do seu sistema
+  { name: 'Colete', value: 380, color: '#6366f1' },   // Índigo para contraste
+  { name: 'Oculos', value: 120, color: '#71ff5e' },   // Verde neon para destaque
+  { name: 'Erros', value: 15, color: '#ef4444' }    // Vermelho para alertas críticos
 ];
 
 export const colunasLogs = [
@@ -93,6 +109,19 @@ export const latencyLogs = [
   { hora: '10:00:05', latencia: 42, jitter: 5 },
   { hora: '10:00:06', latencia: 38, jitter: 3 },
   { hora: '10:00:07', latencia: 33, jitter: 2 },
+  { hora: '10:00:08', latencia: 32, jitter: 2 },
+  { hora: '10:00:09', latencia: 35, jitter: 4 },
+  { hora: '10:00:10', latencia: 31, jitter: 1 },
+  { hora: '10:00:11', latencia: 85, jitter: 15 }, // Pico de latência!
+  { hora: '10:00:12', latencia: 42, jitter: 5 },
+  { hora: '10:00:13', latencia: 38, jitter: 3 },
+  { hora: '10:00:14', latencia: 33, jitter: 2 },
+  { hora: '10:00:15', latencia: 32, jitter: 4 },
+  { hora: '10:00:16', latencia: 35, jitter: 1 },
+  { hora: '10:00:17', latencia: 31, jitter: 15}, // Pico de latencia
+  { hora: '10:00:18', latencia: 85, jitter: 5 },
+  { hora: '10:00:19', latencia: 42, jitter: 3 },
+  { hora: '10:00:20', latencia: 38, jitter: 2 },
 ];
 
 export const anomalyData = [
@@ -110,3 +139,20 @@ export const reportSummaryMock = {
   status: "sucesso",
   data_geracao: "20/04/2026 12:36"
 };
+
+
+export const confidenceData = [
+  { range: "0-20%", quantidade: 2 },
+  { range: "20-40%", quantidade: 5 },
+  { range: "40-60%", quantidade: 12 }, // Faixa de Incerteza
+  { range: "60-80%", quantidade: 45 },
+  { range: "80-100%", quantidade: 130 } // Faixa de Estabilidade
+];
+
+export const resourceData = [
+  { time: "10:00", core0: 45, core1: 52, core2: 82 },
+  { time: "10:05", core0: 46, core1: 58, core2: 32 },
+  { time: "10:10", core0: 45, core1: 65, core2: 66 },
+  { time: "10:15", core0: 47, core1: 72, core2: 30 }, // Pico de processamento
+  { time: "10:20", core0: 46, core1: 68, core2: 42 },
+];

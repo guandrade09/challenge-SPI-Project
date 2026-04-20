@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { NavBar } from './layouts/NavBar';
 import MonitoramentoPage from './features/monitoramentoPage/MonitoramentoPage';
 import LogsPage from './features/logsPage/LogsPage'
+import { AiChatSidebar } from './components/shared/chatAi/AiChatSidebar'
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
             <Route path="/logs" element={<LogsPage />} />
           </Routes>
         </main>
+
+        <AiChatSidebar />
       </div>
     </Router>
   );

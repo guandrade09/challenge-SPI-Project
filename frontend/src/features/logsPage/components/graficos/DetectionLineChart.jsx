@@ -5,7 +5,6 @@ import { BasePanel } from '../../../../components/shared/BasePanel';
 
 export const DetectionLineChart = ({ title, data }) => {
   return (
-    <BasePanel title={title || "GRAFICO DE LINHA"} isGraf={true} allowFullScreen={true}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 
           data={data} 
@@ -47,7 +46,6 @@ export const DetectionLineChart = ({ title, data }) => {
           />
         </LineChart>
       </ResponsiveContainer>
-    </BasePanel>
   );
 };
 

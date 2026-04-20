@@ -1,5 +1,6 @@
 export { default as AnomalyScatterChart } from './AnomalyScatterChart';
 export { default as AreaDetectionChart } from './AreaDetectionChart';
+export { default as ConfidenceDistribution } from './ConfidenceDistribution';
 export { default as DashboardChart } from './DashboardChart';
 export { default as DetectionBarChart } from './DetectionBarChart';
 export { default as DetectionComposedChart } from './DetectionComposedChart';
@@ -7,3 +8,4 @@ export { default as DetectionLineChart } from './DetectionLineChart';
 export { default as InferenceLatencyChart } from './InferenceLatencyChart';
 export { default as MLConfusionMatrix } from './MLConfusionMatrix';
 export { default as OperationalRadar } from './OperationalRadar';
+export { default as ResourceMonitor } from './ResourceMonitor';
