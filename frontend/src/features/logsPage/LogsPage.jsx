@@ -51,18 +51,18 @@ const COMPONENT_MAP = {
  // Coluna 2
  area: { label: "Análise Composta", component: <AreaDetectionChart data={areaLogs} /> },
  composed: { label: "Análise de Eventos", component: <DetectionComposedChart data={composedLogs} /> },
- radar: { label: "Eficiencia Operacional", component: <OperationalRadar data={radarData}/> },
+ radar: { label: "Eficiência Operacional", component: <OperationalRadar data={radarData}/> },
  latency: { label: "Latência MCU/CAM", component: <InferenceLatencyChart data={latencyLogs} /> },
  monitorcpu : { label: 'Temperatura CPUs', component: <ResourceMonitor data={resourceData} /> },
  
  // Logs
  // Coluna 3
- pizza: { label: "Grafico de detecções", component: <DashboardChart data={pizzaLogs} />},
- linha: { label: "Grafico de alertas", component: <DetectionLineChart data={lineLogs} />},
+ pizza: { label: "Gráfico de detecções", component: <DashboardChart data={pizzaLogs} />},
+ linha: { label: "Gráfico de alertas", component: <DetectionLineChart data={lineLogs} />},
  barra: { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} /> },
  
  matrix: { label: "Matriz de Confusão", component: <MLConfusionMatrix data={confusionMatrixData} /> },
- confidence: { label: 'Termometro de Incerteza', component: <ConfidenceDistribution data={confidenceData} />},
+ confidence: { label: 'Termômetro de Incerteza', component: <ConfidenceDistribution data={confidenceData} />},
  anomaly: { label: "Mapa de Anomalias", component: <AnomalyScatterChart data={anomalyData} /> },
   
 };
@@ -95,7 +95,6 @@ const LogsPage = () => {
         <RenderColumn config={DASHBOARD_CONFIG.col3} componentMap={COMPONENT_MAP} />
       </main>
 
-      <AiChatSidebar />
       <LogReportModal isOpen={isPopUpModalOpen} onClose={closePopUpModal} data={reportSummaryMock} />
     </div>
   );

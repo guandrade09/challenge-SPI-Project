@@ -40,7 +40,7 @@ export const pizzaLogs = [
     { name: 'Capacete', value: 450, color: '#B59481' }, // Cor padrão do seu sistema
   { name: 'Colete', value: 380, color: '#6366f1' },   // Índigo para contraste
   { name: 'Oculos', value: 120, color: '#71ff5e' },   // Verde neon para destaque
-  { name: 'Invasão', value: 15, color: '#ef4444' }    // Vermelho para alertas críticos
+  { name: 'Erros', value: 15, color: '#ef4444' }    // Vermelho para alertas críticos
 ];
 
 export const colunasLogs = [
