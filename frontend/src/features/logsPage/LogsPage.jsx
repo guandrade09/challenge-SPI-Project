@@ -2,8 +2,9 @@
 import React from 'react';
 import { useUiStore } from '../../store/useUiStore';
 import { X } from 'lucide-react';
-import { DashboardChart, DetectionBarChart, DetectionLineChart, MessageConsole, LogPanel } from './components'
-import { dummyLogs, lineLogs, colunasLogs, pizzaLogs } from './test'
+import { DashboardChart, DetectionBarChart, DetectionLineChart, OperationalRadar, AreaDetectionChart, DetectionComposedChart, MLConfusionMatrix, InferenceLatencyChart, AnomalyScatterChart } from './components/graficos'
+import { MessageConsole, LogPanel } from './components'
+import { dummyLogs, lineLogs, colunasLogs, pizzaLogs, radarData, areaLogs, composedLogs, confusionMatrixData, latencyLogs, anomalyData } from './test'
 import { AiChatSidebar } from '../../components/shared/chatAi/AiChatSidebar';
 
 const LogsPage = () => {
@@ -41,28 +42,28 @@ const LogsPage = () => {
         
         {/* COLUNA 1: Logs */}
         <div className="w-full flex flex-col min-h-0">
-          <LogPanel title="" logs={dummyLogs} />
+          <LogPanel title="" logs="" />
         </div>
 
         {/* COLUNA 2 (CENTRO) */}
         <div className="w-full flex flex-col gap-8 min-h-0">
           {/* h-[45%] para o gráfico superior */}
           <div className="h-[45%] shrink-0 min-h-0">
-            <DetectionLineChart title="" data={lineLogs} />
+            <AreaDetectionChart title="" data={areaLogs} />
           </div>
           {/* flex-1 para o console ocupar o resto sem estourar */}
           <div className="flex-1 min-h-0">
-             <MessageConsole title="" message="" />
+             <DetectionComposedChart title="" data={composedLogs} />
           </div>
         </div>
 
         {/* COLUNA 3: Gráficos */}
         <div className="w-full flex flex-col gap-8 min-h-0">
           <div className="h-[45%] shrink-0 min-h-0">
-            <DashboardChart title="" data={pizzaLogs} />
+            <OperationalRadar title="" data={radarData} />
           </div>
           <div className="flex-1 min-h-0">
-            <DetectionBarChart title="" data={colunasLogs} />
+            <MLConfusionMatrix title="" data={confusionMatrixData} />
           </div>
         </div>
 
