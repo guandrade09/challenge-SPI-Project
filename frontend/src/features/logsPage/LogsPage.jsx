@@ -49,27 +49,28 @@ const COMPONENT_MAP = {
 
   // ML
  // Coluna 2
-  anomaly: { label: "Mapa de Anomalias", component: <AnomalyScatterChart data={anomalyData} /> },
-  area: { label: "Ocupação de Área", component: <AreaDetectionChart data={areaLogs} /> },
-  latency: { label: "Latência ESP32-P4", component: <InferenceLatencyChart data={latencyLogs} /> },
-  matrix: { label: "Matriz de Confusão", component: <MLConfusionMatrix data={confusionMatrixData} /> },
-  confidence: { label: 'Termometro de Incerteza', component: <ConfidenceDistribution data={confidenceData} />},
-  monitorcpu : { label: 'Temperatura CPUs', component: <ResourceMonitor data={resourceData} /> },
-
-  // Logs
-  // Coluna 3
-  pizza: { label: "Grafico de detecções", component: <DashboardChart data={pizzaLogs} />},
-  linha: { label: "Grafico de Linha", component: <DetectionLineChart data={lineLogs} />},
-  composed: { label: "Análise Composta", component: <DetectionComposedChart data={composedLogs} /> },
-  barra: { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} /> },
-  radar: { label: "Eficiencia Operacional", component: <OperationalRadar data={radarData}/> },
+ area: { label: "Análise Composta", component: <AreaDetectionChart data={areaLogs} /> },
+ composed: { label: "Análise de Eventos", component: <DetectionComposedChart data={composedLogs} /> },
+ radar: { label: "Eficiencia Operacional", component: <OperationalRadar data={radarData}/> },
+ latency: { label: "Latência MCU/CAM", component: <InferenceLatencyChart data={latencyLogs} /> },
+ monitorcpu : { label: 'Temperatura CPUs', component: <ResourceMonitor data={resourceData} /> },
+ 
+ // Logs
+ // Coluna 3
+ pizza: { label: "Grafico de detecções", component: <DashboardChart data={pizzaLogs} />},
+ linha: { label: "Grafico de alertas", component: <DetectionLineChart data={lineLogs} />},
+ barra: { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} /> },
+ 
+ matrix: { label: "Matriz de Confusão", component: <MLConfusionMatrix data={confusionMatrixData} /> },
+ confidence: { label: 'Termometro de Incerteza', component: <ConfidenceDistribution data={confidenceData} />},
+ anomaly: { label: "Mapa de Anomalias", component: <AnomalyScatterChart data={anomalyData} /> },
   
 };
 
 const DASHBOARD_CONFIG = {
   col1: [['logs']],
-  col2: [['area', 'latency', 'composed',], ['matrix', 'anomaly', 'monitorcpu', ]],
-  col3: [['pizza', 'linha', 'barra',], ['radar', 'confidence',]]
+  col2: [['area', 'composed',], ['radar', 'latency', 'monitorcpu', ]],
+  col3: [['pizza', 'linha', 'barra',], ['matrix', 'confidence', 'anomaly']]
 };
 
 const LogsPage = () => {
