@@ -1,65 +1,63 @@
 // src/features/logsPage/components/graficos/MLConfusionMatrix.jsx
 import React from 'react';
-import { BasePanel } from '../../../../components/shared/BasePanel';
 
-export const MLConfusionMatrix = ({ title, data }) => {
+export const MLConfusionMatrix = ({ data }) => {
   const classes = ['Capacete', 'Colete', 'Oculos'];
 
-  // Função para definir a cor baseada no valor (Acertos em verde, Erros em tons de marrom/cinza)
   const getCellColor = (actual, predicted, value) => {
     if (value === 0) return 'bg-zinc-50 text-zinc-300';
-    
     if (actual === predicted) {
-      // Diagonal Principal (Acertos)
       if (value > 80) return 'bg-green-600 text-white';
       return 'bg-green-400 text-white';
     } else {
-      // Fora da diagonal (Confusões/Erros)
       if (value > 10) return 'bg-orange-500 text-white';
-      return 'bg-orange-100 text-orange-800';
+      return 'bg-orange-100 text-orange-800 border border-orange-200';
     }
   };
 
   return (
-      <div className="flex flex-col h-full w-full justify-center p-2">
+    <div className="flex flex-col h-full w-full justify-between p-1">
+      {/* Container Principal do Grid */}
+      <div className="grid grid-cols-[45px_1fr_1fr_1fr] gap-2 items-center flex-1 h-full w-full">
+        
+        {/* Header Superior (Predito) */}
+        <div></div>
+        {classes.map(c => (
+          <div key={c} className="text-[7px] md:text-[8px] font-black text-zinc-400 text-center uppercase tracking-tighter">
+            {c}
+          </div>
+        ))}
 
-        <div className="grid grid-cols-[30px_1fr_1fr_1fr] gap-1 flex-1">
-          {/* Espaço vazio no canto */}
-          <div></div>
-          {classes.map(c => (
-            <div key={c} className="text-[9px] font-bold text-zinc-500 text-center uppercase">{c}</div>
-          ))}
-
-          {/* Linhas da Matriz */}
-          {classes.map(actualLabel => (
-            <React.Fragment key={actualLabel}>
-              {/* Label Lateral (Realidade) */}
-              <div className="text-[9px] font-bold text-zinc-500 flex items-center justify-end pr-2 uppercase vertical-text">
-                {actualLabel}
-              </div>
-              
-              {/* Células de Dados */}
-              {classes.map(predLabel => {
-                const cellData = data.find(d => d.actual === actualLabel && d.predicted === predLabel);
-                const value = cellData ? cellData.value : 0;
-                return (
-                  <div 
-                    key={`${actualLabel}-${predLabel}`}
-                    className={`flex items-center justify-center rounded-md text-xs font-bold transition-all hover:scale-105 shadow-sm h-full min-h-[40px] ${getCellColor(actualLabel, predLabel, value)}`}
-                  >
-                    {value}%
-                  </div>
-                );
-              })}
-            </React.Fragment>
-          ))}
-        </div>
-
-        {/* Label de Realidade (Rodapé/Lateral) */}
-        <div className="text-[10px] text-zinc-400 font-bold text-center mt-2 tracking-widest uppercase">
-          Realidade (Ground Truth)
-        </div>
+        {/* Corpo da Matriz */}
+        {classes.map(actualLabel => (
+          <React.Fragment key={actualLabel}>
+            {/* Label Lateral (Real) */}
+            <div className="text-[7px] md:text-[8px] font-black text-zinc-400 text-right pr-2 uppercase leading-none">
+              {actualLabel}
+            </div>
+            
+            {/* Células */}
+            {classes.map(predLabel => {
+              const cellData = data.find(d => d.actual === actualLabel && d.predicted === predLabel);
+              const value = cellData ? cellData.value : 0;
+              return (
+                <div 
+                  key={`${actualLabel}-${predLabel}`}
+                  className={`flex items-center justify-center rounded-lg text-[10px] md:text-xs font-black transition-all hover:scale-105 shadow-sm h-full aspect-square md:aspect-auto ${getCellColor(actualLabel, predLabel, value)}`}
+                >
+                  {value}%
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
       </div>
+
+      {/* Rodapé */}
+      <div className="text-[8px] text-zinc-400 font-bold text-center mt-3 tracking-[0.2em] uppercase opacity-70">
+        Realidade (Ground Truth)
+      </div>
+    </div>
   );
 };
 
