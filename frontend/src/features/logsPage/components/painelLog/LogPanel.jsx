@@ -1,8 +1,7 @@
 // src/features/logsPage/components/LogPanel.jsx
 import React from 'react';
-import { BasePanel } from '../../../components/shared/BasePanel';
-import { AiToggleButton } from '../../../components/shared/chatAi/AiToggleButton';
-import { LogSettingsButton, LogSkeleton } from './';
+import { BasePanel } from '../../../../components/shared/BasePanel';
+import { LogSettingsButton, LogSkeleton, LogReportButton } from '../painelLog';
 
 export const LogPanel = ({ title, logs = [] }) => {
   
@@ -37,8 +36,8 @@ export const LogPanel = ({ title, logs = [] }) => {
       </div>
 
       <div className="mt-2 pt-2 border-t border-zinc-200/50">
-        {/* O Botão de IA agora está corretamente importado e funcional */}
-        <AiToggleButton />
+        {/* O Botão de Gerador agora está corretamente importado */}
+        <LogReportButton />
       </div>
     </BasePanel>
   );

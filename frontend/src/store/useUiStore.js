@@ -10,4 +10,8 @@ export const useUiStore = create((set) => ({
   isAiSidebarOpen: false, 
   toggleAiSidebar: () => set((state) => ({ isAiSidebarOpen: !state.isAiSidebarOpen })),
   closeAiSidebar: () => set({ isAiSidebarOpen: false }),
+
+  isReportModalOpen: false,
+  toggleReportModal: () => set((state) => ({ isReportModalOpen: !state.isReportModalOpen })),
+  closeReportModal: () => set({ isReportModalOpen: false }),
 }));
