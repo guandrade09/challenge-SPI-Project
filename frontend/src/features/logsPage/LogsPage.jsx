@@ -3,12 +3,13 @@ import React from 'react';
 import { useUiStore } from '../../store/useUiStore';
 import { X } from 'lucide-react';
 import { DashboardChart, DetectionBarChart, DetectionLineChart, OperationalRadar, AreaDetectionChart, DetectionComposedChart, MLConfusionMatrix, InferenceLatencyChart, AnomalyScatterChart } from './components/graficos'
-import { MessageConsole, LogPanel } from './components'
-import { dummyLogs, lineLogs, colunasLogs, pizzaLogs, radarData, areaLogs, composedLogs, confusionMatrixData, latencyLogs, anomalyData } from './test'
+import { LogPanel, LogReportModal } from './components/painelLog'
+import { dummyLogs, lineLogs, colunasLogs, pizzaLogs, radarData, areaLogs, composedLogs, confusionMatrixData, latencyLogs, anomalyData, reportSummaryMock } from './test'
 import { AiChatSidebar } from '../../components/shared/chatAi/AiChatSidebar';
 
 const LogsPage = () => {
   const { isSidebarOpen, closeSidebar } = useUiStore();
+  const { isReportModalOpen, closeReportModal } = useUiStore();
 
   return (
     <div className="relative w-full h-screen flex overflow-hidden bg-gradient-to-tr from-neutral-500 to-neutral-950 p-4">
@@ -20,22 +21,6 @@ const LogsPage = () => {
           onClick={closeSidebar}
         />
       )}
-
-      {/* SIDEBAR EXPANSÍVEL */}
-      <aside className={`fixed right-0 top-0 h-full w-80 bg-panel-bg shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-zinc-800">CONFIGURAÇÕES DO RELATÓRIO</h3>
-            <button onClick={closeSidebar} className="p-2 hover:bg-black/5 rounded-full">
-              <X size={20} />
-            </button>
-          </div>
-          {/* Conteúdo da Sidebar aqui */}
-          <div className="text-sm text-zinc-600">
-            Configure os parâmetros da IA para o processamento dos logs...
-          </div>
-        </div>
-      </aside>
 
       {/* GRID PRINCIPAL DO DASHBOARD */}
       <main className="w-full max-w-[1700px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch h-full min-h-0">
@@ -69,6 +54,12 @@ const LogsPage = () => {
 
       </main>
       <AiChatSidebar/>
+
+      <LogReportModal
+      isOpen={isReportModalOpen}
+      onClose={closeReportModal}
+      data={reportSummaryMock}
+      />
     </div>
   );
 };
