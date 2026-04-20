@@ -1,9 +1,24 @@
-export const dummyLogs = [
-  { timestamp: '14:21:05', message: 'Câmera 01 conectada' },
-  { timestamp: '14:22:10', message: 'Alerta: Detecção de capacete ausente,' },
-  { timestamp: '14:23:15', message: 'Alerta: Detecção de vestimenta de segurança ausente, e mais coisa que não fazem sentido e teste para não caber na tela' },
-  { timestamp: '14:24:20', message: 'Pronto: Detecção de oculos de proteção' },
+// src/mocks/test.js
+
+const rawLogs = [
+  { timestamp: '14:21:05', topic: 'Sistema', logs: 'Inicializando protocolo MQTT...' },
+  { timestamp: '14:22:10', topic: 'Segurança', logs: 'Operário detectado sem capacete na Zona B.' },
+  { timestamp: '14:23:15', topic: 'Erro Crítico', logs: 'Vestimenta ausente em área de risco. Este é um log extenso para testar se o texto quebra corretamente no card e se o scroll do painel funciona como esperado.' },
+  { timestamp: '14:24:20', topic: 'IA', logs: 'Detecção de óculos de proteção confirmada.' },
+  { timestamp: '14:25:30', topic: 'Hardware', logs: 'ESP32-P4 atingiu 72°C. Iniciando resfriamento.' },
+  { timestamp: '14:27:00', topic: 'Estufa', logs: 'Umidade acima do limite (85%). Atuadores ativados.' },
+  { timestamp: '14:28:45', topic: 'Rede', logs: 'Queda de frames detectada na Câmera 01.' },
+  { timestamp: '14:30:10', topic: 'Invasão', logs: 'Objeto não identificado próximo à Área Restrita 02.' },
+  { timestamp: '14:32:00', topic: 'Suporte', logs: 'Sincronização de relógio NTP concluída com o servidor local.' },
+  { timestamp: '14:35:15', topic: 'ML', logs: 'Nova classe "Luva de Proteção" adicionada às estatísticas.' },
+  { timestamp: '14:38:20', topic: 'Status', logs: 'Verificação de scroll ativa. O botão fixo deve estar visível aqui.' }
 ];
+
+// Aqui criamos a dummyLogs combinando topic e logs na string message
+export const dummyLogs = rawLogs.map(item => ({
+  ...item,
+  message: `${item.topic}: ${item.logs}`
+}));
 
 export const lineLogs = [
   { hora: '00:00', alertas: 20},
