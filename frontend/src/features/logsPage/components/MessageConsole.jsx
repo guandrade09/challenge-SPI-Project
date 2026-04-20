@@ -1,19 +1,19 @@
 // src/features/logsPage/components/MessageConsole.jsx
 import React from 'react';
-import { FileArchive, Download } from 'lucide-react';
+import { FileArchive, Download, LogsIcon } from 'lucide-react';
 
 // src/features/logsPage/components/MessageConsole.jsx
 
-export const MessageConsole = ({ title = "RESUMO IA", message }) => {
+export const MessageConsole = ({ title, message }) => {
   return (
     // h-full garante que ele use o espaço do pai
     <div className="w-full bg-[#D9D9D9] rounded-[40px] overflow-hidden shadow-2xl flex flex-col h-full">
       
       {/* Cabeçalho fixo */}
       <div className="bg-[#B59481] py-6 text-center shrink-0">
-        <h2 className="text-2xl font-normal tracking-widest text-white uppercase">
-          {title}
-        </h2>
+        <span className='text-zinc-800 font-bold text-xs uppercase tracking-widest'>
+          {title || `Gerador de Relatorio (IA)`}
+        </span>
       </div>
 
       {/* Conteúdo flexível */}
