@@ -103,3 +103,10 @@ export const anomalyData = [
   { categoria: 'Área Restrita', confianca: 99, importancia: 30 },
   { categoria: 'Área Restrita', confianca: 55, importancia: 25 }, // Anomalia
 ];
+
+export const reportSummaryMock = {
+  resumo: "Relatório gerado com sucesso. Durante o período, foram detectados 45 eventos de conformidade e 12 alertas de segurança. O tempo médio de resposta do ESP32-P4 foi de 34ms, mantendo estabilidade via Ethernet.",
+  pdf_download: "url_futura_blob",
+  status: "sucesso",
+  data_geracao: "20/04/2026 12:36"
+};
