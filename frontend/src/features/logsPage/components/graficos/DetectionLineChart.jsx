@@ -1,11 +1,11 @@
 // src/features/logsPage/components/DetectionLineChart.jsx
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BasePanel } from '../../../components/shared/BasePanel';
+import { BasePanel } from '../../../../components/shared/BasePanel';
 
 export const DetectionLineChart = ({ title, data }) => {
   return (
-    <BasePanel title={title || "GRAFICO DE LINHAS"} isGraf={true}>
+    <BasePanel title={title || "GRAFICO DE LINHA"} isGraf={true} allowFullScreen={true}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 
           data={data} 
