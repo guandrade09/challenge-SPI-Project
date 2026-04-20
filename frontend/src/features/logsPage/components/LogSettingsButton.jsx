@@ -13,3 +13,5 @@ export const LogSettingsButton = ({ onClick }) => {
     </button>
   );
 };
+
+export default LogSettingsButton;
