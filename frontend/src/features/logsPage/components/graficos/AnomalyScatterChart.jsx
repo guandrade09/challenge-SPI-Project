@@ -8,7 +8,6 @@ import { BasePanel } from '../../../../components/shared/BasePanel';
 
 export const AnomalyScatterChart = ({ title, data }) => {
   return (
-    <BasePanel title={title || "DETECÇÕES E ANOMALIAS"} isGraf={true} allowFullScreen={true}>
       <ResponsiveContainer width="100%" height="100%">
         <ScatterChart margin={{ top: 20, right: 20, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -50,7 +49,6 @@ export const AnomalyScatterChart = ({ title, data }) => {
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>
-    </BasePanel>
   );
 };
 

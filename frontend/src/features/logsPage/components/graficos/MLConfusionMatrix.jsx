@@ -21,7 +21,6 @@ export const MLConfusionMatrix = ({ title, data }) => {
   };
 
   return (
-    <BasePanel title={title || "MATRIZ DE CONFUSÃO (ML)"} isGraf={true} allowFullScreen={true}>
       <div className="flex flex-col h-full w-full justify-center p-2">
 
         <div className="grid grid-cols-[30px_1fr_1fr_1fr] gap-1 flex-1">
@@ -61,7 +60,6 @@ export const MLConfusionMatrix = ({ title, data }) => {
           Realidade (Ground Truth)
         </div>
       </div>
-    </BasePanel>
   );
 };
 

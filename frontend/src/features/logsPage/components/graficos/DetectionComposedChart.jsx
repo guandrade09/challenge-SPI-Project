@@ -8,7 +8,6 @@ import { BasePanel } from '../../../../components/shared/BasePanel';
 
 export const DetectionComposedChart = ({ title, data }) => {
   return (
-    <BasePanel title={title || "CORRELAÇÃO DE EVENTOS"} isGraf={true} allowFullScreen={true}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid stroke="#f5f5f5" vertical={false} />
@@ -75,7 +74,6 @@ export const DetectionComposedChart = ({ title, data }) => {
           />
         </ComposedChart>
       </ResponsiveContainer>
-    </BasePanel>
   );
 };
 

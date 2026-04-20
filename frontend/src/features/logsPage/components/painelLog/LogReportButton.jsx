@@ -4,13 +4,14 @@ import { useUiStore } from '../../../../store/useUiStore';
 import { IconButton } from '../../../../components/shared/IconButton';
 
 export const LogReportButton = () => {
-  const toggleReportPopup = useUiStore((state) => state.toggleReportModal);
+  // Corrigido para o nome padrão do seu store
+  const togglePopUpModal = useUiStore((state) => state.togglePopUpModal);
 
   return (
     <IconButton 
       icon={FileDownIcon} 
-      label="Gerar Relatorio" 
-      onClick={toggleReportPopup} 
+      label="Gerar Relatório" 
+      onClick={togglePopUpModal} 
       variant="full" 
     />
   );

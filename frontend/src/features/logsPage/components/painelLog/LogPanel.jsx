@@ -1,22 +1,17 @@
 // src/features/logsPage/components/LogPanel.jsx
 import React from 'react';
-import { BasePanel } from '../../../../components/shared/BasePanel';
-import { LogSettingsButton, LogSkeleton, LogReportButton } from '../painelLog';
+// Importe diretamente do arquivo do componente para evitar importação circular no index.js
+import { LogReportButton } from './LogReportButton'; 
+import { LogSkeleton } from './LogSkeleton';
 
-export const LogPanel = ({ title, logs = [] }) => {
-  
-  // Função para o botão de engrenagem do topo
-  const handleSettingsClick = () => {
-    console.log("Configurações de Log clicadas");
-    // Aqui você poderia abrir um modal de filtros, por exemplo.
-  };
-
+// src/features/logsPage/components/LogPanel.jsx
+export const LogPanel = ({ logs = [] }) => {
   return (
-    <BasePanel 
-      title={title || "PAINEL DE LOG"}
-      headerAction={<LogSettingsButton onClick={handleSettingsClick} />}
-    >
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-4 mb-4 pr-2 custom-scrollbar">
+    // O contêiner pai precisa ser relative e ter h-full
+    <div className="relative flex flex-col h-full min-h-0 overflow-hidden"> 
+      
+      {/* 1. Lista de Logs com Padding extra no final (pb-20) para o botão não cobrir a última msg */}
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-2 pb-20 custom-scrollbar">
         {logs.length > 0 ? (
           logs.map((log, index) => (
             <div key={index} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-panel-header">
@@ -35,11 +30,12 @@ export const LogPanel = ({ title, logs = [] }) => {
         )}
       </div>
 
-      <div className="mt-2 pt-2 border-t border-zinc-200/50">
-        {/* O Botão de Gerador agora está corretamente importado */}
+      {/* 2. Botão Flutuante / Sobreposição Fixa */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-panel-bg via-panel-bg/90 to-transparent pt-10">
         <LogReportButton />
       </div>
-    </BasePanel>
+
+    </div>
   );
 };
 

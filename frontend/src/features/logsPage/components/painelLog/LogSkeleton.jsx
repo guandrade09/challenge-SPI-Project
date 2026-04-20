@@ -1,4 +1,4 @@
-const LogSkeleton = () => (
+export const LogSkeleton = () => (
   <div className="flex flex-col gap-4 w-full">
     {/* Bloco 1 - Opacidade Alta */}
     <div className="bg-white/60 p-4 rounded-xl border-l-4 border-panel-header/30 animate-pulse">

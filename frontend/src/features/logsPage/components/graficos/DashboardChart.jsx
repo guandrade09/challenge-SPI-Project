@@ -5,7 +5,6 @@ import { BasePanel } from '../../../../components/shared/BasePanel';
 
 export const DashboardChart = ({ title, data = [] }) => {
   return (
-    <BasePanel title={title || "GRAFICO DE PIZZA"} isGraf={true} allowFullScreen={true}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -24,7 +23,6 @@ export const DashboardChart = ({ title, data = [] }) => {
           />
         </PieChart>
       </ResponsiveContainer>
-    </BasePanel>
   );
 };
 

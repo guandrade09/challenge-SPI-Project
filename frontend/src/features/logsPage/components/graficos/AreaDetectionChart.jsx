@@ -14,7 +14,6 @@ import { BasePanel } from '../../../../components/shared/BasePanel';
 
 export const AreaDetectionChart = ({ title, data }) => {
   return (
-    <BasePanel title={title || "GRAFICO DE COMPARAÇÃO"} isGraf={true} allowFullScreen={true}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <defs>
@@ -56,7 +55,6 @@ export const AreaDetectionChart = ({ title, data }) => {
           />
         </AreaChart>
       </ResponsiveContainer>
-    </BasePanel>
   );
 };
 

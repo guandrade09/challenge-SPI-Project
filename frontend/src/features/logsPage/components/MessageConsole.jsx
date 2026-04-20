@@ -2,8 +2,6 @@
 import React from 'react';
 import { FileArchive, Download, LogsIcon } from 'lucide-react';
 
-// src/features/logsPage/components/MessageConsole.jsx
-
 export const MessageConsole = ({ title, message }) => {
   return (
     // h-full garante que ele use o espaço do pai
