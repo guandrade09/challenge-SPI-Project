@@ -1,5 +1,4 @@
 import _Readable from "readable-stream";
-import confidenceLogDetails from "../models/confidenceLog.model.js";
 import { connect } from "../utils/connection.js";
 import { viewAllDetection, viewDetectionByDay } from "./detection.repository.js";
 

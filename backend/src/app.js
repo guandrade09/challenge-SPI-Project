@@ -1,6 +1,6 @@
 import express from "express";
 import detectionRoutes from "./routes/detection.routes.js";
-import confidenceRoutes from "./routes/confidenceLog.routes.js";
+import confidenceRoutes from "./routes/confidence.routes.js";
 import { initDatabase } from "./config/database.js";
 
 const app = express();

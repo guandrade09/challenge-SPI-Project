@@ -1,5 +1,4 @@
-import Confidence from "../models/confidenceLog.model.js";
-import { searchAllConfidenceDetail, searchConfidenceDetailsByDay } from "../repositories/confidenceLog.repository.js";
+import { searchAllConfidenceDetail, searchConfidenceDetailsByDay } from "../repositories/confidence.repository.js";
 
 
 export async function searchConfidence() 

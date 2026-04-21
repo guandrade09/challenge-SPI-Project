@@ -1,5 +1,5 @@
 import { timeStamp } from "node:console";
-import { searchConfidence, searchConfidenceByDay } from "../services/confidenceLog.service.js";
+import { searchConfidence, searchConfidenceByDay } from "../services/confidence.service.js";
 
 export async function getConfidenceDetails(req, res) {
   const data = await searchConfidence();

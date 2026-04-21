@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getConfidenceDetails, getByDay } from "../controllers/confidenceLog.controller.js";
+import { getConfidenceDetails, getByDay } from "../controllers/confidence.controller.js";
 
 const router = Router();
 
