@@ -1,4 +1,5 @@
-import { createDetection, viewDetection, searchDetection } from "../services/detection.service.js";
+import { timeStamp } from "node:console";
+import { createDetection, viewDetection, searchDetection, searchDetectionByDay } from "../services/detection.service.js";
 
 export async function create(req, res) {
   try {
@@ -24,6 +25,18 @@ export async function getByLabel(req, res) {
   const { label } = req.params;
 
   const data = await searchDetection(label);
+
+  if (!data) {
+    return res.status(404).json({ message: "Não encontrado" });
+  }
+
+  return res.json(data);
+}
+
+export async function getByTimestamp(req, res) {
+  const { timestamp } = req.params;
+
+  const data = await searchDetectionByDay(timestamp);
 
   if (!data) {
     return res.status(404).json({ message: "Não encontrado" });

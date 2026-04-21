@@ -1,5 +1,5 @@
 import Detection from "../models/detection.model.js";
-import { saveDetection, viewAllDetection, viewDetectionByLabel } from "../repositories/detection.repository.js";
+import { saveDetection, viewAllDetection, viewDetectionByLabel, viewDetectionByDay } from "../repositories/detection.repository.js";
 
 //#region :: POST METHODS ::
 export async function createDetection(data) {
@@ -24,5 +24,10 @@ export async function viewDetection()
 export async function searchDetection(label) 
 {
   return await viewDetectionByLabel(label);
+}
+
+export async function searchDetectionByDay(day) 
+{
+  return await viewDetectionByDay(day);
 }
 //#endregion
