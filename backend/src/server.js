@@ -7,16 +7,16 @@ const numCPUs = os.cpus().length;
 const PORT = 3000;
 
 if (cluster.isPrimary) {
-  console.log(`🚀 Master ${process.pid} rodando`);
-  console.log(`🔥 CPUs: ${numCPUs}`);
+  console.log(`Master ${process.pid} rodando`);
+  console.log(`CPUs: ${numCPUs}`);
 
   for (let i = 0; i < numCPUs; i++) {
     cluster.fork();
   }
 
   cluster.on("exit", (worker) => {
-    console.log(`💀 Worker ${worker.process.pid} morreu`);
-    console.log("♻️ Criando outro...");
+    console.log(`Worker ${worker.process.pid} morreu`);
+    console.log("Criando outro...");
     cluster.fork();
   });
 
