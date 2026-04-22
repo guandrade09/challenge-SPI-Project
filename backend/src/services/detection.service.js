@@ -6,7 +6,7 @@ export async function createDetection(data) {
   const detection = new Detection(data);
 
   if (!detection.label || !detection.confidence || 
-      !detection.img_Frame || !detection.img_Path || !detection.timestamp ) {
+      !detection.img_Frame || !detection.timestamp ) {
     throw new Error("Dados inválidos");
   }
 

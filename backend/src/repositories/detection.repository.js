@@ -1,22 +1,27 @@
 import { connect } from "../utils/connection.js";
+import { base64ToImage } from "../utils/convert.js";
+import { createFolderByTimestamp } from "../utils/folder.js";
 
 //#region :: POST DETECTIONS -> Armazena todas deteccoes passadas na base ::
 export async function saveDetection(detection) {
   const db = await connect();
-  
+
   const query = `
-    INSERT INTO detections (timestamp, label, confidence, img_path, img_frame)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO detections (timestamp, label, confidence, img_path)
+    VALUES (?, ?, ?, ?)
   `;
 
   const isoDate = new Date(detection.timestamp).toISOString();
-  
+
+  const folderPath = await createFolderByTimestamp(detection.timestamp);
+
+  const imagePath = await base64ToImage(detection.img_Frame, folderPath);
+
   await db.run(query, [
     isoDate,
     detection.label,
     detection.confidence,
-    detection.img_Path,
-    detection.img_Frame,
+    imagePath
   ]);
 }
 //#endregion
