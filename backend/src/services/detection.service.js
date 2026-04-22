@@ -2,7 +2,17 @@ import Detection from "../models/detection.model.js";
 import { saveDetection, viewAllDetection, viewDetectionByLabel, viewDetectionByDay } from "../repositories/detection.repository.js";
 
 //#region :: POST METHODS ::
- 
+export async function createDetection(data) {
+  const detection = new Detection(data);
+
+  if (!detection.label || !detection.confidence || 
+      !detection.img_Frame || !detection.timestamp ) {
+    throw new Error("Dados inválidos");
+  }
+
+  await saveDetection(detection);
+  return detection;
+}
 //#endregion 
 
 //#region :: GET METHODS ::
