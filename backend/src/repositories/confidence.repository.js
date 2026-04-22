@@ -2,18 +2,23 @@ import _Readable from "readable-stream";
 import { connect } from "../utils/connection.js";
 import { viewAllDetection, viewDetectionByDay } from "./detection.repository.js";
 
+//#region :: GET CONFIDENCE DETAILS BY DAY -> Retorna quantidades de deteccoes colhetadas no dia desejado para cada nivel de confianca medido ::
 export async function searchConfidenceDetailsByDay(day) 
 {
     const deteccoes = await viewDetectionByDay(day);
     return _getRange(deteccoes);
 }
+//#endregion
 
+//#region :: GET CONFIDENCE DETAILS -> Retorna quantidades de deteccoes colhetadas para cada nivel de confianca medido
 export async function searchAllConfidenceDetail() 
 {
     const deteccoes = await viewAllDetection();
     return _getRange(deteccoes);
 }
+//#endregion
 
+//#region :: PRIVATE FUNCTION -> Cria e retorna payload para grafico de confianca ::
 function _getRange(deteccoes)
 {
     const ranges = {
@@ -41,3 +46,4 @@ function _getRange(deteccoes)
         quantidade: ranges[range]
     }));
 }
+//#endregion
