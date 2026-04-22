@@ -1,7 +1,8 @@
 import { timeStamp } from "node:console";
 import { createDetection, viewDetection, searchDetection, searchDetectionByDay } from "../services/detection.service.js";
 
-export async function create(req, res) {
+export async function create(req, res) 
+{
   try {
     const detection = await createDetection(req.body);
 
@@ -9,38 +10,70 @@ export async function create(req, res) {
       message: "Detection salva com sucesso",
       data: detection,
     });
-  } catch (error) {
+  } 
+  catch (error) {
     return res.status(400).json({
       error: error.message,
     });
   }
 }
 
-export async function list(req, res) {
-  const data = await viewDetection();
-  return res.json(data);
+export async function list(req, res) 
+{
+  try
+  {
+    const data = await viewDetection();
+    return res.json(data);
+  } 
+  catch (error) 
+  {
+    return res.status(400).json({
+      error: error.message,
+    });
+  }
 }
 
-export async function getByLabel(req, res) {
-  const { label } = req.params;
+export async function getByLabel(req, res) 
+{
+  try
+  {
+      
+    const { label } = req.params;
 
-  const data = await searchDetection(label);
+    const data = await searchDetection(label);
 
-  if (!data) {
-    return res.status(404).json({ message: "Não encontrado" });
+    if (!data) {
+      return res.status(404).json({ message: "Não encontrado" });
+    }
+
+    return res.json(data);
   }
-
-  return res.json(data);
+  catch (error) 
+  {
+    return res.status(400).json({
+      error: error.message,
+    });
+  }
 }
 
-export async function getByTimestamp(req, res) {
-  const { timestamp } = req.params;
+export async function getByTimestamp(req, res) 
+{
+  try
+  {
+      const { timestamp } = req.params;
+      
+      const data = await searchDetectionByDay(timestamp);
 
-  const data = await searchDetectionByDay(timestamp);
-
-  if (!data) {
-    return res.status(404).json({ message: "Não encontrado" });
+    if (!data) {
+      return res.status(404).json({ message: "Não encontrado" });
+    }
+  
+    return res.json(data);
   }
-
-  return res.json(data);
+  catch (error) 
+  {
+    return res.status(400).json({
+      error: error.message,
+    });
+  }  
 }
