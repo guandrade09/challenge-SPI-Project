@@ -40,7 +40,6 @@ def detectorTeste():
     finally:
         camera.release()
         cv2.destroyAllWindows()
-        print("Recursos liberados.")
 
 if __name__ == "__main__":
     detectorTeste()
