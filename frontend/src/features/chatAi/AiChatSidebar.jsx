@@ -1,7 +1,7 @@
 // src/features/logsPage/components/AiChatSidebar.jsx
 import React, { useEffect } from 'react'; // Não esqueça de importar o useEffect
 import { X, Send, Bot } from 'lucide-react';
-import { useUiStore } from '../../../store/useUiStore';
+import { useUiStore } from '../../store/useUiStore';
 
 export const AiChatSidebar = () => {
   const { isAiSidebarOpen, closeAiSidebar } = useUiStore();
@@ -54,8 +54,10 @@ export const AiChatSidebar = () => {
 
         {/* Área de Mensagens */}
         <div className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar">
+          <div className="p-6 flex flex-col space-y-4">
           <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm text-sm text-zinc-700 self-start max-w-[85%]">
-            Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?
+            Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?Olá Gabriel! Analisei seus logs recentes de IoT. Deseja que eu gere um relatório de alertas no Setor 1A?
+          </div>
           </div>
         </div>
 
