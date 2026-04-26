@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings2 } from 'lucide-react';
-import { IconButton } from '../../../../components/shared/IconButton';
+import { IconButton } from '../../../../components/shared/IconButtonModal';
 
 export const LogSettingsButton = ({ onClick }) => {
   return (
