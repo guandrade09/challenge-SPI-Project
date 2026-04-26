@@ -1,8 +1,8 @@
 import React from 'react';
-import { Home, Camera, LogsIcon, Settings } from 'lucide-react';
+import { Home, Camera, LogsIcon, Settings, LogInIcon } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from "../utils/cn";
-import { AiToggleButton } from '../components/shared/chatAi/AiToggleButton';
+import { AiToggleButton } from '../features/chatAi/AiToggleButton';
 
 // Removi o chatbot daqui para não tentar navegar para uma rota inexistente
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { id: 'home', icon: Home, label: 'Home', path: '/' },
   { id: 'camera', icon: Camera, label: 'Monitoramento', path: '/monitoramento' }, 
   { id: 'settings', icon: Settings, label: 'Configurações', path: '/settings' },
+  { id: 'login', icon: LogInIcon, label: 'Login_Para_Visualização', path: '/login'}
 ];
 
 export const NavBar = () => {
