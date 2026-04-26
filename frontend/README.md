@@ -5,6 +5,6 @@ Esta aplicação frontend tem o intuito de ser utilizada para agregar na constru
 # SETUP
 
 Para iniciarmos a aplicação,
-`cd frontend`
-`npm install`  (Caso não tenha ainda o node_modules na sua maquina)
-`npm run dev`  
+1. `cd frontend`
+2. `npm install`  (Caso não tenha ainda o node_modules na sua maquina)
+3. `npm run dev`  ||  `node start`   
