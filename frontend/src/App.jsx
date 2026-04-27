@@ -18,7 +18,7 @@ export function App() {
         <Route path='/forgot-password' element={<ForgotPassword />} />
 
         {/* ROTAS PROTEGIDAS: Usam o MainLayout (NavBar + Sidebar + Conteúdo) */}
-        <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+        <Route element={<MainLayout />}>
           <Route path="/" element={<div className="flex bg-projeto-main min-h-screen items-center justify-center"><h1 className='text-white font-bold text-3xl'>Index (Em breve)</h1></div>} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/monitoramento" element={<MonitoramentoPage />} />
