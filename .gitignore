@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env
+ml_service/models/best.pt
+ml_service/vision/models/best.pt
+*.pt

@@ -63,3 +63,59 @@ https://miro.com/welcomeonboard/T0dNNEQ4dVgvaW9XKzZWeVBhb0wwWk5RS0tJNTdLRFF5QnVt
 1. **Clone o repositório:**
    ```bash
    git clone [https://github.com/seu-usuario/safety-vision.git](https://github.com/seu-usuario/safety-vision.git)
+
+2. **Entrar na *venv***
+    ```bash
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+    python -m venv venv #(caso preciso)
+    .\venv\Scripts\Activate
+    pip install -r requirements.txt
+
+## 📁 Estrutura das Pastas
+
+```
+challenge-SPI-Project
+├─ backend
+│  └─ txt
+├─ core
+│  ├─ entities.py
+│  └─ __init__.py
+├─ frontend
+│  ├─ anotacao.txt
+│  ├─ eslint.config.js
+│  ├─ index.html
+│  ├─ package-lock.json
+│  ├─ package.json
+│  ├─ public
+│  │  ├─ favicon.svg
+│  │  └─ icons.svg
+│  ├─ README.md
+│  ├─ src
+│  │  ├─ App.css
+│  │  ├─ App.tsx
+│  │  ├─ assets
+│  │  │  ├─ hero.png
+│  │  │  ├─ react.svg
+│  │  │  └─ vite.svg
+│  │  ├─ index.css
+│  │  └─ main.tsx
+│  ├─ tsconfig.app.json
+│  ├─ tsconfig.json
+│  ├─ tsconfig.node.json
+│  └─ vite.config.ts
+├─ ml_service
+│  ├─ data.yaml
+│  ├─ inference
+│  │  ├─ camera.py
+│  │  ├─ detector.py
+│  │  └─ __init__.py
+│  ├─ main.py
+│  └─ vision
+│     └─ models
+│        └─ best.pt
+├─ README.md
+├─ requirements.txt
+└─ tests
+   └─ test_camera.py
+
+```
