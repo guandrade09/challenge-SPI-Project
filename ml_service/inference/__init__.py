@@ -1,3 +1,5 @@
+import cv2
+
 def __init__(self, source=0):
     self.cap = cv2.VideoCapture(source)
 
