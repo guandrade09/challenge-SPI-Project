@@ -1,7 +1,7 @@
 // src/components/shared/BasePanel.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { IconButton } from './IconButton'
+import { IconButton } from './IconButtonModal'
 
 export const BasePanel = ({ 
   title, 
@@ -80,7 +80,7 @@ export const BasePanel = ({
     <>
       <div className={`w-full bg-panel-bg rounded-panel overflow-hidden shadow-2xl flex flex-col h-full ${className}`}>
         <div className="bg-panel-header py-3 px-6 flex items-center justify-between shrink-0 relative">
-          <span className="text-zinc-800 font-bold text-xs uppercase tracking-widest flex-1 text-center">
+          <span className="font-label-logs">
             {displayTitle}
           </span>
           <div className="absolute right-4 flex items-center gap-2">

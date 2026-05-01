@@ -11,7 +11,7 @@ const rawLogs = [
   { timestamp: '14:30:10', topic: 'Invasão', logs: 'Objeto não identificado próximo à Área Restrita 02.' },
   { timestamp: '14:32:00', topic: 'Suporte', logs: 'Sincronização de relógio NTP concluída com o servidor local.' },
   { timestamp: '14:35:15', topic: 'ML', logs: 'Nova classe "Luva de Proteção" adicionada às estatísticas.' },
-  { timestamp: '14:38:20', topic: 'Status', logs: 'Verificação de scroll ativa. O botão fixo deve estar visível aqui.' }
+  { timestamp: '14:38:20', topic: 'Status', logs: 'Verificação de scroll ativa. O botão fixo deve estar visível aqui.' },
 ];
 
 // Aqui criamos a dummyLogs combinando topic e logs na string message

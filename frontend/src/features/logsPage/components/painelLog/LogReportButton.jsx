@@ -1,7 +1,7 @@
 import React from 'react';
 import { FileDownIcon } from 'lucide-react';
 import { useUiStore } from '../../../../store/useUiStore';
-import { IconButton } from '../../../../components/shared/IconButton';
+import { IconButton } from '../../../../components/shared/IconButtonModal';
 
 export const LogReportButton = () => {
   // Corrigido para o nome padrão do seu store

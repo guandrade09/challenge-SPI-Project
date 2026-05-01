@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, ReferenceLine 
 } from 'recharts';
-import { BasePanel } from '../../../../components/shared/BasePanel';
+import { BasePanel } from '../../../../components/shared/BasePanelModal';
 
 export const InferenceLatencyChart = ({ title, data }) => {
   return (

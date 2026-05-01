@@ -12,7 +12,7 @@ const DETECTION_CONFIG = [
 export const MonitoramentoPage = () => {
 
   return (
-    <div className="w-full bg-gradient-to-tr from-neutral-500 to-neutral-950 min-h-screen">
+    <div className="bg-projeto-main h-screen p-6">
       
       {/* Container de conteúdo com largura máxima e padding, centralizado */}
       <div className="max-w-7xl mx-auto px-6 md:px-12 py-12 flex items-center justify-center">

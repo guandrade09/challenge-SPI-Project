@@ -1,29 +1,33 @@
 // src/App.jsx
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { NavBar } from './layouts/NavBar';
-import MonitoramentoPage from './features/monitoramentoPage/MonitoramentoPage';
-import LogsPage from './features/logsPage/LogsPage'
-import { AiChatSidebar } from './components/shared/chatAi/AiChatSidebar'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { MainLayout } from './layouts/MainLayout';
+import { PrivateRoute } from './routes/PrivateRoute';
 
-function App() {
+// Importações das Features
+import {Login, Register, ForgotPassword} from './features/auth/registerUserPage';
+import LogsPage from './features/logsPage/LogsPage';
+import MonitoramentoPage from './features/monitoramentoPage/MonitoramentoPage';
+
+export function App() {
   return (
     <Router>
-      {/* Removido o excesso de padding/margin que causa o desalinhamento vertical */}
-      <div className="min-h-screen bg-[#16171d] flex flex-col">
-          <header className="w-full bg-[#1a1b23] border-b border-white/5">
-              <NavBar />
-          </header>
+      <Routes>
+        {/* ROTA PÚBLICA: Login não usa NavBar nem Layout global */}
+        <Route path="/login" element={<Login />} />
+        <Route path='/register' element={<Register />} />
+        <Route path='/forgot-password' element={<ForgotPassword />} />
 
-        <main className="flex-1 flex flex-col">
-          <Routes>
-            <Route path="/" />
-            <Route path="/monitoramento" element={<MonitoramentoPage />} />
-            <Route path="/logs" element={<LogsPage />} />
-          </Routes>
-        </main>
+        {/* ROTAS PROTEGIDAS: Usam o MainLayout (NavBar + Sidebar + Conteúdo) */}
+        <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+          <Route path="/" element={<div className="flex bg-projeto-main min-h-screen items-center justify-center"><h1 className='text-white font-bold text-3xl'>Index (Em breve)</h1></div>} />
+          <Route path="/logs" element={<LogsPage />} />
+          <Route path="/monitoramento" element={<MonitoramentoPage />} />
+          <Route path="/settings" element={<div className="flex bg-projeto-main min-h-screen items-center justify-center"><h1 className='text-white font-bold text-3xl'>Configurações (Em breve)</h1></div>} />
+        </Route>
 
-        <AiChatSidebar />
-      </div>
+        {/* Fallback para rotas não encontradas */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
     </Router>
   );
 }

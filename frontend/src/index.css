@@ -1,10 +1,6 @@
+/* src/index.css */
 @import "tailwindcss";
 
-/* Adicione isso para garantir o fundo escuro do mockup */
-body {
-  margin: 0;
-  font-family: 'Inter', sans-serif;
-}
 
 @theme{
   --color-panel-bg: #D9D9D9;
@@ -17,6 +13,65 @@ body {
 
   --spacing-panel-gap: 2rem;
 }
+
+@layer utilities {
+  .font-label-auth{
+    @apply text-3xl font-bold text-white mb-2;
+  }
+
+  .font-label-logs{
+    @apply text-black font-bold text-xs uppercase tracking-widest flex-1 text-center;
+  }
+
+
+  .auth-card-dark {
+    @apply bg-neutral-900/80 backdrop-blur-md border border-neutral-700 p-8 rounded-2xl shadow-2xl;
+  }
+
+  .bg-projeto-main {
+    @apply w-full min-h-screen bg-gradient-to-tr from-neutral-500 to-neutral-950;
+  }
+
+  /* Aproveitando para ajustar seus inputs e deixá-os mais limpos no fundo escuro */
+  .auth-card {
+    @apply bg-white rounded-2xl shadow-xl border border-neutral-800/10;
+  }
+
+  /* Estilização para Webkit (Chrome, Safari, Edge, Opera) */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;               /* Largura da barra vertical */
+    height: 6px;              /* Altura da barra horizontal */
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;  /* Fundo da trilha (invisível para ser clean) */
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #333338;      /* Cor da barra (zinc-700) */
+    border-radius: 20px;      /* Arredondamento total */
+    border: 2px solid transparent; /* Cria um respiro visual */
+    background-clip: content-box;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #b59481;      /* Cor de destaque quando passa o mouse (marrom do cabeçalho) */
+  }
+
+  /* Suporte para Firefox */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #3f3f46 transparent;
+  }
+  
+}
+
+/* Adicione isso para garantir o fundo escuro do mockup */
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+}
+
 
 :root {
   --text: #6b6375;
@@ -83,11 +138,12 @@ body {
   box-sizing: border-box;
 }
 
-h1,
-h2 {
+@layer base{
+h1, h2 {
   font-family: var(--heading);
   font-weight: 500;
-  color: var(--text-h);
+  @apply text-[var(--text-h)];
+}
 }
 
 h1 {

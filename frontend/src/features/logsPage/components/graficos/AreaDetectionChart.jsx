@@ -10,7 +10,7 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import { BasePanel } from '../../../../components/shared/BasePanel';
+import { BasePanel } from '../../../../components/shared/BasePanelModal';
 
 export const AreaDetectionChart = ({ title, data }) => {
   return (

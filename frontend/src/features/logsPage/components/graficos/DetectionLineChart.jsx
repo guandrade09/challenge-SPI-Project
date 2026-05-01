@@ -1,7 +1,7 @@
 // src/features/logsPage/components/DetectionLineChart.jsx
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BasePanel } from '../../../../components/shared/BasePanel';
+import { BasePanel } from '../../../../components/shared/BasePanelModal';
 
 export const DetectionLineChart = ({ title, data }) => {
   return (

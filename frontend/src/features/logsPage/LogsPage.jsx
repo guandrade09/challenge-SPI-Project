@@ -1,7 +1,7 @@
 // src/features/logsPage/LogsPage.jsx
 import React from 'react';
 import { useUiStore } from '../../store/useUiStore';
-import { AiChatSidebar } from '../../components/shared/chatAi/AiChatSidebar';
+import { AiChatSidebar } from '../../features/chatAi';
 
 // Importando o componente que você criou (ajustado o nome do arquivo/import)
 import { RenderColumn } from './RenderColumn'; 
@@ -39,7 +39,7 @@ import {
   radarData,
   confidenceData,
   resourceData,
-} from './test';
+} from '../../mocks/logsPageMocks/test';
 
 const COMPONENT_MAP = {
   // Pagina de Logs
@@ -82,13 +82,13 @@ const LogsPage = () => {
   } = useUiStore();
 
   return (
-    <div className="relative w-full h-screen flex overflow-hidden bg-gradient-to-tr from-neutral-500 to-neutral-950 p-4">
+    <div className="bg-projeto-main relative h-screen flex overflow-hidden p-6">
       
       {isSidebarOpen && (
         <div className="absolute inset-0 bg-black/40 z-40 transition-opacity" onClick={closeSidebar} />
       )}
 
-      <main className="w-full max-w-[1700px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch h-full min-h-0">
+      <main className="w-full max-w-[auto] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch h-full min-h-0">
         {/* Passamos o CONFIG e o MAP para o componente externo */}
         <RenderColumn config={DASHBOARD_CONFIG.col1} componentMap={COMPONENT_MAP} />
         <RenderColumn config={DASHBOARD_CONFIG.col2} componentMap={COMPONENT_MAP} />

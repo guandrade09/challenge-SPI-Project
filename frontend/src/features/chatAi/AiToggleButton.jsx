@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bot, Sparkles } from 'lucide-react';
-import { useUiStore } from '../../../store/useUiStore';
-import { cn } from "../../../utils/cn";
+import { useUiStore } from '../../store/useUiStore';
+import { cn } from "../../utils/cn";
 
 export const AiToggleButton = () => {
   const toggleAiSidebar = useUiStore((state) => state.toggleAiSidebar);

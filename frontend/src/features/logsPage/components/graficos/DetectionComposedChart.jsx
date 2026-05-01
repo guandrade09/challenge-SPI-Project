@@ -4,7 +4,7 @@ import {
   ComposedChart, Line, Bar, XAxis, YAxis, 
   CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
-import { BasePanel } from '../../../../components/shared/BasePanel';
+import { BasePanel } from '../../../../components/shared/BasePanelModal';
 
 export const DetectionComposedChart = ({ title, data }) => {
   return (

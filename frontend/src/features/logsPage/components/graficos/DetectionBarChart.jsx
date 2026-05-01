@@ -1,7 +1,7 @@
 // src/features/logsPage/components/DetectionBarChart.jsx
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { BasePanel } from '../../../../components/shared/BasePanel';
+import { BasePanel } from '../../../../components/shared/BasePanelModal';
 
 export const DetectionBarChart = ({ title, data }) => {
   return (

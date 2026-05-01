@@ -1,7 +1,7 @@
 // src/features/logsPage/RenderColumn.jsx
 import React from 'react';
 import { useUiStore } from '../../store/useUiStore';
-import { BasePanel } from '../../components/shared/BasePanel';
+import { BasePanel } from '../../components/shared/BasePanelModal';
 import { LogSettingsButton } from './components/painelLog'; // Certifique-se de que o caminho está correto
 
 export const RenderColumn = ({ config, componentMap }) => {
