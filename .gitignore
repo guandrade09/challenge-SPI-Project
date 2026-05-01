@@ -1,13 +1,9 @@
-<<<<<<< HEAD
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 venv/
 .env
 ml_service/models/best.pt
-ml_service/datasets/
-=======
-venv/
-.venv/
-env/
->>>>>>> 1aa2a9f89844cd3ed57be58866de71143a9ee16f
+ml_service/vision/models/best.pt
+*.pt
