@@ -76,3 +76,4 @@ class EPIDetector:
     def annotate(self, frame):
         results = self.model(frame, conf=self.conf, verbose=False)
         return results[0].plot()
+        

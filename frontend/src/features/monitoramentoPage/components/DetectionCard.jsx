@@ -1,29 +1,74 @@
-// src/features/monitoramento/components/DetectionCard.jsx
 import React from 'react';
-import { Square, CheckSquare } from 'lucide-react';
-import { cn } from '../../../utils/cn';
 
 export const DetectionCard = ({ label, isChecked, onToggle }) => {
   return (
-    <div 
+    <div
       onClick={onToggle}
-      className={cn(
-        "flex items-center justify-between px-8 py-3 rounded-full rounded-full shadow-xl transition-all duration-200 cursor-pointer w-full max-w-[320px] border border-zinc-200",
-        "bg-white hover:bg-zinc-100 active:scale-95 select-none"
-      )}
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 16px',
+        borderRadius: 8,
+        border: `1px solid ${isChecked ? 'rgba(60,200,122,0.35)' : '#2a2d35'}`,
+        background: isChecked ? 'rgba(60,200,122,0.06)' : '#17191e',
+        cursor: 'pointer',
+        userSelect: 'none',
+        width: '100%',
+        overflow: 'hidden',
+        transition: 'border-color 0.15s, background 0.15s',
+      }}
     >
-      <div className="flex items-center gap-4">
-        <div className="text-zinc-900">
-          {isChecked ? (
-            <CheckSquare size={20} fill="black" stroke="white" strokeWidth={3} />
-          ) : (
-            <Square size={20} strokeWidth={3} className="text-zinc-900" />
-          )}
-        </div>
-        <span className="text-zinc-900 font-bold text-[12px] uppercase tracking-[0.15em]">
-          {label}
-        </span>
+      {/* Left accent bar */}
+      <div style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: 2,
+        background: isChecked ? '#3cc87a' : 'transparent',
+        transition: 'background 0.2s',
+        borderRadius: '8px 0 0 8px',
+      }} />
+
+      {/* Checkbox */}
+      <div style={{
+        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: isChecked ? '#3cc87a' : 'transparent',
+        border: `1.5px solid ${isChecked ? '#3cc87a' : '#3d4050'}`,
+        transition: 'all 0.15s',
+      }}>
+        {isChecked && (
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+            <polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </div>
+
+      {/* Label */}
+      <span style={{
+        fontFamily: "'Barlow Condensed', 'Barlow', sans-serif",
+        fontSize: 13,
+        fontWeight: 700,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        color: isChecked ? '#a8f0c6' : '#6a6e7a',
+        transition: 'color 0.15s',
+      }}>
+        {label}
+      </span>
+
+      {/* Badge */}
+      <span style={{
+        marginLeft: 'auto',
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: 9,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: isChecked ? 'rgba(60,200,122,0.6)' : 'transparent',
+        transition: 'color 0.2s',
+      }}>
+        ativo
+      </span>
     </div>
   );
 };

@@ -2,10 +2,27 @@ import cv2
 import os
 import base64
 import requests
+import threading
 from datetime import datetime
 from ml_service.inference.camera import Camera
 from ml_service.inference.detector import EPIDetector, IncidentDebouncer
-from core.entities import IncidentEntry
+from ml_service.streaming.websocket_server import send_frame, start_server_in_thread
+
+
+def post_incident(payload):
+    try:
+        response = requests.post(
+            "http://localhost:3000/api/detections",
+            json=payload,
+            timeout=2
+        )
+        if response.status_code in (200, 201):
+            print(f"✓ Incidente enviado: {payload['label']} ({payload['confidence']})")
+        else:
+            print(f"✗ Erro na API: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"✗ Falha no POST: {e}")
+
 
 def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,60 +41,48 @@ def main():
         print(f"Erro ao carregar modelo em {model_path}: {e}")
         return
 
-    print("--- Sistema ativo: Pressione 'ESC' para sair ---")
+    start_server_in_thread()
 
-    cv2.namedWindow("Monitoramento EPI", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("Monitoramento EPI", 1280, 720)
+    print("--- Sistema ativo: Pressione 'ESC' para sair ---")
+    # cv2.namedWindow("Monitoramento EPI", cv2.WINDOW_NORMAL)
+    # cv2.resizeWindow("Monitoramento EPI", 1280, 720)
 
     try:
         while camera.is_opened():
             ret, frame = camera.read()
-
             if not ret:
                 print("Falha na captura do frame.")
                 break
 
-            detections = detector.run(frame)
-            incidents = detector.incidents(detections)
-            confirmed = debouncer.update(incidents)
+            results = detector.model(frame, conf=detector.conf, verbose=False)
+            result  = results[0]
 
-            annotated_frame = detector.annotate(frame)
-            cv2.imshow("Monitoramento EPI", annotated_frame)
+            detections = detector.run(frame)
+            incidents  = detector.incidents(detections)
+            confirmed  = debouncer.update(incidents)
+
+            annotated_frame = result.plot()
+
+            send_frame(annotated_frame)
+            # cv2.imshow("Monitoramento EPI", annotated_frame)
 
             for detection in confirmed:
                 timestamp = datetime.now()
-
-                # Converte frame pra base64
                 _, buffer = cv2.imencode('.jpg', frame)
                 img_frame_b64 = base64.b64encode(buffer).decode('utf-8')
 
-                incident = IncidentEntry(
-                    label=detection.label,
-                    confidence=detection.confidence,
-                    timestamp=timestamp,
-                    img_path=""
-                )
-
                 payload = {
-                    "timestamp": incident.timestamp.isoformat(),
-                    "label": incident.label,
-                    "confidence": float(incident.confidence),
+                    "timestamp": timestamp.isoformat(),
+                    "label": detection.label,
+                    "confidence": round(float(detection.confidence), 4),
                     "img_Frame": img_frame_b64
                 }
 
-                try:
-                    response = requests.post(
-                        "http://localhost:3000/api/detections",
-                        json=payload,
-                        timeout=2
-                    )
-                    if response.status_code in (200, 201):
-                        print(f"✓ Incidente enviado: {incident.label} ({incident.confidence:.2f})")
-                    else:
-                        print(f"✗ Erro na API: {response.status_code} {response.text}")
-
-                except requests.exceptions.RequestException as e:
-                    print(f"✗ Falha no POST: {e}")
+                threading.Thread(
+                    target=post_incident,
+                    args=(payload,),
+                    daemon=True
+                ).start()
 
             if cv2.waitKey(1) & 0xFF == 27:
                 break
@@ -86,6 +91,7 @@ def main():
         camera.release()
         cv2.destroyAllWindows()
         print("Recursos liberados.")
+
 
 if __name__ == "__main__":
     main()
