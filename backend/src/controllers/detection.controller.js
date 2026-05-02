@@ -1,79 +1,99 @@
-import { timeStamp } from "node:console";
-import { createDetection, viewDetection, searchDetection, searchDetectionByDay } from "../services/detection.service.js";
+import {
+  createDetection,
+  viewDetection,
+  searchDetection,
+  searchDetectionByDay
+} from "../services/detection.service.js";
+
+import { handleError } from "../utils/appError.js";
 
 export async function create(req, res) 
 {
-  try {
-    const detection = await createDetection(req.body);
+  try 
+  {
+    if (!req.body) 
+    {
+      return res.status(400).json({ error: "Body não enviado" });
+    }
 
-    return res.status(201).json({
-      message: "Detection salva com sucesso",
+  const detection = await createDetection(req.body);
+
+  return res.status(201).json({
+      message: "Detection criada com sucesso",
       data: detection,
     });
   } 
-  catch (error) {
-    return res.status(400).json({
-      error: error.message,
-    });
+  catch (error) 
+  {
+    return handleError(res, error);
   }
 }
 
 export async function list(req, res) 
 {
-  try
+  try 
   {
     const data = await viewDetection();
-    return res.json(data);
+
+    return res.status(200).json({
+      count: data.length,
+      data,
+    });
   } 
   catch (error) 
   {
-    return res.status(400).json({
-      error: error.message,
-    });
+    return handleError(res, error);
   }
 }
 
 export async function getByLabel(req, res) 
 {
-  try
+  try 
   {
-      
     const { label } = req.params;
+
+    if (!label) 
+    {
+      return res.status(400).json({ error: "Label é obrigatório" });
+    }
 
     const data = await searchDetection(label);
 
-    if (!data) {
-      return res.status(404).json({ message: "Não encontrado" });
+    if (!data || data.length === 0) 
+    {
+      return res.status(404).json({ message: "Nenhuma detection encontrada" });
     }
 
-    return res.json(data);
-  }
+      return res.status(200).json(data);
+    } 
   catch (error) 
   {
-    return res.status(400).json({
-      error: error.message,
-    });
+    return handleError(res, error);
   }
 }
 
 export async function getByTimestamp(req, res) 
 {
-  try
+  try 
   {
-      const { timestamp } = req.params;
-      
-      const data = await searchDetectionByDay(timestamp);
+    const { timestamp } = req.params;
 
-    if (!data) {
-      return res.status(404).json({ message: "Não encontrado" });
+    if (!timestamp) 
+    {
+      return res.status(400).json({ error: "Timestamp é obrigatório" });
     }
-  
-    return res.json(data);
-  }
+
+    const data = await searchDetectionByDay(timestamp);
+
+    if (!data || data.length === 0) 
+    {
+      return res.status(404).json({ message: "Nenhuma detection encontrada" });
+    }
+
+    return res.status(200).json(data);
+  } 
   catch (error) 
   {
-    return res.status(400).json({
-      error: error.message,
-    });
-  }  
+    return handleError(res, error);
+  }
 }
