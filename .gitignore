@@ -32,3 +32,12 @@ Thumbs.db
 # Banco de dados
 *.sqlite
 *.sqlite3
+
+# Arquivos temporários do SQLite
+*.sqlite-shm
+*.sqlite-wal
+
+# Imagens geradas
+backend/src/uploads/
+ml_service/incidents/
+
