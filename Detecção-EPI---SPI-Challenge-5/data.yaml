@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 4
+names: ['Capacete', 'Colete', 'Oculos', 'Pessoa']
+
+roboflow:
+  workspace: andras-s-workspace
+  project: deteccao-epi-spi-challenge
+  version: 5
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/andras-s-workspace/deteccao-epi-spi-challenge/dataset/5
