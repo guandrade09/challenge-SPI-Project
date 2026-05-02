@@ -20,5 +20,15 @@ export async function initDatabase() {
     );
   `);
 
+ await db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      password TEXT NOT NULL
+    );
+  `);
+
   console.log("Banco de dados inicializado com sucesso");
 }
