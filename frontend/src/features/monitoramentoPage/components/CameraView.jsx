@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Maximize2 } from 'lucide-react';
+import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 
 const WS_URL = 'ws://localhost:8765';
 
@@ -10,6 +11,9 @@ export const CameraView = () => {
 
   const [connected, setConnected] = useState(false);
   const [uptime, setUptime]       = useState(0);
+
+  const addAlerta = useMonitoramentoStore((s) => s.addAlerta);  
+  const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
 
   useEffect(() => {
     function connect() {
@@ -24,9 +28,17 @@ export const CameraView = () => {
       ws.onopen = () => setConnected(true);
 
       ws.onmessage = (event) => {
-        if (imgRef.current) {
-          imgRef.current.src = `data:image/jpeg;base64,${event.data}`;
-        }
+        try {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === 'frame' && imgRef.current) {
+            imgRef.current.src = `data:image/jpeg;base64,${msg.data}`;
+          } else if (msg.type === 'alert') {
+            addAlerta(msg);
+          } else if (msg.type === 'detections') {
+            setLiveDetections(msg.data);
+          }
+        } catch (e) {}
       };
 
       ws.onerror = () => {};
