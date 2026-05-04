@@ -1,10 +1,10 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { createUser, findUserByEmailOrName } from "../repositories/auth.repository.js";
-import { AppError } from "../utils/AppError.js";
+import { AppError } from "../utils/appError.js";
 import User from "../models/user.model.js";
 
-const SECRET = process.env.JWT_SECRET || "dev_secret";
+const SECRET = process.env.JWT_SECRET || "segredo_super_secreto";
 
 export async function register(data) 
 {
