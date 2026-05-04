@@ -8,11 +8,12 @@ export const CameraView = () => {
   const imgRef       = useRef(null);
   const wsRef        = useRef(null);
   const reconnectRef = useRef(null);
+  const uptimeRef    = useRef(0);  // ← adicionado
 
-  const [connected, setConnected] = useState(false);
-  const [uptime, setUptime]       = useState(0);
+  const [connected, setConnected]       = useState(false);
+  const [uptime, setUptimeDisplay]      = useState(0);  // ← renomeado
 
-  const addAlerta = useMonitoramentoStore((s) => s.addAlerta);  
+  const addAlerta        = useMonitoramentoStore((s) => s.addAlerta);
   const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
 
   useEffect(() => {
@@ -30,7 +31,6 @@ export const CameraView = () => {
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-
           if (msg.type === 'frame' && imgRef.current) {
             imgRef.current.src = `data:image/jpeg;base64,${msg.data}`;
           } else if (msg.type === 'alert') {
@@ -38,7 +38,9 @@ export const CameraView = () => {
           } else if (msg.type === 'detections') {
             setLiveDetections(msg.data);
           }
-        } catch (e) {}
+        } catch {
+          // ignorado
+        }
       };
 
       ws.onerror = () => {};
@@ -59,11 +61,18 @@ export const CameraView = () => {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [addAlerta, setLiveDetections]);
 
   useEffect(() => {
-    if (!connected) { setUptime(0); return; }
-    const id = setInterval(() => setUptime((t) => t + 1), 1000);
+    if (!connected) {
+      uptimeRef.current = 0;
+      return;
+    }
+    uptimeRef.current = 0;
+    const id = setInterval(() => {
+      uptimeRef.current += 1;
+      setUptimeDisplay(uptimeRef.current);
+    }, 1000);
     return () => clearInterval(id);
   }, [connected]);
 
