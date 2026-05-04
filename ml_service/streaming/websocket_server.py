@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import cv2
+import json
 import threading
 import websockets
 
@@ -19,8 +20,7 @@ async def register(websocket):
         print(f"[WS] Cliente desconectado. Total: {len(CONNECTED_CLIENTS)}")
 
 async def _sender_loop():
-    global CONNECTED_CLIENTS 
-    
+    global CONNECTED_CLIENTS
     while True:
         frame = await _queue.get()
         if not CONNECTED_CLIENTS:
@@ -29,10 +29,13 @@ async def _sender_loop():
         _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         frame_b64 = base64.b64encode(buffer).decode('utf-8')
 
+        # Envia frame como JSON com type
+        msg = json.dumps({"type": "frame", "data": frame_b64})
+
         disconnected = set()
         for client in list(CONNECTED_CLIENTS):
             try:
-                await client.send(frame_b64)
+                await client.send(msg)
             except websockets.exceptions.ConnectionClosed:
                 disconnected.add(client)
         CONNECTED_CLIENTS -= disconnected
@@ -42,11 +45,28 @@ def send_frame(frame):
         def _put():
             if _queue.full():
                 try:
-                    _queue.get_nowait()  # descarta frame antigo
+                    _queue.get_nowait()
                 except asyncio.QueueEmpty:
                     pass
             _queue.put_nowait(frame)
         _loop.call_soon_threadsafe(_put)
+
+def send_alert(label: str, confidence: float, timestamp: str):
+    if not _loop or not CONNECTED_CLIENTS:
+        return
+    msg = json.dumps({
+        "type": "alert",
+        "label": label,
+        "confidence": confidence,
+        "timestamp": timestamp,
+    })
+    async def _broadcast():
+        for client in list(CONNECTED_CLIENTS):
+            try:
+                await client.send(msg)
+            except Exception:
+                CONNECTED_CLIENTS.discard(client)
+    asyncio.run_coroutine_threadsafe(_broadcast(), _loop)
 
 async def _serve():
     global _queue
@@ -57,6 +77,21 @@ async def _serve():
         print("[WS] Servidor WebSocket rodando em ws://localhost:8765")
         _ready.set()
         await asyncio.Future()
+
+def send_detections(detections: list):
+    if not _loop or not CONNECTED_CLIENTS:
+        return
+    msg = json.dumps({
+        "type": "detections",
+        "data": detections
+    })
+    async def _broadcast():
+        for client in list(CONNECTED_CLIENTS):
+            try:
+                await client.send(msg)
+            except Exception:
+                CONNECTED_CLIENTS.discard(client)
+    asyncio.run_coroutine_threadsafe(_broadcast(), _loop)
 
 def start_server_in_thread():
     global _loop

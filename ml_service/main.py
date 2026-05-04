@@ -3,10 +3,12 @@ import os
 import base64
 import requests
 import threading
+import winsound
+
 from datetime import datetime
 from ml_service.inference.camera import Camera
 from ml_service.inference.detector import EPIDetector, IncidentDebouncer
-from ml_service.streaming.websocket_server import send_frame, start_server_in_thread
+from ml_service.streaming.websocket_server import send_frame, send_alert, send_detections, start_server_in_thread
 
 
 def post_incident(payload):
@@ -44,8 +46,6 @@ def main():
     start_server_in_thread()
 
     print("--- Sistema ativo: Pressione 'ESC' para sair ---")
-    # cv2.namedWindow("Monitoramento EPI", cv2.WINDOW_NORMAL)
-    # cv2.resizeWindow("Monitoramento EPI", 1280, 720)
 
     try:
         while camera.is_opened():
@@ -61,15 +61,32 @@ def main():
             incidents  = detector.incidents(detections)
             confirmed  = debouncer.update(incidents)
 
+            if incidents:
+                for i in incidents:
+                    print(f"Incidente: {i.label} ({i.confidence:.2f})")
+
             annotated_frame = result.plot()
 
             send_frame(annotated_frame)
-            # cv2.imshow("Monitoramento EPI", annotated_frame)
+
+            # Envia detecções a cada frame (fora do for de confirmados)
+            send_detections([
+                {"label": d.label, "confidence": round(float(d.confidence), 4)}
+                for d in detections
+            ])
 
             for detection in confirmed:
                 timestamp = datetime.now()
                 _, buffer = cv2.imencode('.jpg', frame)
                 img_frame_b64 = base64.b64encode(buffer).decode('utf-8')
+
+                winsound.Beep(1000, 300)
+
+                send_alert(
+                    label=detection.label,
+                    confidence=round(float(detection.confidence), 4),
+                    timestamp=timestamp.isoformat(),
+                )
 
                 payload = {
                     "timestamp": timestamp.isoformat(),
