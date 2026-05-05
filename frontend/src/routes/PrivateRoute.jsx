@@ -5,5 +5,10 @@ export const PrivateRoute = ({ children }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   
   // Se não estiver logado, manda para o login
+<<<<<<< HEAD
   return isAuthenticated ? children : <Navigate to="/login" />;
+=======
+  //return isAuthenticated ? children : <Navigate to="/login" />;
+  return children;
+>>>>>>> develop
 };

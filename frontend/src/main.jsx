@@ -2,6 +2,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App'
+<<<<<<< HEAD
 import './index.css' // Onde está o @tailwind
 import { ToastProvider } from './components/ui/NotificationToast'
 
@@ -11,4 +12,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <App />
     </ToastProvider>
   </React.StrictMode>,
+=======
+import './index.css'
+import { ToastProvider } from './components/ui/NotificationToast'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <ToastProvider>
+    <App />
+  </ToastProvider>,
+>>>>>>> develop
 )

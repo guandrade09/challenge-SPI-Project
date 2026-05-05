@@ -1,7 +1,14 @@
 import { useState } from 'react';
+<<<<<<< HEAD
 import { Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../../../components/ui/NotificationToast'
+=======
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useToast } from '../../../components/ui/NotificationToast';
+import { useAuthStore } from '../../../store/useAuthStore';
+>>>>>>> develop
 
 export function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -9,14 +16,23 @@ export function Login() {
   const [password, setPassword] = useState('');
   
   const { mostrarToast } = useToast();
+<<<<<<< HEAD
 
   const handleSubmit = (e) => {
     e.preventDefault();
     // Exemplo de validação simples antes de enviar
+=======
+  const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+>>>>>>> develop
     if (password.length < 8) {
         mostrarToast("Senha muito curta", "vermelho", 3);
         return;
     }
+<<<<<<< HEAD
     console.log('Login:', { email, password });
   };
 
@@ -25,6 +41,15 @@ export function Login() {
     <div className="bg-projeto-main flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Usando a utility customizada auth-card-dark para o efeito glass */}
+=======
+    login({ email }, 'fake-token');
+    navigate('/dashboard');
+  };
+
+  return (
+    <div className="bg-projeto-main flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+>>>>>>> develop
         <div className="auth-card-dark">
           <div className="text-center mb-8">
             <h1 className="font-label-auth">Bem-vindo</h1>

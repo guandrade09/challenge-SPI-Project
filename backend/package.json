@@ -1,0 +1,21 @@
+{
+  "name": "detection-api",
+  "version": "1.0.0",
+  "description": "API para salvar detecções (EPI)",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  },
+  "author": "",
+  "license": "ISC"
+}

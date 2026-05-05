@@ -182,3 +182,15 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+@layer utilities {
+  /* ... suas classes existentes ... */
+
+  .bg-monitoramento {
+    background: #111214;
+  }
+
+  .camera-feed-height {
+    height: 520px;
+  }
+}
