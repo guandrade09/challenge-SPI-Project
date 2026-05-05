@@ -31,22 +31,22 @@ export async function createDetection(data)
 
   await saveDetection(detection);
 
-  const onedriveToken = await findOnedriveAccessToken();
+  // const onedriveToken = await findOnedriveAccessToken();
 
-  if (onedriveToken) {
-      const remoteFolder = await createOneDriveFolderByTimestamp(
-          detection.timestamp,
-          onedriveToken,
-          "detections"
-      );
+  // if (onedriveToken) {
+  //     const remoteFolder = await createOneDriveFolderByTimestamp(
+  //         detection.timestamp,
+  //         onedriveToken,
+  //         "detections"
+  //     );
 
-      await uploadBase64ImageToOneDrive(
-          detection.img_Frame,
-          onedriveToken,
-          remoteFolder,
-          `frame_${Date.now()}.jpg`
-      );
-  }
+  //     await uploadBase64ImageToOneDrive(
+  //         detection.img_Frame,
+  //         onedriveToken,
+  //         remoteFolder,
+  //         `frame_${Date.now()}.jpg`
+  //     );
+  // }
 
   return detection;
 }
