@@ -22,6 +22,6 @@ export const useAuthStore = create(
         isAuthenticated: false 
       }),
     }),
-    { name: 'grower-auth-storage' } // Nome da chave no LocalStorage
+    { name: 'spi-auth-storage' } // Nome da chave no LocalStorage
   )
 );
