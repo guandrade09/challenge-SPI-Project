@@ -2,7 +2,7 @@ import fs from "fs";
 import fsPromises from "fs/promises";
 import path from "path";
 
-export async function createFolderByTimestamp(timestamp, basePath = "./backend/src/uploads") 
+export async function createFolderByTimestamp(timestamp, basePath = "./backend/src/api/uploads") 
 {
     const date = new Date(timestamp);
 
