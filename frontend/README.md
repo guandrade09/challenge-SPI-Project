@@ -11,6 +11,7 @@ Para iniciarmos a aplicação,
 
 # Árvore de Diretórios
 
+````
 📦src
  ┣ 📂assets                                                     < Imagens >
  ┃ ┣ 📜hero.png
@@ -69,7 +70,7 @@ Para iniciarmos a aplicação,
  ┃ ┃ ┣ 📜RenderColumn.jsx
  ┃ ┃ ┗ 📜test.js
  ┃ ┗ 📂monitoramentoPage                                        < Pagina de Monitoramento >
- ┃ ┃ ┣ 📂components         < Componentes Utilizados >
+ ┃ ┃ ┣ 📂components                                             < Componentes Utilizados >
  ┃ ┃ ┃ ┣ 📜AlertPanel.jsx
  ┃ ┃ ┃ ┣ 📜CameraView.jsx
  ┃ ┃ ┃ ┣ 📜DetectionCard.jsx
@@ -95,3 +96,4 @@ Para iniciarmos a aplicação,
  ┣ 📜App.jsx                                                    < Logica do funcionamento do Site >
  ┣ 📜index.css                                                  < CSS cru para aplicações e facilidade em leitura em USO GERAL >
  ┗ 📜main.jsx                                                   < Logica para envolver o site em UI geral >
+```
