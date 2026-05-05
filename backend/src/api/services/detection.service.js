@@ -5,9 +5,13 @@ import {
   getDetectionsByLabel,
   getDetectionsByDay
 } from "../repositories/detection.repository.js";
-
+import {findOnedriveAccessToken} from "../repositories/auth.repository.js";
 import { base64ToImage } from "../utils/convert.js";
-import { createFolderByTimestamp } from "../utils/folder.js";
+import {
+  createFolderByTimestamp,
+  createOneDriveFolderByTimestamp,
+  uploadBase64ImageToOneDrive,
+} from "../utils/folder.js";
 
 export async function createDetection(data) 
 {
@@ -26,6 +30,23 @@ export async function createDetection(data)
   detection.timestamp = new Date(detection.timestamp).toISOString();
 
   await saveDetection(detection);
+
+  const onedriveToken = await findOnedriveAccessToken();
+
+  if (onedriveToken) {
+      const remoteFolder = await createOneDriveFolderByTimestamp(
+          detection.timestamp,
+          onedriveToken,
+          "detections"
+      );
+
+      await uploadBase64ImageToOneDrive(
+          detection.img_Frame,
+          onedriveToken,
+          remoteFolder,
+          `frame_${Date.now()}.jpg`
+      );
+  }
 
   return detection;
 }

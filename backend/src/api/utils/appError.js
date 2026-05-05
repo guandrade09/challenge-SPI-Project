@@ -5,7 +5,7 @@ export class AppError extends Error {
   }
 }
 
-const handleError = (res, error) => {
+export const handleError = (res, error) => {
   return res.status(error.statusCode || 500).json({
     error: error.message || "Erro interno do servidor",
   });

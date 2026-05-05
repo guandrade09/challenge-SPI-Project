@@ -26,3 +26,23 @@ export async function findUserByEmailOrName(email, name)
     [email, name]
   );
 }
+
+export async function findOnedriveAccessToken() 
+{
+  const db = await connect();
+
+  const token = await db.get(`
+    SELECT access_token 
+    FROM onedrives 
+    WHERE expires_at > datetime('now')
+    ORDER BY expires_at DESC
+    LIMIT 1
+  `);
+
+  if (!token) 
+  {
+    throw new Error("Nenhum access token válido encontrado");
+  }
+
+  return token?.access_token || null;
+}
