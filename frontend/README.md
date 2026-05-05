@@ -96,4 +96,3 @@ Para iniciarmos a aplicação,
  ┣ 📜App.jsx                                                    < Logica do funcionamento do Site >
  ┣ 📜index.css                                                  < CSS cru para aplicações e facilidade em leitura em USO GERAL >
  ┗ 📜main.jsx                                                   < Logica para envolver o site em UI geral >
-```
