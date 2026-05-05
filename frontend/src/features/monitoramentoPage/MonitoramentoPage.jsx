@@ -59,21 +59,6 @@ export const MonitoramentoPage = () => {
       : PANEL_STATUS.PRONTO;
 
   return (
-<<<<<<< HEAD
-    <div className="bg-projeto-main h-screen p-6">
-      
-      {/* Container de conteúdo com largura máxima e padding, centralizado */}
-      <div className="max-w-7xl mx-auto px-6 md:px-12 py-12 flex items-center justify-center">
-        
-        {/* cols-1 (mobile) -> cols-2 (desktop) */}
-        <main className="w-full grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-12 items-center justify-items-center">
-          
-          {/* COLUNA ESQUERDA: Câmera */}
-          <div className="w-full flex justify-end items-center relative z-10">
-            <CameraView 
-              status={status}
-              streamUrl="" 
-=======
     <div className="w-full min-h-screen bg-monitoramento p-8">
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <main style={{
@@ -109,7 +94,6 @@ export const MonitoramentoPage = () => {
             <AlertPanel
               message={buildMessage()}
               status={panelStatus}
->>>>>>> develop
             />
           </div>
         </main>
