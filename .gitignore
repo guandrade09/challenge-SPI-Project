@@ -1,18 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+ml_service/models/best.pt
+ml_service/vision/models/best.pt
+*.pt
+
+# Node
 node_modules/
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.env
-.env.*
 dist/
 build/
 coverage/
+tmp/
+temp/
+
+# Ambiente e IDEs
+.env
+.env.*
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
-tmp/
-temp/
-*.jpg
+
+# Banco de dados
+*.sqlite
+*.sqlite3
+
+# Arquivos temporários do SQLite
+*.sqlite-shm
+*.sqlite-wal
+
+# Imagens geradas
+backend/src/uploads/
+ml_service/incidents/
+

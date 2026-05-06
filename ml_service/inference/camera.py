@@ -2,7 +2,7 @@ import cv2
 
 class Camera:
     def __init__(self, source=0):
-        self.cap = cv2.VideoCapture(source)
+        self.cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
 
         if not self.is_opened():
             raise RuntimeError(f"Não foi possível abrir a câmera {source}")
@@ -12,6 +12,6 @@ class Camera:
 
     def release(self):
         self.cap.release()
-
+    
     def is_opened(self) -> bool:
         return self.cap.isOpened()

@@ -1,11 +1,13 @@
 import express from "express";
 import detectionRoutes from "./routes/detection.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+<<<<<<< HEAD
 import reportRoutes from "./routes/report.routes.js";
 import { ErrorHandler } from "./utils/appError.js";
 
 const app = express();
 
+app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use("/api", detectionRoutes);
 app.use("/api", authRoutes);
