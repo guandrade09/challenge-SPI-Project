@@ -1,7 +1,6 @@
 import express from "express";
 import detectionRoutes from "./routes/detection.routes.js";
 import authRoutes from "./routes/auth.routes.js";
-<<<<<<< HEAD
 import reportRoutes from "./routes/report.routes.js";
 import { ErrorHandler } from "./utils/appError.js";
 
