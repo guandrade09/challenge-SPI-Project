@@ -5,7 +5,7 @@ import {
   searchDetectionByDay
 } from "../services/detection.service.js";
 
-import { handleError } from "../utils/appError.js";
+import { ErrorHandler } from "../utils/appError.js";
 
 export async function create(req, res) 
 {
@@ -25,7 +25,7 @@ export async function create(req, res)
   } 
   catch (error) 
   {
-    return handleError(res, error);
+    return ErrorHandler.handle(res, error);
   }
 }
 
@@ -42,7 +42,7 @@ export async function list(req, res)
   } 
   catch (error) 
   {
-    return handleError(res, error);
+    return ErrorHandler.handle(res, error);
   }
 }
 
@@ -68,7 +68,7 @@ export async function getByLabel(req, res)
     } 
   catch (error) 
   {
-    return handleError(res, error);
+    return ErrorHandler.handle(res, error);
   }
 }
 
@@ -94,6 +94,6 @@ export async function getByTimestamp(req, res)
   } 
   catch (error) 
   {
-    return handleError(res, error);
+    return ErrorHandler.handle(res, error);
   }
 }
