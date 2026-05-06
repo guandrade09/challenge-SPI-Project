@@ -2,7 +2,7 @@ import fs from "fs";
 import fsPromises from "fs/promises";
 import path from "path";
 
-export async function createFolderByTimestamp(timestamp, basePath = "./backend/src/api/uploads") 
+export async function createFolderByTimestamp(timestamp, basePath = "./backend/src/api/uploads/imgens") 
 {
     const date = new Date(timestamp);
 
@@ -196,3 +196,24 @@ export async function uploadBase64ImageToOneDrive(base64String, accessToken, rem
     return await response.json();
 }
 
+export async function savePdfToUploads(pdfBuffer, fileName = null) {
+    try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const baseName = fileName || `relatorio-${timestamp}`;
+        const filePath = path.resolve("backend/src/api/uploads/relatorios", `${baseName}.pdf`);
+
+        const uploadsDir = path.dirname(filePath);
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        fs.writeFileSync(filePath, pdfBuffer);
+
+        console.log(`PDF salvo com sucesso: ${filePath}`);
+        return filePath;
+
+    } catch (error) {
+        console.error("Erro ao salvar PDF:", error);
+        throw error;
+    }
+}

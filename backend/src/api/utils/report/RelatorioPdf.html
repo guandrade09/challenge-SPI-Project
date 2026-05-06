@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="RelatorioPdf.css">
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="header">
+        <div class="header-content">
+            <div class="header-text">
+                <h1>Relatório de EPIs</h1>
+                <h2>Monitoramento Inteligente</h2>
+            </div>
+
+            <img src="{{logo}}" class="logo" />
+        </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Resumo</div>
+      <div class="grid">
+        <div class="card">
+            Total de detecções: <b>{{total}}</b>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="section">
+      <div class="section-title">Distribuição</div>
+      <div class="grid">
+        <div class="card">Capacete: {{capacete}}</div>
+        <div class="card">Colete: {{colete}}</div>
+        <div class="card">Máscara: {{mascara}}</div>
+        <div class="card">Óculos: {{oculos}}</div>
+      </div>
+    </div>
+    <div class="section">
+        <div class="section-title">Análise Gráfica</div>
+        <div class="grid">
+            <div class="card">
+                <div class="charts-container">
+                    <div class="chart-block left">
+                        <canvas id="chartDistribuicao"></canvas>
+                    </div>
+                    <div class="chart-block right">
+                        <canvas id="chartAccuracy"></canvas>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+</body>
+</html>

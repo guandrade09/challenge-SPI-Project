@@ -48,3 +48,14 @@ export async function getDetectionsByDay(start, end)
     WHERE timestamp >= ? AND timestamp < ?
   `, [start, end]);
 }
+
+export async function getSpecificDetections(label,start, end) 
+{
+  const db = await connect();
+
+  return await db.all(`
+    SELECT timestamp, label, confidence, img_path
+    FROM detections
+    WHERE timestamp >= ? AND timestamp < ? AND TRIM(LOWER(label)) = TRIM(LOWER(?))
+  `, [start, end, label]);
+}
