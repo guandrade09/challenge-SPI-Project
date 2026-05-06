@@ -11,16 +11,25 @@ export function Login() {
   
   const { mostrarToast } = useToast();
   const navigate = useNavigate();
-  const login = useAuthStore((state) => state.login);
+  const loginAction = useAuthStore((state) => state.login);
+  const isLoading = useAuthStore((state) => state.loading)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (password.length < 8) {
-        mostrarToast("Senha muito curta", "vermelho", 3);
+        mostrarToast("A senha deve ter pelo menos 8 caracteres", "vermelho", 3);
         return;
     }
-    login({ email }, 'fake-token');
-    navigate('/dashboard');
+
+    const result = await loginAction(email, password);
+
+    if (result.success){
+      mostrarToast("Login realizado com sucesso!", "verde", 2);
+      navigate('/');
+    } else {
+      mostrarToast(result.message, "vermelho", 3);
+    }
+
   };
 
   return (
@@ -84,9 +93,10 @@ export function Login() {
 
             <button
               type="submit"
+              disabled={isLoading}  //Desabilita enquanto carrega
               className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transform hover:scale-[1.01] active:scale-[0.98] transition-all duration-200 shadow-lg shadow-emerald-900/20"
             >
-              Entrar no Sistema
+              {isLoading ? "Carregando..." : "Entrar no Sistema"}
             </button>
           </form>
 

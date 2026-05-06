@@ -1,39 +1,54 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Adicionado useNavigate
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../../../components/ui/NotificationToast';
+import { useAuthStore } from '../../../store/useAuthStore'; // Importe a Store
 
 export function Register() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    email: '', 
-    password: '', 
-    confirmPassword: '' 
-  });
+    const [showPassword, setShowPassword] = useState(false);
+    const [formData, setFormData] = useState({ 
+      name: '', 
+      email: '', 
+      password: '', 
+      confirmPassword: '' 
+    });
 
-  const { mostrarToast } = useToast();
+    const { mostrarToast } = useToast();
+    const navigate = useNavigate();
+    
+    // Pegamos a ação e o estado de loading
+    const registerAction = useAuthStore((state) => state.register);
+    const isLoading = useAuthStore((state) => state.loading);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const { password, confirmPassword } = formData;
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      const { name, email, password, confirmPassword } = formData;
 
-    if (password.length < 8) {
-      mostrarToast("A senha deve conter mais que 8 caracteres.", "vermelho", 3);
-      return;
-    }
+      // Validações de Frontend
+      if (password.length < 8) {
+        mostrarToast("A senha deve conter pelo menos 8 caracteres.", "vermelho", 3);
+        return;
+      }
 
-    if (password !== confirmPassword) {
-      mostrarToast('As senhas não coincidem!', 'vermelho', 3);
-      return;
-    }
+      if (password !== confirmPassword) {
+        mostrarToast('As senhas não coincidem!', 'vermelho', 3);
+        return;
+      }
 
-    console.log('Register:', formData);
-  };
+      // Chamada para a API
+      const result = await registerAction(name, email, password);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+      if (result.success) {
+        mostrarToast("Conta criada com sucesso! Faça login.", "verde", 3);
+        navigate('/login'); // Redireciona para o login após cadastrar
+      } else {
+        mostrarToast(result.message, "vermelho", 3);
+      }
+    };
+
+    const handleChange = (e) => {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
   return (
     <div className="bg-projeto-main flex items-center justify-center p-4">
@@ -119,10 +134,11 @@ export function Register() {
             </div>
 
             <button 
-              type="submit" 
+              type="submit"
+              disabled={isLoading}
               className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20 mt-2 active:scale-95"
             >
-              Finalizar Cadastro
+              {isLoading ? "Criando conta..." : "Finalizar Cadastro"}
             </button>
           </form>
 
