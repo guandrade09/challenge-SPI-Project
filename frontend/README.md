@@ -5,11 +5,12 @@ Esta aplicação frontend tem o intuito de ser utilizada para agregar na constru
 # SETUP
 
 Para iniciarmos a aplicação,
+
 1. `cd frontend`
 2. `npm install`  (Caso não tenha ainda o node_modules na sua maquina)
-3. `npm run dev`  ||  `node start`   
-<<<<<<< HEAD
-=======
+3. `npm run dev`  ||  `node start`
+4.  Inicie o backend, verifique se o arquivo backend/src/api/config/database.sqlite ainda se encontra lá.
+5. `Login: teste@gmail.com` & `Password: 01020304`
 
 # Árvore de Diretórios
 
@@ -98,4 +99,3 @@ Para iniciarmos a aplicação,
  ┣ 📜App.jsx                                                    < Logica do funcionamento do Site >
  ┣ 📜index.css                                                  < CSS cru para aplicações e facilidade em leitura em USO GERAL >
  ┗ 📜main.jsx                                                   < Logica para envolver o site em UI geral >
->>>>>>> develop
