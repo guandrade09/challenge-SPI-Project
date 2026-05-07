@@ -2,6 +2,7 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 
+
 export async function OrganizeDataForReport(data) {
     const counts = {
         capacete: 0,
@@ -21,9 +22,38 @@ export async function OrganizeDataForReport(data) {
     return counts;
 }
 
+export async function GetPredictionData(data) {
+    const counts = await OrganizeDataForReport(data);
+    const total = counts.total || 0;
+
+    const probabilities = {
+        capacete: total ? counts.capacete / total : 0,
+        colete: total ? counts.colete / total : 0,
+        mascara: total ? counts.mascara / total : 0,
+        oculos: total ? counts.oculos / total : 0
+    };
+
+    const prediction = Object.entries(probabilities).reduce(
+        (best, [label, value]) => {
+            if (value > best.value) {
+                return { label, value };
+            }
+            return best;
+        },
+        { label: null, value: -1 }
+    );
+
+    return {
+        probabilities,
+        prediction: prediction.label,
+        probability: prediction.value
+    };
+}
+
 export async function calculateAccuracy(data) {
     let acertos = 0;
     let erros = 0;
+    let total = 0;
 
     data.forEach(item => {
         if (item.confidence >= 0.8) {
@@ -31,9 +61,10 @@ export async function calculateAccuracy(data) {
         } else {
             erros++;
         }
+        total++;
     });
 
-    return { acertos, erros };
+    return { acertos, erros, total };
 }
 
 export async function GenerateReportPDF(data) {
@@ -42,7 +73,7 @@ export async function GenerateReportPDF(data) {
     try {
         const counts = await OrganizeDataForReport(data);
         const accuracy = await calculateAccuracy(data);
-
+        const prob = await GetPredictionData(data);
         const logoPath = path.resolve("backend/src/api/utils/report/codexis.png");
         const logoBase64 = fs.readFileSync(logoPath, { encoding: "base64" });
 
@@ -57,7 +88,15 @@ export async function GenerateReportPDF(data) {
             .replace("{{colete}}", counts.colete)
             .replace("{{mascara}}", counts.mascara)
             .replace("{{oculos}}", counts.oculos)
-            .replace("{{logo}}", `data:image/png;base64,${logoBase64}`);
+            .replace("{{logo}}", `data:image/png;base64,${logoBase64}`)
+            .replace("{{prob_capacete}}", (prob.probabilities.capacete * 100).toFixed(1)+ "%")
+            .replace("{{prob_colete}}", (prob.probabilities.colete * 100).toFixed(1) + "%")
+            .replace("{{prob_mascara}}", (prob.probabilities.mascara * 100).toFixed(1) + "%")
+            .replace("{{prob_oculos}}", (prob.probabilities.oculos * 100).toFixed(1) + "%")
+            .replace("{{prediction}}", (prob.prediction))
+            .replace("{{probability}}", (prob.probability * 100).toFixed(1) + "%")
+            .replace("{{acertos}}", accuracy.acertos)
+            .replace("{{erros}}", accuracy.erros);
 
         browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"]
@@ -140,7 +179,7 @@ export async function GenerateReportPDF(data) {
                 data: {
                     labels: ['Acertos', 'Erros'],
                     datasets: [{
-                        data: [accuracy.acertos, accuracy.erros],
+                        data: [((accuracy.acertos / accuracy.total) * 100), (accuracy.erros / accuracy.total) * 100],
                         backgroundColor: [
                             '#2ecc71',
                             '#e74c3c'
@@ -159,7 +198,7 @@ export async function GenerateReportPDF(data) {
                                 weight: 'bold',
                                 size: 14
                             },
-                            formatter: (value) => value
+                            formatter: (value) => value.toFixed(1) + '%'
                         }
                     }
                 }

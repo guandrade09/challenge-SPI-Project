@@ -20,23 +20,18 @@
     </div>
 
     <div class="section">
-      <div class="section-title">Resumo</div>
-      <div class="grid">
-        <div class="card">
-            Total de detecções: <b>{{total}}</b>
+        <div class="section-title">Distribuição</div>
+        <div class="grid">
+            <div class="card">Capacete: {{capacete}}</div>
+            <div class="card">Colete: {{colete}}</div>
+            <div class="card">Máscara: {{mascara}}</div>
+            <div class="card">Óculos: {{oculos}}</div>
+        </div>        
+        <div class="grid">
+            <div class="card">Total de detecções: {{total}}</div>
+            <div class="card">Quantidade de acertos: {{acertos}}</div>
+            <div class="card">Quantidade de erros: {{erros}}</div>
         </div>
-      </div>
-
-    </div>
-
-    <div class="section">
-      <div class="section-title">Distribuição</div>
-      <div class="grid">
-        <div class="card">Capacete: {{capacete}}</div>
-        <div class="card">Colete: {{colete}}</div>
-        <div class="card">Máscara: {{mascara}}</div>
-        <div class="card">Óculos: {{oculos}}</div>
-      </div>
     </div>
     <div class="section">
         <div class="section-title">Análise Gráfica</div>
@@ -53,6 +48,19 @@
                 </div>
             </div>
         </div>
+    </div>
+    <div class="section">
+        <div class="section-title">Probabilidades de ocorrência geral</div>
+        <div class="grid">
+            <div class="card">Capacete: {{prob_capacete}}</div>
+            <div class="card">Colete: {{prob_colete}}</div>
+            <div class="card">Máscara: {{prob_mascara}}</div>
+            <div class="card">Óculos: {{prob_oculos}}</div>
+        </div>
+        <div class="grid">
+            <div class="card">Maior probabilidade de ocorrer: {{prediction}}</div>
+            <div class="card">Probabilidade: {{probability}}</div>
+        </div>  
     </div>
   </div>
 </body>

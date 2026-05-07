@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import detectionRoutes from "./routes/detection.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import reportRoutes from "./routes/report.routes.js";

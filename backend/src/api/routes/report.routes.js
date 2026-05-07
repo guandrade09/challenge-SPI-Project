@@ -1,9 +1,11 @@
 import { Router } from "express";
-import { downloadReport, getReport } from "../controllers/report.controller.js";
+import { downloadReportPdf, getReportPdf, downloadReportExcel } from "../controllers/report.controller.js";
 
 const router = Router();
 
-router.get("/report", getReport);
-router.get("/report/download", downloadReport);
+router.get("/report/pdf", getReportPdf);
+router.get("/report/pdf/download", downloadReportPdf);
+router.get("/report/excel/download", downloadReportExcel);
+
 
 export default router;

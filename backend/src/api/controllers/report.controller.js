@@ -1,10 +1,10 @@
-import { viewReport } from "../services/report.service.js";
+import { viewReportPdf, viewReportExcel } from "../services/report.service.js";
 import { ErrorHandler } from "../utils/appError.js";
 
-export async function downloadReport(req, res) {
+export async function downloadReportPdf(req, res) {
   const { label, start, end } = req.query;
 
-  const pdfBuffer = await viewReport(label, start, end);
+  const pdfBuffer = await viewReportPdf(label, start, end);
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", "attachment; filename=relatorio.pdf");
@@ -13,14 +13,26 @@ export async function downloadReport(req, res) {
   res.end(pdfBuffer);
 }
 
-export async function getReport(req, res) {
+export async function getReportPdf(req, res) {
   const { label, start, end } = req.query;
 
-  const pdfBuffer = await viewReport(label, start, end);
+  const pdfBuffer = await viewReportPdf(label, start, end);
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", "inline; filename=relatorio.pdf");
   res.setHeader("Content-Length", pdfBuffer.length);
 
   res.end(pdfBuffer);
+}
+
+export async function downloadReportExcel(req, res) {
+  const { label, start, end } = req.query;
+
+  const excelBuffer = await viewReportExcel(label, start, end);
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", "attachment; filename=relatorio.xlsx");
+  res.setHeader("Content-Length", excelBuffer.length);
+
+  res.end(excelBuffer);
 }

@@ -200,7 +200,7 @@ export async function savePdfToUploads(pdfBuffer, fileName = null) {
     try {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const baseName = fileName || `relatorio-${timestamp}`;
-        const filePath = path.resolve("backend/src/api/uploads/relatorios", `${baseName}.pdf`);
+        const filePath = path.resolve("backend/src/api/uploads/relatorios/pdf/", `${baseName}.pdf`);
 
         const uploadsDir = path.dirname(filePath);
         if (!fs.existsSync(uploadsDir)) {
@@ -216,4 +216,27 @@ export async function savePdfToUploads(pdfBuffer, fileName = null) {
         console.error("Erro ao salvar PDF:", error);
         throw error;
     }
+}
+
+export async function saveExcel(workbook, fileName = null) 
+{
+    const reportsDir = path.resolve(
+        "backend/src/api/uploads/relatorios/excel"
+    );
+
+    if (!fs.existsSync(reportsDir)) 
+    {
+        fs.mkdirSync(reportsDir, { recursive: true });
+    }
+
+    const finalFileName = fileName || `report-${Date.now()}.xlsx`;
+
+    const filePath = path.join(reportsDir, finalFileName);
+
+    await workbook.xlsx.writeFile(filePath);
+
+    return {
+        fileName: finalFileName,
+        filePath
+    };
 }
