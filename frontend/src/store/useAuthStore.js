@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import api from '../services/api';
 
 export const useAuthStore = create(
   persist(
@@ -12,7 +13,7 @@ export const useAuthStore = create(
       register: async (name, email, password) => {
         set({ loading: true });
         try {
-          const response = await fetch('http://localhost:3000/api/user/register', {
+          const response = await fetch(`${api}/user/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, password }),
@@ -36,7 +37,7 @@ export const useAuthStore = create(
       login: async (email, password) => {
         set({ loading: true });
         try {
-          const response = await fetch('http://localhost:3000/api/user/login', { // Ajuste a porta se necessário
+          const response = await fetch(`${api}/user/login`, { // Ajuste a porta se necessário
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
