@@ -8,28 +8,25 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+
   const { mostrarToast } = useToast();
   const navigate = useNavigate();
   const loginAction = useAuthStore((state) => state.login);
-  const isLoading = useAuthStore((state) => state.loading)
+  const isLoading = useAuthStore((state) => state.loading);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password.length < 8) {
-        mostrarToast("A senha deve ter pelo menos 8 caracteres", "vermelho", 3);
-        return;
+      mostrarToast("A senha deve ter pelo menos 8 caracteres", "vermelho", 3);
+      return;
     }
-
     const result = await loginAction(email, password);
-
-    if (result.success){
+    if (result.success) {
       mostrarToast("Login realizado com sucesso!", "verde", 2);
       navigate('/');
     } else {
       mostrarToast(result.message, "vermelho", 3);
     }
-
   };
 
   return (
@@ -51,7 +48,7 @@ export function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500"
+                  className="form-input-icon"
                   placeholder="seu@email.com"
                   required
                 />
@@ -67,7 +64,7 @@ export function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-12 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500"
+                  className="form-input-icon pr-12"
                   placeholder="••••••••"
                   required
                 />
@@ -83,18 +80,18 @@ export function Login() {
 
             <div className="flex items-center justify-between">
               <label className="flex items-center cursor-pointer group">
-                <input type="checkbox" className="w-4 h-4 text-emerald-600 bg-neutral-800 border-neutral-700 rounded focus:ring-emerald-500 accent-emerald-600" />
+                <input type="checkbox" className="w-4 h-4 accent-emerald-600 bg-neutral-800 border-neutral-700 rounded focus:ring-emerald-500" />
                 <span className="ml-2 text-sm text-neutral-400 group-hover:text-neutral-200 transition-colors">Lembrar-me</span>
               </label>
-              <Link to="/forgot-password" size="sm" className="text-sm font-medium text-emerald-500 hover:text-emerald-400 transition-colors">
+              <Link to="/forgot-password" className="text-sm font-medium text-emerald-500 hover:text-emerald-400 transition-colors">
                 Esqueceu a senha?
               </Link>
             </div>
 
             <button
               type="submit"
-              disabled={isLoading}  //Desabilita enquanto carrega
-              className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transform hover:scale-[1.01] active:scale-[0.98] transition-all duration-200 shadow-lg shadow-emerald-900/20"
+              disabled={isLoading}
+              className="btn-primary hover:scale-[1.01] active:scale-[0.98]"
             >
               {isLoading ? "Carregando..." : "Entrar no Sistema"}
             </button>

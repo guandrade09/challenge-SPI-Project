@@ -6,16 +6,14 @@ import { reportService } from '../../../../services/reportService';
 import { useToast } from '../../../../components/ui/NotificationToast';
 
 export const LogReportButton = () => {
-  const openPopUpModal = useUiStore((state) => state.openPopUpModal);
+  const openPopUpModal = useUiStore((s) => s.openPopUpModal);
   const { mostrarToast } = useToast();
 
   const handleGenerateReport = async () => {
     try {
-      // 1. Chama o backend para gerar o resumo
       const summary = await reportService.getSummary();
-      // 2. Abre o modal passando os dados reais
       openPopUpModal(summary);
-    } catch (error) {
+    } catch {
       mostrarToast("Erro ao gerar relatório!", 'vermelho', 3);
     }
   };

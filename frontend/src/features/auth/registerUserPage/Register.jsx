@@ -1,54 +1,48 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // Adicionado useNavigate
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../../../components/ui/NotificationToast';
-import { useAuthStore } from '../../../store/useAuthStore'; // Importe a Store
+import { useAuthStore } from '../../../store/useAuthStore';
 
 export function Register() {
-    const [showPassword, setShowPassword] = useState(false);
-    const [formData, setFormData] = useState({ 
-      name: '', 
-      email: '', 
-      password: '', 
-      confirmPassword: '' 
-    });
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
 
-    const { mostrarToast } = useToast();
-    const navigate = useNavigate();
-    
-    // Pegamos a ação e o estado de loading
-    const registerAction = useAuthStore((state) => state.register);
-    const isLoading = useAuthStore((state) => state.loading);
+  const { mostrarToast } = useToast();
+  const navigate = useNavigate();
+  const registerAction = useAuthStore((state) => state.register);
+  const isLoading = useAuthStore((state) => state.loading);
 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      const { name, email, password, confirmPassword } = formData;
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
-      // Validações de Frontend
-      if (password.length < 8) {
-        mostrarToast("A senha deve conter pelo menos 8 caracteres.", "vermelho", 3);
-        return;
-      }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const { name, email, password, confirmPassword } = formData;
 
-      if (password !== confirmPassword) {
-        mostrarToast('As senhas não coincidem!', 'vermelho', 3);
-        return;
-      }
+    if (password.length < 8) {
+      mostrarToast("A senha deve conter pelo menos 8 caracteres.", "vermelho", 3);
+      return;
+    }
+    if (password !== confirmPassword) {
+      mostrarToast('As senhas não coincidem!', 'vermelho', 3);
+      return;
+    }
 
-      // Chamada para a API
-      const result = await registerAction(name, email, password);
-
-      if (result.success) {
-        mostrarToast("Conta criada com sucesso! Faça login.", "verde", 3);
-        navigate('/login'); // Redireciona para o login após cadastrar
-      } else {
-        mostrarToast(result.message, "vermelho", 3);
-      }
-    };
-
-    const handleChange = (e) => {
-      setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    const result = await registerAction(name, email, password);
+    if (result.success) {
+      mostrarToast("Conta criada com sucesso! Faça login.", "verde", 3);
+      navigate('/login');
+    } else {
+      mostrarToast(result.message, "vermelho", 3);
+    }
+  };
 
   return (
     <div className="bg-projeto-main flex items-center justify-center p-4">
@@ -69,7 +63,7 @@ export function Register() {
                   type="text"
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500"
+                  className="form-input-icon"
                   placeholder="Nome do Usuário"
                   required
                 />
@@ -85,7 +79,7 @@ export function Register() {
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500"
+                  className="form-input-icon"
                   placeholder="seu@email.com"
                   required
                 />
@@ -102,14 +96,14 @@ export function Register() {
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={handleChange}
-                    className="w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-12 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500"
+                    className="form-input-icon pr-12"
                     placeholder="••••••••"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-emerald-500"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-emerald-500 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -125,7 +119,7 @@ export function Register() {
                     type={showPassword ? 'text' : 'password'}
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500"
+                    className="form-input-icon"
                     placeholder="••••••••"
                     required
                   />
@@ -133,17 +127,17 @@ export function Register() {
               </div>
             </div>
 
-            <button 
+            <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20 mt-2 active:scale-95"
+              className="btn-primary mt-2 active:scale-95"
             >
               {isLoading ? "Criando conta..." : "Finalizar Cadastro"}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <Link to="/login" className="text-emerald-500 font-medium hover:underline">
+            <Link to="/login" className="link-emerald hover:underline">
               Já possui acesso? Faça login
             </Link>
           </div>
