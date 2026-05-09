@@ -74,11 +74,12 @@ const DASHBOARD_CONFIG = {
 };
 
 const LogsPage = () => {
-  const { 
-    isSidebarOpen, 
-    closeSidebar, 
-    isPopUpModalOpen, 
-    closePopUpModal 
+  const {
+    isSidebarOpen,
+    closeSidebar,
+    isPopUpModalOpen,
+    closePopUpModal,
+    reportData,
   } = useUiStore();
 
   return (
@@ -95,7 +96,7 @@ const LogsPage = () => {
         <RenderColumn config={DASHBOARD_CONFIG.col3} componentMap={COMPONENT_MAP} />
       </main>
 
-      <LogReportModal isOpen={isPopUpModalOpen} onClose={closePopUpModal} data={reportSummaryMock} />
+      <LogReportModal isOpen={isPopUpModalOpen} onClose={closePopUpModal} data={reportData} />
     </div>
   );
 };

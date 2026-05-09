@@ -1,10 +1,27 @@
 // src/features/logsPage/components/LogReportModal.jsx
-import React from 'react';
-import { FileText, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, CheckCircle2, Download, Loader2 } from 'lucide-react';
 import { PopupModal } from '../../../../components/shared/PopupModal';
+import { reportService } from '../../../../services/reportService';
+import { useToast } from '../../../../components/ui/NotificationToast'
 
 export const LogReportModal = ({ isOpen, onClose, data }) => {
-  if (!data) return null;
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { mostrarToast } = useToast();
+
+  if (!isOpen || !data) return null;
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await reportService.downloadPdf();
+    } catch (error) {
+      onClose();
+      mostrarToast("Erro ao baixar PDF!", 'vermelho', 3)
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <PopupModal 
@@ -20,7 +37,6 @@ export const LogReportModal = ({ isOpen, onClose, data }) => {
           Status: {data.status}
         </span>
         
-        {/* CONTAINER DO SCROLL: Ajustado com max-h e custom-scrollbar */}
         <div className="w-full max-h-[300px] bg-white/50 rounded-xl border border-zinc-200 mb-6 text-left overflow-y-auto custom-scrollbar">
           <p className="text-[12px] text-zinc-800 font-medium p-4 leading-relaxed whitespace-pre-wrap">
             {data.resumo}
@@ -32,10 +48,25 @@ export const LogReportModal = ({ isOpen, onClose, data }) => {
         </p>
 
         <button 
-          disabled 
-          className="w-full py-3 bg-zinc-400 text-white rounded-xl font-bold text-xs uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
+          onClick={handleDownload}
+          disabled={isDownloading} 
+          className={`w-full py-3 text-white rounded-xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+            isDownloading 
+              ? "bg-zinc-400 cursor-not-allowed" 
+              : "bg-green-600 hover:bg-green-700 active:scale-95 shadow-lg shadow-green-200"
+          }`}
         >
-          Download PDF (Em breve)
+          {isDownloading ? (
+            <>
+              <Loader2 className="animate-spin" size={16} />
+              Baixando...
+            </>
+          ) : (
+            <>
+              <Download size={16} />
+              Download PDF
+            </>
+          )}
         </button>
       </div>
     </PopupModal>
