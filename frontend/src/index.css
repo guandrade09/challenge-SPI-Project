@@ -14,65 +14,6 @@
   --spacing-panel-gap: 2rem;
 }
 
-@layer utilities {
-  .font-label-auth{
-    @apply text-3xl font-bold text-white mb-2;
-  }
-
-  .font-label-logs{
-    @apply text-black font-bold text-xs uppercase tracking-widest flex-1 text-center;
-  }
-
-
-  .auth-card-dark {
-    @apply bg-neutral-900/80 backdrop-blur-md border border-neutral-700 p-8 rounded-2xl shadow-2xl;
-  }
-
-  .bg-projeto-main {
-    @apply w-full min-h-screen bg-gradient-to-tr from-neutral-500 to-neutral-950;
-  }
-
-  /* Aproveitando para ajustar seus inputs e deixá-os mais limpos no fundo escuro */
-  .auth-card {
-    @apply bg-white rounded-2xl shadow-xl border border-neutral-800/10;
-  }
-
-  /* Estilização para Webkit (Chrome, Safari, Edge, Opera) */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;               /* Largura da barra vertical */
-    height: 6px;              /* Altura da barra horizontal */
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;  /* Fundo da trilha (invisível para ser clean) */
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #333338;      /* Cor da barra (zinc-700) */
-    border-radius: 20px;      /* Arredondamento total */
-    border: 2px solid transparent; /* Cria um respiro visual */
-    background-clip: content-box;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #b59481;      /* Cor de destaque quando passa o mouse (marrom do cabeçalho) */
-  }
-
-  /* Suporte para Firefox */
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: #3f3f46 transparent;
-  }
-  
-}
-
-/* Adicione isso para garantir o fundo escuro do mockup */
-body {
-  margin: 0;
-  font-family: 'Inter', sans-serif;
-}
-
-
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -123,10 +64,6 @@ body {
   #social .button-icon {
     filter: invert(1) brightness(2);
   }
-}
-
-body {
-  margin: 0;
 }
 
 #root {
@@ -181,4 +118,253 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+@layer utilities {
+  /* ========================
+     PAGE LAYOUT UTILITIES
+     ======================== */
+
+  /* Page shell — fundo escuro comum a todas as páginas */
+  .page-container {
+    @apply w-full min-h-screen p-8 bg-gradient-to-tr from-neutral-500 to-neutral-950;
+  }
+
+  /* Wrapper interno com largura máxima */
+  .page-content {
+    @apply mx-auto;
+  }
+
+  /* Grid de 2 colunas: conteúdo principal + sidebar */
+  .page-grid-sidebar {
+    @apply grid gap-6 items-start;
+    grid-template-columns: 1fr 300px;
+  }
+
+  /* Stack vertical com gap para sidebars */
+  .sidebar-stack {
+    @apply flex flex-col gap-5;
+  }
+
+  /* Título principal de seção (uppercase, bold) */
+  .page-title {
+    @apply text-xl font-bold tracking-wide uppercase;
+    color: #e2e4e8;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: .06em;
+  }
+
+  /* Subtítulo descritivo */
+  .page-subtitle {
+    @apply text-xs mt-1;
+    color: #45484f;
+  }
+
+  /* Divisor visual entre seções */
+  .page-divider {
+    @apply h-px;
+    background: #1e2025;
+  }
+
+  /* ========================
+     FONTS & LABELS
+     ======================== */
+  .font-label-auth {
+    @apply text-3xl font-bold text-white mb-2;
+  }
+
+  .font-label-logs {
+    @apply text-black font-bold text-xs uppercase tracking-widest flex-1 text-center;
+  }
+
+  /* ========================
+     CARDS & AUTH
+     ======================== */
+  .auth-card-dark {
+    @apply bg-neutral-900/80 backdrop-blur-md border border-neutral-700 p-8 rounded-2xl shadow-2xl;
+  }
+
+  .bg-projeto-main {
+    @apply w-full min-h-screen bg-gradient-to-tr from-neutral-500 to-neutral-950;
+  }
+
+  .auth-card {
+    @apply bg-white rounded-2xl shadow-xl border border-neutral-800/10;
+  }
+
+  /* ========================
+     AUTH FORMS
+     ======================== */
+  /* Input de formulário com ícone à esquerda */
+  .form-input-icon {
+    @apply w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg;
+    @apply focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500;
+  }
+
+  /* Botão primário em emerald */
+  .btn-primary {
+    @apply w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold;
+    @apply hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20;
+  }
+
+  /* Link em emerald para ações secundárias */
+  .link-emerald {
+    @apply text-emerald-500 font-medium hover:text-emerald-400 transition-colors;
+  }
+
+  /* ========================
+     MONITORAMENTO — CAMERA VIEW
+     ======================== */
+  /* Container principal da câmera */
+  .camera-container {
+    @apply w-full flex flex-col overflow-hidden rounded-xl shadow-2xl;
+    border: 1px solid #1e2025;
+    background: #0d0e10;
+  }
+
+  /* Barra de título da câmera com indicadores */
+  .camera-header {
+    @apply flex items-center px-4 gap-3;
+    height: 42px;
+    background: #141518;
+    border-bottom: 1px solid #1e2025;
+  }
+
+  /* Trailer bar da câmera */
+  .camera-trailer {
+    @apply flex items-center justify-between px-4;
+    height: 44px;
+    background: #141518;
+    border-top: 1px solid #1e2025;
+  }
+
+  /* Indicador de status (dot colorido) */
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+
+  /* Botão de ação ícone único (camera maximize) */
+  .btn-icon-action {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: #1a1c21;
+    border: 1px solid #252830;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #5a5e6a;
+    cursor: pointer;
+  }
+
+  /* Label monospace sutil */
+  .label-mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .06em;
+    color: #4a4e5a;
+  }
+
+  /* ========================
+     MONITORAMENTO — DETECTION CARD
+     ======================== */
+  .detection-card {
+    @apply relative flex items-center gap-3 p-3 rounded-lg border w-full overflow-hidden cursor-pointer select-none;
+    transition: border-color .15s, background .15s;
+  }
+
+  .detection-card--checked {
+    border-color: rgba(60,200,122,0.35);
+    background: rgba(60,200,122,0.06);
+  }
+
+  .detection-card--unchecked {
+    border-color: #2a2d35;
+    background: #17191e;
+  }
+
+  /* ========================
+     MONITORAMENTO — ALERT PANEL
+     ======================== */
+  .alert-panel {
+    @apply rounded-lg border overflow-hidden w-full;
+    border-color: #1e2025;
+  }
+
+  .alert-panel-header {
+    @apply flex items-center gap-2 px-3 py-2;
+    background: #141518;
+    border-bottom: 1px solid #1e2025;
+  }
+
+  .alert-panel-body {
+    background: #0d0e10;
+    padding: 12px 14px;
+  }
+
+  /* ========================
+     LOG PANEL
+     ======================== */
+  .log-gradient-overlay {
+    background: linear-gradient(to top, var(--color-panel-bg), var(--color-panel-bg)/90, transparent);
+  }
+
+  /* ========================
+     REPORT MODAL
+     ======================== */
+  .btn-download {
+    @apply w-full py-3 text-white rounded-xl font-bold text-xs uppercase tracking-widest;
+    @apply flex items-center justify-center gap-2 transition-all;
+  }
+
+  .btn-download--loading {
+    @apply bg-zinc-400 cursor-not-allowed;
+  }
+
+  .btn-download--ready {
+    @apply bg-green-600 hover:bg-green-700 active:scale-95 shadow-lg shadow-green-200;
+  }
+
+  /* ========================
+     ICON BUTTON VARIANTS
+     ======================== */
+  .icon-btn-full {
+    @apply flex items-center justify-between w-full p-4 bg-white hover:bg-zinc-50 rounded-2xl shadow-md border-l-4 border-panel-header active:scale-95 transition-all duration-300;
+  }
+
+  .icon-btn-ghost {
+    @apply p-1.5 hover:bg-black/10 rounded-lg text-zinc-800 transition-all duration-300;
+  }
+
+  /* ========================
+     SCROLLBAR
+     ======================== */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #333338;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #b59481;
+  }
+
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #3f3f46 transparent;
+  }
 }

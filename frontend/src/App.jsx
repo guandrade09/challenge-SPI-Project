@@ -4,7 +4,7 @@ import { MainLayout } from './layouts/MainLayout';
 import { PrivateRoute } from './routes/PrivateRoute';
 
 // Importações das Features
-import {Login, Register, ForgotPassword} from './features/auth/registerUserPage';
+import {Login, Register, ForgotPassword, Logout} from './features/auth/registerUserPage';
 import LogsPage from './features/logsPage/LogsPage';
 import MonitoramentoPage from './features/monitoramentoPage/MonitoramentoPage';
 
@@ -16,9 +16,10 @@ export function App() {
         <Route path="/login" element={<Login />} />
         <Route path='/register' element={<Register />} />
         <Route path='/forgot-password' element={<ForgotPassword />} />
+        <Route path="/logout" element={<Logout />}/>
 
         {/* ROTAS PROTEGIDAS: Usam o MainLayout (NavBar + Sidebar + Conteúdo) */}
-        <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+        <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>  {/* Falta o PrivateRoute */}
           <Route path="/" element={<div className="flex bg-projeto-main min-h-screen items-center justify-center"><h1 className='text-white font-bold text-3xl'>Index (Em breve)</h1></div>} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/monitoramento" element={<MonitoramentoPage />} />
