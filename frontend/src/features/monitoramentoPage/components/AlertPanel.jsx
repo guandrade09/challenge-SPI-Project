@@ -29,47 +29,37 @@ export const AlertPanel = ({ message, status }) => {
   const c = STATUS_CONFIG[status] ?? STATUS_CONFIG[PANEL_STATUS.PRONTO];
 
   return (
-    <div style={{
-      borderRadius: 8,
-      border: '1px solid #1e2025',
-      overflow: 'hidden',
-      width: '100%',
-    }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 14px',
-        background: '#141518',
-        borderBottom: '1px solid #1e2025',
-      }}>
-        <span style={{
-          width: 7, height: 7, borderRadius: '50%', flexShrink: 0, display: 'inline-block',
-          background: c.dotColor,
-          boxShadow: c.dotGlow !== 'none' ? `0 0 0 3px ${c.dotGlow}` : 'none',
-          animation: c.pulse ? 'alertPulse 2s infinite' : 'none',
-        }} />
-        <span style={{
-          fontFamily: "'IBM Plex Mono', monospace",
-          fontSize: 10,
-          fontWeight: 500,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: c.textColor,
-        }}>
+    <div className="alert-panel">
+      <div className="alert-panel-header">
+        <span
+          className="status-dot"
+          style={{
+            background: c.dotColor,
+            boxShadow: c.dotGlow !== 'none' ? `0 0 0 3px ${c.dotGlow}` : 'none',
+            animation: c.pulse ? 'alertPulse 2s infinite' : 'none',
+          }}
+        />
+        <span
+          className="label-mono font-medium"
+          style={{
+            fontSize: 10,
+            letterSpacing: '.14em',
+            textTransform: 'uppercase',
+            color: c.textColor,
+          }}
+        >
           {c.label}
         </span>
       </div>
 
-      {/* Body */}
-      <div style={{ background: '#0d0e10', padding: '12px 14px' }}>
-        <p style={{
-          fontFamily: "'Barlow', sans-serif",
-          fontSize: 12,
-          color: '#6a6e7a',
-          lineHeight: 1.65,
-          letterSpacing: '0.01em',
-          margin: 0,
-        }}>
+      <div className="alert-panel-body">
+        <p
+          style={{
+            fontFamily: "'Barlow',sans-serif",
+            fontSize: 12, color: '#6a6e7a',
+            lineHeight: 1.65, letterSpacing: '.01em', margin: 0,
+          }}
+        >
           {message || 'Nenhuma mensagem.'}
         </p>
       </div>

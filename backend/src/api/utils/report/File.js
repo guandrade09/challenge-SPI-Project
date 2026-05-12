@@ -1,6 +1,11 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const reportDir = path.resolve(__dirname);
 
 
 export async function OrganizeDataForReport(data) {
@@ -74,11 +79,11 @@ export async function GenerateReportPDF(data) {
         const counts = await OrganizeDataForReport(data);
         const accuracy = await calculateAccuracy(data);
         const prob = await GetPredictionData(data);
-        const logoPath = path.resolve("backend/src/api/utils/report/codexis.png");
+        const logoPath = path.resolve(reportDir, "codexis.png");
         const logoBase64 = fs.readFileSync(logoPath, { encoding: "base64" });
 
         let html = fs.readFileSync(
-            path.resolve("backend/src/api/utils/report/RelatorioPdf.html"),
+            path.resolve(reportDir, "RelatorioPdf.html"),
             "utf-8"
         );
 
@@ -109,7 +114,7 @@ export async function GenerateReportPDF(data) {
         });
 
         await page.addStyleTag({
-            path: path.resolve("backend/src/api/utils/report/RelatorioPdf.css")
+            path: path.resolve(reportDir, "RelatorioPdf.css")
         });
 
         await page.addScriptTag({

@@ -23,6 +23,11 @@ const LABEL_PT = {
 
 const RISK_LABELS = new Set(['NO-Hardhat', 'NO-Safety Vest', 'NO-Goggles', 'NO-Mask', 'NO-Gloves']);
 
+const formatDetection = (d) => {
+  const icon = RISK_LABELS.has(d.label) ? '⚠' : '✓';
+  return `${icon} ${LABEL_PT[d.label] ?? d.label} — ${(d.confidence * 100).toFixed(0)}%`;
+};
+
 export const MonitoramentoPage = () => {
   const { alertaAtivo, limparAlertaAtivo, liveDetections } = useMonitoramentoStore();
 
@@ -32,69 +37,40 @@ export const MonitoramentoPage = () => {
     return () => clearTimeout(timer);
   }, [alertaAtivo]);
 
-  // Monta mensagem do painel com detecções ao vivo
   const buildMessage = () => {
     if (alertaAtivo) {
       return `⚠ ${LABEL_PT[alertaAtivo.label] ?? alertaAtivo.label} — confiança: ${(alertaAtivo.confidence * 100).toFixed(0)}%`;
     }
-
     if (liveDetections.length === 0) {
       return 'Aguardando detecções...';
     }
-
     const linhas = liveDetections
       .filter(d => LABEL_PT[d.label])
-      .map(d => {
-        const icon = RISK_LABELS.has(d.label) ? '⚠' : '✓';
-        return `${icon} ${LABEL_PT[d.label]} — ${(d.confidence * 100).toFixed(0)}%`;
-      });
-
+      .map(formatDetection);
     return linhas.length > 0 ? linhas.join('\n') : 'Nenhum EPI no frame.';
   };
 
   const panelStatus = alertaAtivo
     ? PANEL_STATUS.ALERTA
     : liveDetections.length > 0
-      ? PANEL_STATUS.ATENCAO  // amarelo = detectando
+      ? PANEL_STATUS.ATENCAO
       : PANEL_STATUS.PRONTO;
 
   return (
-    <div className="w-full min-h-screen bg-monitoramento p-8">
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <main style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 300px',
-          gap: 24,
-          alignItems: 'start',
-        }}>
+    <div className="page-container">
+      <div className="page-content max-w-[1400px]">
+        <main className="page-grid-sidebar">
           <CameraView />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="sidebar-stack">
             <div>
-              <p style={{
-                fontFamily: "'Barlow Condensed', sans-serif",
-                fontSize: 20,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: '#e2e4e8',
-                margin: 0,
-              }}>
-                Detecção de EPIs
-              </p>
-              <p style={{ fontSize: 12, color: '#45484f', marginTop: 4 }}>
-                Selecione os equipamentos a monitorar
-              </p>
+              <p className="page-title">Detecção de EPIs</p>
+              <p className="page-subtitle">Selecione os equipamentos a monitorar</p>
             </div>
 
             <DetectionPanel options={DETECTION_CONFIG} />
-
-            <div style={{ height: 1, background: '#1e2025' }} />
-
-            <AlertPanel
-              message={buildMessage()}
-              status={panelStatus}
-            />
+            <div className="page-divider" />
+            <AlertPanel message={buildMessage()} status={panelStatus} />
           </div>
         </main>
       </div>

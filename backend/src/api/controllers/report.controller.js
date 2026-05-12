@@ -1,4 +1,4 @@
-import { viewReportPdf, viewReportExcel } from "../services/report.service.js";
+import { viewReportPdf, viewReportExcel, getReportSummary as getReportSummaryService } from "../services/report.service.js";
 import { ErrorHandler } from "../utils/appError.js";
 
 export async function downloadReportPdf(req, res) {
@@ -35,4 +35,10 @@ export async function downloadReportExcel(req, res) {
   res.setHeader("Content-Length", excelBuffer.length);
 
   res.end(excelBuffer);
+}
+
+export async function getReportSummary(req, res) {
+    const { label, start, end } = req.query;
+    const summary = await getReportSummaryService(label, start, end);
+    res.json(summary);
 }

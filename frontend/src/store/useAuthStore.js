@@ -1,74 +1,102 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import api from '../services/api';
+
+const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
 
 export const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
-      loading: false, // Novo: para mostrar um spinner no botão
+      loading: false,
+      lastActivity: Date.now(),
+
+      getToken: () => get().token,
 
       register: async (name, email, password) => {
         set({ loading: true });
         try {
-          const response = await fetch('http://localhost:3000/api/user/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password }),
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            // Pega a mensagem de erro vinda do seu AppError no backend
-            throw new Error(data.error || 'Erro ao criar conta');
-          }
-
+          const { data } = await api.post('/user/register', { name, email, password });
           set({ loading: false });
-          return { success: true };
-        } catch (error) {
+          return { success: true, ...data };
+        } catch (err) {
           set({ loading: false });
-          return { success: false, message: error.message };
+          return { success: false, message: err.response?.data?.error || err.message };
         }
       },
 
       login: async (email, password) => {
         set({ loading: true });
         try {
-          const response = await fetch('http://localhost:3000/api/user/login', { // Ajuste a porta se necessário
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || 'Erro ao fazer login');
-          }
-
-          // O seu backend retorna { token: { token: "..." } } por causa do service. 
-          // Ajuste no backend ou desestruture aqui:
-          const tokenFinal = data.token.token || data.token;
-
-          set({ 
-            user: { email }, // Você pode extrair mais dados do JWT se quiser
-            token: tokenFinal, 
+          const { data } = await api.post('/user/login', { email, password });
+          const tokenFinal = data.token?.token ?? data.token;
+          set({
+            user: { email },
+            token: tokenFinal,
             isAuthenticated: true,
-            loading: false 
+            loading: false,
+            lastActivity: Date.now(),
           });
-
           return { success: true };
-        } catch (error) {
+        } catch (err) {
           set({ loading: false });
-          return { success: false, message: error.message };
+          return { success: false, message: err.response?.data?.error || err.message };
         }
       },
 
-      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      logout: () => set({ user: null, token: null, isAuthenticated: false, lastActivity: 0 }),
+
+      resetInactivityTimer: () => set({ lastActivity: Date.now() }),
     }),
-    { name: 'spi-auth-storage' }
+    {
+      name: 'spi-auth-storage',
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+        lastActivity: state.lastActivity,
+      }),
+    }
   )
 );
 
+// Global inactivity logout — only active when authenticated
+let globalTimeout = null;
+
+function scheduleInactivityLogout() {
+  if (globalTimeout) clearTimeout(globalTimeout);
+  const state = useAuthStore.getState();
+  if (!state.isAuthenticated) return;
+
+  globalTimeout = setTimeout(() => {
+    const current = useAuthStore.getState();
+    if (current.isAuthenticated && Date.now() - current.lastActivity >= INACTIVITY_LIMIT_MS) {
+      useAuthStore.getState().logout();
+    }
+  }, INACTIVITY_LIMIT_MS);
+}
+
+// Auto-start when store is hydrated and user is authenticated
+useAuthStore.subscribe(
+  (state, prev) => {
+    if (state.isAuthenticated && !prev.isAuthenticated) {
+      scheduleInactivityLogout();
+    } else if (!state.isAuthenticated && prev.isAuthenticated) {
+      if (globalTimeout) clearTimeout(globalTimeout);
+      globalTimeout = null;
+    }
+  }
+);
+
+// Interceptador de resposta: limpa token e faz logout ao receber 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      useAuthStore.getState().logout();
+    }
+    return Promise.reject(error);
+  }
+);

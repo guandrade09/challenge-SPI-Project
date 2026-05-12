@@ -1,3 +1,5 @@
+// src/store/useUiStore.js
+
 import { create } from 'zustand';
 
 export const useUiStore = create((set) => ({
@@ -14,9 +16,9 @@ export const useUiStore = create((set) => ({
   // Estado para a Envio de resumo e download para PDF do relatorio.
   isPopUpModalOpen: false,
   // Função para abrir
-  openPopUpModal: () => set({ isPopUpModalOpen: true }),
+  openPopUpModal: (data) => set({ isPopUpModalOpen: true, reportData: data }),
   // Função para fechar
-  closePopUpModal: () => set({ isPopUpModalOpen: false }),
+  closePopUpModal: () => set({ isPopUpModalOpen: false, reportData: null }),
   // Função para alternar (opcional)
   togglePopUpModal: () => set((state) => ({ isPopUpModalOpen: !state.isPopUpModalOpen })),
 }));
