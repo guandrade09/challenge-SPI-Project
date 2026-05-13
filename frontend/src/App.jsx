@@ -7,6 +7,7 @@ import { PrivateRoute } from './routes/PrivateRoute';
 import {Login, Register, ForgotPassword, Logout} from './features/auth/registerUserPage';
 import LogsPage from './features/logsPage/LogsPage';
 import MonitoramentoPage from './features/monitoramentoPage/MonitoramentoPage';
+import IndexPage from './features/indexPage/indexPage'
 
 export function App() {
   return (
@@ -20,7 +21,7 @@ export function App() {
 
         {/* ROTAS PROTEGIDAS: Usam o MainLayout (NavBar + Sidebar + Conteúdo) */}
         <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>  {/* Falta o PrivateRoute */}
-          <Route path="/" element={<div className="flex bg-projeto-main min-h-screen items-center justify-center"><h1 className='text-white font-bold text-3xl'>Index (Em breve)</h1></div>} />
+          <Route path="/" element={<IndexPage/>} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/monitoramento" element={<MonitoramentoPage />} />
           <Route path="/settings" element={<div className="flex bg-projeto-main min-h-screen items-center justify-center"><h1 className='text-white font-bold text-3xl'>Configurações (Em breve)</h1></div>} />
