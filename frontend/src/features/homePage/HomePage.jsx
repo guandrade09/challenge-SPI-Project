@@ -1,12 +1,34 @@
 import { StatsCard } from "./components/StatsCard";
 import { DownloadHistory, ProjectInfo, CameraInfo } from "./components";
-import { DetectionBarChart } from '../../components/graficos';
+import { DetectionBarChart, DetectionComposedChart, DetectionLineChart, OperationalRadar } from '../../components/graficos';
+import { BasePanelModal } from "../../components/shared";
 import { Shield, Camera, TrendingUp, AlertTriangle } from "lucide-react";
-import { colunasLogs } from '../../mocks/logsPageMocks/test'
+import { colunasLogs, radarData, lineLogs, composedLogs } from '../../mocks/logsPageMocks/test'
 
 import { mockDownloads, cameras, teamMembers  } from "../../mocks/indexPageMocks/test";
 
 function HomePage() {
+
+  const chartsForCarousel = [
+    { 
+      label: "Detecções por Categoria", 
+      component: <DetectionBarChart data={colunasLogs} /> 
+    },
+    { 
+      label: "Eficiencia Operacional", 
+      // Exemplo de outro gráfico se você tiver, ou use o mesmo para teste
+      component: <OperationalRadar data={radarData} /> 
+    },
+    {
+      label: "Analise de eventos simultaneos",
+      component: <DetectionComposedChart data={composedLogs}/>
+    },
+    {
+      label: "Alertas Mensais",
+      component: <DetectionLineChart data={lineLogs} />
+    }
+  ];
+
   return (
     <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
       {/* Cabeçalho */}
@@ -29,10 +51,19 @@ function HomePage() {
          <ProjectInfo data={teamMembers} />
       </section>
 
-      {/* SEÇÃO 3: Gráfico (Linha única, agora visível) */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800">Análise de Detecções por Categoria GRAFICO DE COLUNA</h3>
-          {/* <DetectionBarChart data={colunasLogs} /> */}
+      <section className="w-full h-[500px]">
+        <BasePanelModal
+          title="Análise de Dados" // Título fallback
+          isGraf={true}
+          allowFullScreen={true}
+          availableCharts={chartsForCarousel}
+          className="h-[450px]" // Define a altura do painel
+        >
+          {/* 
+            O 'children' aqui só será usado se 'availableCharts' estiver vazio.
+            Como passamos o array, o BasePanelModal gerenciará a troca.
+          */}
+        </BasePanelModal>
       </section>
 
       {/* SEÇÃO 4: Histórico (Tabela Scrollável) */}

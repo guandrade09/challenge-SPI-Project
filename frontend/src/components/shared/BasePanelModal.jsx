@@ -53,18 +53,16 @@ export const BasePanelModal = ({
         <div className="w-full h-full bg-white rounded-inner p-4 shadow-inner min-h-0 relative group">
           {availableCharts.length > 1 && (
             <>
-              <button
-                onClick={prevChart}
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-1 bg-zinc-100/80 hover:bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-              >
-                <ChevronLeft size={20} className="text-zinc-600" />
-              </button>
-              <button
-                onClick={nextChart}
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1 bg-zinc-100/80 hover:bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-              >
-                <ChevronRight size={20} className="text-zinc-600" />
-              </button>
+              <IconButtonModal
+              onClick={prevChart}
+              icon={ChevronLeft}
+              variant='ghost'
+              className='absolute left-2 top-1/2 -translate-y-1/2 z-10'/>
+              <IconButtonModal
+              onClick={nextChart}
+              icon={ChevronRight}
+              variant='ghost'
+              className='absolute right-2 top-1/2 -translate-y-1/2 z-10'/>
               <div className="absolute bottom-2 right-4 text-[9px] font-mono text-zinc-400">
                 {currentIndex + 1} / {availableCharts.length}
               </div>

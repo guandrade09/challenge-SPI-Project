@@ -45,8 +45,10 @@ export const pizzaLogs = [
 
 export const colunasLogs = [
   { name: 'Capacete', detectado: 45, naoDetectado: 12 },
-  { name: 'Colete', detectado: 38, naoDetectado: 19 },
   { name: 'Óculos', detectado: 52, naoDetectado: 5 },
+  { name: 'Colete', detectado: 38, naoDetectado: 19 },
+  { name: 'Luvas', detectado: 15, naoDetectado: 10},
+  { name: 'Botas', detectado: 3, naoDetectado: 20}
 ];
 
 export const radarData = [

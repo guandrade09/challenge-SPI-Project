@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Badge }  from "../../../components/ui/Badge";
 import { Download, FileText, Calendar } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
+import { IconButtonModal } from '../../../components/shared'
 
 export function DownloadHistory({ data }) {
   return (
@@ -13,10 +14,6 @@ export function DownloadHistory({ data }) {
             <CardTitle>Histórico de Downloads</CardTitle>
             <CardDescription>Relatórios e logs exportados recentemente</CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Download className="h-4 w-4" />
-            Novo Relatório
-          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -50,10 +47,11 @@ export function DownloadHistory({ data }) {
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{download.size}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" className="gap-1">
-                    <Download className="h-3 w-3" />
-                    Baixar
-                  </Button>
+                  <IconButtonModal
+                  onClick={() => alert("Ainda n funciona")}
+                  icon={Download}
+                  className="bg-blue-100 hover:bg-blue-600"
+                  variant="ghost"/>
                 </TableCell>
               </TableRow>
             ))}
