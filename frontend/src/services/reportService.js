@@ -16,7 +16,6 @@ export const reportService = {
     return response.data;
   },
 
-  // AINDA NÃO UTILIZADO
   downloadPdf: async ({ label, start, end } = {}) => {
     const response = await api.get('/report/pdf/download', {
       params: { label, start, end },

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { IconButton } from './IconButtonModal';
+import { IconButtonModal } from './IconButtonModal';
 
-export const BasePanel = ({
+export const BasePanelModal = ({
   title,
   children,
   headerAction,
@@ -131,4 +131,4 @@ export const BasePanel = ({
   );
 };
 
-export default BasePanel;
+export default BasePanelModal;

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Settings2 } from 'lucide-react';
-import { IconButton } from '../../../../components/shared/IconButtonModal';
+import { IconButtonModal } from '../../../../components/shared/IconButtonModal';
 
 export const LogSettingsButton = ({ onClick }) => {
   return (
-    <IconButton 
+    <IconButtonModal 
       icon={Settings2} 
       onClick={onClick} 
       variant="ghost" 

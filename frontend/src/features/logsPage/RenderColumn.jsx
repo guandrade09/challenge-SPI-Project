@@ -1,4 +1,4 @@
-import { BasePanel } from '../../components/shared/BasePanelModal';
+import { BasePanelModal } from '../../components/shared/BasePanelModal';
 import { LogSettingsButton } from './components/painelLog';
 
 export const RenderColumn = ({ config, componentMap }) => {
@@ -19,7 +19,7 @@ export const RenderColumn = ({ config, componentMap }) => {
             key={idx}
             className={isSinglePanel ? "flex-1 min-h-0" : idx === 0 ? "h-[45%] shrink-0 min-h-0" : "flex-1 min-h-0"}
           >
-            <BasePanel
+            <BasePanelModal
               title={charts.length === 1 ? charts[0].label : ""}
               isGraf={!isLogPanel}
               allowFullScreen={!isLogPanel}

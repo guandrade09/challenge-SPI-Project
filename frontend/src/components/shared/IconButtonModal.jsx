@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const IconButton = ({
+export const IconButtonModal = ({
   icon: Icon,
   label,
   onClick,
@@ -32,4 +32,4 @@ export const IconButton = ({
   );
 };
 
-export default IconButton;
+export default IconButtonModal;

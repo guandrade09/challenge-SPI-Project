@@ -12,7 +12,7 @@ import {
   OperationalRadar,
   ConfidenceDistribution,
   ResourceMonitor,
-} from './components/graficos';
+} from '../../components/graficos';
 import { LogPanel, LogReportModal } from './components/painelLog';
 import {
   dummyLogs,

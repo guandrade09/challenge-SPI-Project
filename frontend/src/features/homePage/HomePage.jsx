@@ -1,12 +1,12 @@
 import { StatsCard } from "./components/StatsCard";
 import { DownloadHistory, ProjectInfo, CameraInfo } from "./components";
-import { DetectionBarChart } from '../logsPage/components/graficos/DetectionBarChart'
+import { DetectionBarChart } from '../../components/graficos';
 import { Shield, Camera, TrendingUp, AlertTriangle } from "lucide-react";
 import { colunasLogs } from '../../mocks/logsPageMocks/test'
 
 import { mockDownloads, cameras, teamMembers  } from "../../mocks/indexPageMocks/test";
 
-function IndexPage() {
+function HomePage() {
   return (
     <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
       {/* Cabeçalho */}
@@ -48,4 +48,4 @@ function IndexPage() {
   );
 }
 
-export default IndexPage;
+export default HomePage;
