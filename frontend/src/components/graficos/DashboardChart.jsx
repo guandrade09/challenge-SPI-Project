@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
-export const DashboardChart = ({ data = [] }) => {
+export const DashboardChart = ({ data = [], theme = "dynamic" }) => {
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
+  const getPieColor = (originalColor) => {
+    if (theme === 'dynamic') return 'var(--chart-normal-node)'; 
+    return originalColor;
+  };
+
   return (
-    <div className="flex flex-col h-full w-full p-1">
+    <div className={`panel-theme-${theme} flex flex-col h-full w-full p-1`}>
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -23,32 +28,34 @@ export const DashboardChart = ({ data = [] }) => {
               {data.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={entry.color}
-                  stroke="none"
-                  opacity={hoveredIndex === null || hoveredIndex === index ? 1 : 0.3}
+                  fill={getPieColor(entry.color)}
+                  stroke="var(--p-bg)" // Reutiliza o background do painel como borda separadora nativa!
+                  strokeWidth={2}
+                  opacity={hoveredIndex === null || hoveredIndex === index ? 1 : 0.25}
                   style={{ transition: 'all 0.3s ease' }}
                 />
               ))}
             </Pie>
-            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+            <Tooltip contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', border: 'none', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.3)' }} />
           </PieChart>
         </ResponsiveContainer>
       </div>
 
+      {/* Badges de legenda */}
       <div className="flex flex-wrap justify-center gap-2 mt-2 px-2">
         {data.map((entry, index) => (
           <div
             key={index}
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
-            className={`flex items-center gap-2 px-2 py-1 rounded-full border border-black/10 transition-all duration-300 cursor-default ${
-              hoveredIndex === index ? 'scale-110 bg-zinc-100 shadow-md border-black/30' : 'scale-100 bg-transparent'
+            className={`flex items-center gap-2 px-2.5 py-1 rounded-full border border-transparent transition-all duration-300 cursor-default ${
+              hoveredIndex === index ? 'scale-105 shadow-md panel-btn-toggle' : 'bg-transparent'
             }`}
           >
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-            <span className="text-[9px] font-bold uppercase text-zinc-500">{entry.name}</span>
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getPieColor(entry.color) }} />
+            <span className="text-[9px] font-bold uppercase panel-text-title">{entry.name}</span>
             {hoveredIndex === index && (
-              <span className="text-[9px] font-mono font-black text-zinc-800 animate-in fade-in slide-in-from-left-1 duration-300">
+              <span className="text-[9px] font-mono font-black panel-text-sub animate-in fade-in slide-in-from-left-1 duration-300">
                 {entry.value}
               </span>
             )}
@@ -56,7 +63,7 @@ export const DashboardChart = ({ data = [] }) => {
         ))}
       </div>
 
-      <div className="text-[8px] text-black font-bold text-center mt-3 uppercase tracking-widest opacity-60">
+      <div className="text-[8px] font-bold text-center mt-3 uppercase tracking-widest opacity-60 panel-text-title">
         Prevalência de Objetos Detectados
       </div>
     </div>

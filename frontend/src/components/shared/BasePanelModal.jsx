@@ -10,24 +10,17 @@ export const BasePanelModal = ({
   isGraf = false,
   allowFullScreen = false,
   availableCharts = [],
+  theme = "dynamic",
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const displayTitle = availableCharts.length > 0
-    ? availableCharts[currentIndex].label
-    : title;
+  const activeThemeClass = `panel-theme-${theme}`;
+  const displayTitle = availableCharts.length > 0 ? availableCharts[currentIndex].label : title;
 
   const toggleMaximize = useCallback(() => setIsMaximized((p) => !p), []);
-
-  const nextChart = useCallback(
-    () => setCurrentIndex((p) => (p + 1) % availableCharts.length),
-    [availableCharts.length]
-  );
-  const prevChart = useCallback(
-    () => setCurrentIndex((p) => (p - 1 + availableCharts.length) % availableCharts.length),
-    [availableCharts.length]
-  );
+  const nextChart = useCallback(() => setCurrentIndex((p) => (p + 1) % availableCharts.length), [availableCharts.length]);
+  const prevChart = useCallback(() => setCurrentIndex((p) => (p - 1 + availableCharts.length) % availableCharts.length), [availableCharts.length]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -47,33 +40,27 @@ export const BasePanelModal = ({
     };
   }, [isMaximized, availableCharts.length, nextChart, prevChart]);
 
+  // Modificado: Agora aceita uma flag para esticar o container ao máximo no Fullscreen
   const Content = ({ expanded = false }) => (
-    <div className={`flex-1 ${expanded ? 'p-10' : 'p-6'} min-h-0 flex flex-col`}>
+    <div className={`flex-1 ${expanded ? 'p-6 md:p-8' : 'p-4'} min-h-0 flex flex-col relative w-full h-full`}>
       {isGraf ? (
-        <div className="w-full h-full bg-white rounded-inner p-4 shadow-inner min-h-0 relative group">
+        <div className="panel-graf-base flex-1 w-full h-full min-h-0 relative">
           {availableCharts.length > 1 && (
             <>
-              <IconButtonModal
-              onClick={prevChart}
-              icon={ChevronLeft}
-              variant='ghost'
-              className='absolute left-2 top-1/2 -translate-y-1/2 z-10'/>
-              <IconButtonModal
-              onClick={nextChart}
-              icon={ChevronRight}
-              variant='ghost'
-              className='absolute right-2 top-1/2 -translate-y-1/2 z-10'/>
-              <div className="absolute bottom-2 right-4 text-[9px] font-mono text-zinc-400">
+              <IconButtonModal onClick={prevChart} icon={ChevronLeft} variant='ghost' className="absolute left-2 top-1/2 -translate-y-1/2 z-10 panel-btn-toggle" />
+              <IconButtonModal onClick={nextChart} icon={ChevronRight} variant='ghost' className="absolute right-2 top-1/2 -translate-y-1/2 z-10 panel-btn-toggle" />
+              <div className="absolute bottom-2 right-4 text-[10px] font-mono opacity-50 uppercase tracking-wider panel-text-title">
                 {currentIndex + 1} / {availableCharts.length}
               </div>
             </>
           )}
-          {availableCharts.length > 0
-            ? availableCharts[currentIndex].component
-            : children}
+          {/* Garante que o elemento renderizado receba espaço total */}
+          <div className="w-full h-full min-h-0 flex-1">
+            {availableCharts.length > 0 ? availableCharts[currentIndex].component : children}
+          </div>
         </div>
       ) : (
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 flex flex-col w-full h-full">
           {availableCharts.length > 0 ? availableCharts[0].component : children}
         </div>
       )}
@@ -81,18 +68,16 @@ export const BasePanelModal = ({
   );
 
   return (
-    <>
-      <div className={`w-full bg-panel-bg rounded-panel overflow-hidden shadow-2xl flex flex-col h-full ${className}`}>
-        <div className="bg-panel-header py-3 px-6 flex items-center justify-between shrink-0 relative">
-          <span className="font-label-logs">{displayTitle}</span>
+    <div className={`${activeThemeClass} h-full w-full flex flex-col`}>
+      {/* Estado Normal do Painel */}
+      <div className={`panel-base flex flex-col h-full w-full min-h-0 ${className}`}>
+        <div className="panel-header-base">
+          <span className="font-mono text-xs font-bold uppercase tracking-wider panel-text-title">{displayTitle}</span>
           <div className="absolute right-4 flex items-center gap-2">
             {headerAction && <div>{headerAction}</div>}
             {allowFullScreen && (
-              <button
-                onClick={toggleMaximize}
-                className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-zinc-500 hover:text-zinc-800"
-              >
-                <Maximize2 size={16} />
+              <button onClick={toggleMaximize} className="p-1.5 rounded-lg transition-all active:scale-95 panel-btn-toggle">
+                <Maximize2 size={15} />
               </button>
             )}
           </div>
@@ -100,32 +85,41 @@ export const BasePanelModal = ({
         <Content />
       </div>
 
+      {/* Modal Fullscreen Corrigido */}
       {allowFullScreen && isMaximized && (
-        <div
-          className="fixed inset-0 z-[9999] bg-neutral-950/90 backdrop-blur-sm p-8 flex items-center justify-center animate-in fade-in duration-200"
+        <div 
+          className="fixed inset-0 z-[9999] backdrop-blur-sm p-4 md:p-8 flex items-center justify-center animate-[fadeIn_0.2s_ease-out]" 
+          style={{ backgroundColor: 'var(--p-overlay)' }} 
           onClick={toggleMaximize}
         >
-          <div
-            className="w-full h-full max-w-[1600px] bg-panel-bg rounded-panel shadow-2xl flex flex-col animate-in zoom-in duration-300"
+          {/* Mudança: O container interno agora força flex-col e h-full para não achatar o Recharts */}
+          <div 
+            className="w-full h-full max-w-[1600px] panel-base flex flex-col min-h-0 overflow-hidden animate-[zoomIn_0.25s_ease-out]" 
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-panel-header py-4 px-8 flex items-center justify-between shrink-0">
-              <span className="text-zinc-800 font-bold text-sm uppercase tracking-widest flex-1 text-center">
-                {displayTitle} - Ampliado
-              </span>
-              <button
-                onClick={toggleMaximize}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-white rounded-lg"
+            <div className="panel-header-base py-4 px-6 md:px-8 shrink-0">
+              <div className="flex flex-col">
+                <span className="font-mono text-sm font-bold uppercase tracking-widest panel-text-title">{displayTitle}</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider mt-0.5 panel-text-sub">
+                  {theme === 'dynamic' ? 'Modo de Performance Industrial' : 'Painel de Monitoramento Ampliado'}
+                </span>
+              </div>
+              <button 
+                onClick={toggleMaximize} 
+                className="flex items-center gap-2 px-4 py-2 border rounded-xl transition-all shadow-sm active:scale-95 group panel-btn-toggle"
+                style={{ borderColor: 'var(--p-border)', backgroundColor: 'var(--p-header-bg)' }}
               >
-                <Minimize2 size={18} />
-                <span className="text-xs font-bold uppercase">Sair</span>
+                <Minimize2 size={16} className="opacity-70 group-hover:opacity-100 transition-opacity" />
+                <span className="text-xs font-mono font-bold uppercase tracking-wide">Sair</span>
               </button>
             </div>
+            
+            {/* Correção da Borda e Espaço: Eliminada a div transparente redundante e forçado flex-1 min-h-0 */}
             <Content expanded />
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
