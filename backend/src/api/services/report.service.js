@@ -39,11 +39,9 @@ async function GetDataForReport(label, timestamp_start, timestamp_end) {
     if (label != null) {
         return await getDetectionsByLabel(label);
     }
-
     if (timestamp_start != null && timestamp_end != null) {
         return await getDetectionsByDay(timestamp_start, timestamp_end);
     }
-
     return await getAllDetections();
 }
 
