@@ -1,16 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/Card";
 
-// interface StatsCardProps {
-//   title: string;
-//   value: string | number;
-//   icon: LucideIcon;
-//   description?: string;
-//   trend?: {
-//     value: number;
-//     isPositive: boolean;
-//   };
-// }
-
 export function StatsCard({ title, value, description, trend }) {
   return (
     <Card>
@@ -18,7 +7,7 @@ export function StatsCard({ title, value, description, trend }) {
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold uppercase animate-pulse">{value}</div>
         {description && (
           <p className="text-xs text-muted-foreground mt-1">{description}</p>
         )}
