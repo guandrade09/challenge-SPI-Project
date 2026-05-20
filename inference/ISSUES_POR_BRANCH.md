@@ -12,6 +12,8 @@ Esses três branches têm **exatamente o mesmo `main.py` e `detector.py`**, ent�
 
 ### BUG #1 — Inferência Dupla por Frame (Impacto: CRÍTICO)
 
+**Branches afetadas:** `ml/epi` · `ml/riscoergonomico` · `ml/zonadeperigo`
+
 **Onde:** `ml_service/main.py` + `ml_service/inference/detector.py`
 
 **O problema:**
@@ -61,6 +63,8 @@ def parse(self, results) -> list[Detection]:
 
 ### BUG #2 — `winsound.Beep` Bloqueia o Loop Principal (Impacto: ALTO)
 
+**Branches afetadas:** `ml/epi` · `ml/riscoergonomico` · `ml/zonadeperigo`
+
 **Onde:** `ml_service/main.py`
 
 **O problema:**
@@ -93,6 +97,8 @@ threading.Thread(target=_beep, daemon=True).start()
 ---
 
 ### BUG #3 — Thread por Incidente para POST HTTP (Impacto: MÉDIO)
+
+**Branches afetadas:** `ml/epi` · `ml/riscoergonomico` · `ml/zonadeperigo`
 
 **Onde:** `ml_service/main.py`
 
@@ -129,6 +135,8 @@ _post_queue.put(payload)  # não cria thread nova
 ---
 
 ### BUG #4 — Captura e Inferência no Mesmo Thread (Impacto: MÉDIO)
+
+**Branches afetadas:** `ml/epi` · `ml/riscoergonomico` · `ml/zonadeperigo`
 
 **Onde:** `ml_service/main.py` — loop principal
 
@@ -172,6 +180,8 @@ while True:
 ---
 
 ### PROBLEMA #5 — Labels Inconsistentes Entre Branches (Impacto: ALTO para integração)
+
+**Branches afetadas:** `ml/camera` · `ml/epi` (labels em português) vs `ml/zonadeperigo` (labels em inglês)
 
 **Onde:** `core/entities.py`
 
