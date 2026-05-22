@@ -1,48 +1,85 @@
 import React from 'react';
-import { cn } from '../../../utils/cn';
-import { PANEL_STATUS } from '../../../enums/enums'; // Importando o "Enum"
+import { PANEL_STATUS } from '../../../enums/enums';
+
+const STATUS_CONFIG = {
+  [PANEL_STATUS.PRONTO]: {
+    dotColor:  '#3cc87a',
+    dotGlow:   'rgba(60,200,122,0.2)',
+    textColor: '#3cc87a',
+    label:     'PRONTO',
+    pulse:     true,
+  },
+  [PANEL_STATUS.ATENCAO]: {
+    dotColor:  '#d4a017',
+    dotGlow:   'rgba(212,160,23,0.2)',
+    textColor: '#d4a017',
+    label:     'ATENÇÃO',
+    pulse:     true,
+  },
+  [PANEL_STATUS.ALERTA]: {
+    dotColor:  '#e05252',
+    dotGlow:   'none',
+    textColor: '#e05252',
+    label:     'ALERTA',
+    pulse:     false,
+  },
+};
 
 export const AlertPanel = ({ message, status }) => {
-  
-  const statusStyles = {
-    [PANEL_STATUS.PRONTO]: "bg-green-600 animate-pulse",
-    [PANEL_STATUS.ATENCAO]: "bg-yellow-600 animate-pulse",
-    [PANEL_STATUS.ALERTA]: "bg-red-600 animate-pulse",
-  };
-
-  const currentHeaderClass = statusStyles[status] || "bg-gray-600"; 
-  
-  // Define o texto do título baseado no status (opcional, para deixar dinâmico)
-  const getHeaderText = () => {
-    switch (status) {
-      case PANEL_STATUS.PRONTO: return "PRONTO";
-      case PANEL_STATUS.ATENCAO: return "ATENÇÃO";
-      case PANEL_STATUS.ALERTA: return "ALERTA";
-      default: return "PAINEL";
-    }
-  }
+  const c = STATUS_CONFIG[status] ?? STATUS_CONFIG[PANEL_STATUS.PRONTO];
 
   return (
-    <div className="rounded-[40px] overflow-hidden shadow-2xl w-full max-w-[420px] ">
-      {/* Cabeçalho */}
-      <div className={cn(
-        "py-6 text-center transition-colors duration-500",
-        currentHeaderClass
-      )}>
-        <h2 className="text-4xl font-normal tracking-[0.1em] text-white uppercase">
-          {getHeaderText()}
-        </h2>
-      </div>
-      
-      {/* Corpo */}
-      <div className="bg-[#D9D9D9] p-8 pt-4 min-h-[180px]">
-        <span className="text-zinc-800 font-bold text-[13px] uppercase tracking-tighter block border-b border-zinc-400 pb-1 mb-4">
-          DESCRIÇÃO:
+    <div style={{
+      borderRadius: 8,
+      border: '1px solid #1e2025',
+      overflow: 'hidden',
+      width: '100%',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 14px',
+        background: '#141518',
+        borderBottom: '1px solid #1e2025',
+      }}>
+        <span style={{
+          width: 7, height: 7, borderRadius: '50%', flexShrink: 0, display: 'inline-block',
+          background: c.dotColor,
+          boxShadow: c.dotGlow !== 'none' ? `0 0 0 3px ${c.dotGlow}` : 'none',
+          animation: c.pulse ? 'alertPulse 2s infinite' : 'none',
+        }} />
+        <span style={{
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: 10,
+          fontWeight: 500,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: c.textColor,
+        }}>
+          {c.label}
         </span>
-        <p className="text-zinc-700 text-lg font-medium leading-tight italic">
-          {message || "Nenhuma mensagem fornecida."}
+      </div>
+
+      {/* Body */}
+      <div style={{ background: '#0d0e10', padding: '12px 14px' }}>
+        <p style={{
+          fontFamily: "'Barlow', sans-serif",
+          fontSize: 12,
+          color: '#6a6e7a',
+          lineHeight: 1.65,
+          letterSpacing: '0.01em',
+          margin: 0,
+        }}>
+          {message || 'Nenhuma mensagem.'}
         </p>
       </div>
+
+      <style>{`
+        @keyframes alertPulse {
+          0%,100% { box-shadow: 0 0 0 2px ${c.dotGlow}; }
+          50%      { box-shadow: 0 0 0 5px transparent; }
+        }
+      `}</style>
     </div>
   );
 };
