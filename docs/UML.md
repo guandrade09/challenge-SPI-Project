@@ -1,3 +1,5 @@
+[Voltar ao README](/README.md)
+
 # 🎭 Diagrama de Casos de Uso — SafeVision
 
 > Os atores e casos de uso foram definidos a partir dos requisitos funcionais e das personas levantadas no [documento de requisitos](../REQUISITOS.md).
