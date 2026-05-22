@@ -1,3 +1,5 @@
+[Voltar ao README](/README.md)
+
 # 🧩 Diagrama de Classes — SafeVision
 
 > As classes modeladas suportam diretamente os casos de uso e o fluxo de atividades descritos nos diagramas anteriores.
