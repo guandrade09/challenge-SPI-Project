@@ -18,8 +18,6 @@
 
 ## Tabela de Requisitos
 
-*[Table view](https://miro.com/app/board/uXjVGm_vhh8=/?moveToWidget=3458764666679638296&cot=14)*
-
 | ID | Tipo | Requisito | Descrição | Prioridade | Status |
 | --- | --- | --- | --- | --- | --- |
 | RF\-01 | Funcional | Modelo ML de Detecção de EPI | Implementar modelo de Machine Learning para classificação binária utilizando a biblioteca OpenCV e o modelo YOLOv11| Alta | Done |
