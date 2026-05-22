@@ -1,3 +1,5 @@
+[Voltar ao README](/README.md)
+
 # 🔄 Diagrama de Atividades
 
 > Funcionalidade modelada: **Sistema de Captura ➡ Machine Learning ➡ Interface Visual ➡ Sistema de Logs** 
