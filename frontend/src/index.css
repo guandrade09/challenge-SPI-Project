@@ -76,8 +76,11 @@
   h1, h2 {
     font-family: var(--heading);
     font-weight: 500;
-    @apply text-[var(--text-h)];
   }
+  
+  /* Mantém o comportamento nativo padrão e deixa classes utilitárias controlarem exceções */
+  h1 { color: var(--text-h); }
+  h2 { color: var(--text-h); }
 }
 
 h1 {
@@ -100,9 +103,7 @@ h2 {
   }
 }
 
-p {
-  margin: 0;
-}
+p { margin: 0; }
 
 code, .counter {
   font-family: var(--mono);
@@ -120,21 +121,21 @@ code {
 
 @layer utilities {
     /* ========================================================
-      THEMES MAP (LIGHT / DARK / DYNAMIC) - REVISADO E AJUSTADO
-      ======================================================== */
+       THEMES MAP (LIGHT / DARK / DYNAMIC) - ISOLADO PARA OS PAINÉIS
+       ======================================================== */
 
     .panel-theme-light {
       --p-bg: #ffffff;
       --p-border: #e5e5e5;
       --p-header-bg: #f9fafb;
-      --p-text-title: #ffffff;
-      --p-text: #18181b;         /* Corrigido para dar leitura perfeita */
+      --p-text-title: #18181b;       /* Escuro para leitura sobre o painel claro */
+      --p-text: #18181b;             
       --p-subtext: #059669;
       --p-graf-bg: #f9fafb;
       --p-toggle-hover: #e4e4e7;
       --p-toggle-text: #71717a;
-      --p-button-bg: #f4f4f5;     /* Fundo dinâmico para botões cheios */
-      --p-button-text: #18181b;   /* Texto escuro no Light */
+      --p-button-bg: #f4f4f5;       
+      --p-button-text: #18181b;     
       --p-toggle-accent: #059669;
       --p-overlay: rgba(10, 10, 10, 0.4);
 
@@ -153,17 +154,17 @@ code {
     }
 
     .panel-theme-dark {
-      --p-bg: rgba(23, 23, 23, 0.95); /* Levemente mais opaco para não vazar o fundo */
+      --p-bg: #18181b;              
       --p-border: rgba(63, 63, 70, 0.6);
       --p-header-bg: rgba(10, 10, 10, 0.6);
-      --p-text-title: #d4d4d8;
+      --p-text-title: #f4f4f5;       
       --p-text: #d4d4d8;
       --p-subtext: #10b981;
       --p-graf-bg: rgba(10, 10, 10, 0.5);
       --p-toggle-hover: rgba(63, 63, 70, 0.6);
       --p-toggle-text: #a1a1aa;
-      --p-button-bg: #27272a;     /* Botão escuro integrado no Dark */
-      --p-button-text: #ffffff;   /* Texto branco para contraste no Dark */
+      --p-button-bg: #27272a;       
+      --p-button-text: #ffffff;     
       --p-toggle-accent: #34d399;
       --p-overlay: rgba(10, 10, 10, 0.85);
 
@@ -191,8 +192,8 @@ code {
       --p-graf-bg: #09090b;
       --p-toggle-hover: #27272a;
       --p-toggle-text: #a1a1aa;
-      --p-button-bg: #565656;     /* Botão industrial de destaque (Imagem 1 e 4) */
-      --p-button-text: #000000;   /* Texto preto para estourar o contraste no fundo claro */
+      --p-button-bg: #565656;       
+      --p-button-text: #000000;     
       --p-toggle-accent: #ffffff;
       --p-overlay: rgba(0, 0, 0, 0.95);
 
@@ -210,268 +211,230 @@ code {
       --chart-core-ml: #a1a1aa;
     }
 
-      /* --- CLASSES ESTRUTURAIS LENDO AS VARIÁVEIS --- */
-      .panel-base {
-        background-color: var(--p-bg);
-        border-color: var(--p-border);
-        border-width: 1px;
-        border-style: solid;
-        border-radius: var(--radius-panel);
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        width: 100%;
-        overflow: hidden;
-        transition: background-color 0.2s, border-color 0.2s;
-      }
+    /* ========================================================
+       CLASSES ESTRUTURAIS DINÂMICAS DO MONITORAMENTO
+       ======================================================== */
+    .panel-base {
+      background-color: var(--p-bg);
+      border-color: var(--p-border);
+      border-width: 1px;
+      border-style: solid;
+      border-radius: var(--radius-panel, 16px);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
 
-      .panel-header-base {
-        background-color: var(--p-header-bg);
-        border-bottom: 1px solid var(--p-border);
-        padding: 0.75rem 1.25rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-shrink: 0;
-        position: relative;
-      }
+    .panel-header-base {
+      background-color: var(--p-header-bg);
+      border-bottom: 1px solid var(--p-border);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      position: relative;
+    }
 
-      .panel-graf-base {
-        width: 100%;
-        height: 100%;
-        border-radius: var(--radius-grafico);
-        padding: 1rem;
-        position: relative;
-        min-height: 0;
-        background-color: var(--p-graf-bg);
-        border: 1px solid var(--p-border);
-        backdrop-filter: blur(8px);
-        transition: background-color 0.2s, border-color 0.2s;
-      }
+    .panel-graf-base {
+      width: 100%;
+      height: 100%;
+      border-radius: var(--radius-grafico);
+      padding: 1rem;
+      position: relative;
+      min-height: 0;
+      background-color: var(--p-graf-bg);
+      border: 1px solid var(--p-border);
+      backdrop-filter: blur(8px);
+      transition: background-color 0.2s, border-color 0.2s;
+    }
 
-      /* ========================================================
-        CLASSES DOS BOTÕES AJUSTADAS PARA ENGENHARIA DE TEMAS
-        ======================================================== */
-      .icon-btn-full {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        padding: 0.75rem 1rem;
-        /* Lê dinamicamente a cor de fundo do botão definida no tema */
-        background-color: var(--p-button-bg);
-        /* Força a cor do texto/ícone a seguir a variável de contraste */
-        color: var(--p-button-text) !important;
-        border: 1px solid var(--p-border);
-        border-radius: 12px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: all 0.2s ease-in-out;
-      }
+    /* ========================================================
+       BOTÕES ADAPTATIVOS 
+       ======================================================== */
+    .icon-btn-full {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background-color: var(--p-button-bg);
+      color: var(--p-button-text) !important;
+      border: 1px solid var(--p-border);
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease-in-out;
+    }
 
-      .icon-btn-full:hover {
-        transform: scale(1.01);
-        background-color: var(--p-toggle-hover);
-        color: var(--p-toggle-accent) !important;
-      }
+    .icon-btn-full:hover {
+      transform: scale(1.01);
+      background-color: var(--p-toggle-hover);
+      color: var(--p-toggle-accent) !important;
+    }
 
-      /* Ajuste fino para botões de controle internos (Setas de Gráficos e Close de Modais) */
-      .icon-btn-ghost, 
-      .chart-control-btn, 
-      .modal-close-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.5rem;
-        /* Em vez de fundo branco, usa o background do cabeçalho do tema correspondente */
-        background-color: var(--p-header-bg, transparent);
-        /* O ícone herda a cor principal de texto do tema automaticamente */
-        color: var(--p-text) !important;
-        border: 1px solid var(--p-border);
-        cursor: pointer;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-      }
+    .icon-btn-ghost, .chart-control-btn, .modal-close-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem;
+      background-color: var(--p-header-bg, transparent);
+      color: var(--p-text) !important;
+      border: 1px solid var(--p-border);
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
 
-      .icon-btn-ghost:hover, 
-      .chart-control-btn:hover, 
-      .modal-close-btn:hover {
-        background-color: var(--p-toggle-hover);
-        color: var(--p-toggle-accent) !important;
-      }
+    .icon-btn-ghost:hover, .chart-control-btn:hover, .modal-close-btn:hover {
+      background-color: var(--p-toggle-hover);
+      color: var(--p-toggle-accent) !important;
+    }
 
-      /* Chaveador de classe estrutural */
-      .panel-btn-toggle {
-        color: var(--p-button-text) !important;
-        background-color: var(--p-button-bg);
-        transition: all 0.2s;
-      }
-      .panel-btn-toggle:hover {
-        background-color: var(--p-toggle-hover);
-        color: var(--p-toggle-accent) !important;
-      }
-      /* Classes auxiliares para os elementos internos do JSX ficarem limpos */
-            .panel-text-title { color: var(--p-text); }
-            .panel-text-sub { color: var(--p-subtext); }
-      
-      /* ========================================================
-         DETECTION CARDS (EFEITO BOTÃO PRESSIONADO DE AUTOMAÇÃO)
-         ======================================================== */
-      .detection-card {
-        cursor: pointer;
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        border-radius: 8px;
-        border: 1px solid transparent;
-        background-color: transparent;
-        user-select: none;
-        transition: all 0.2s ease-out;
-      }
+    .panel-btn-toggle {
+      color: var(--p-button-text) !important;
+      background-color: var(--p-button-bg);
+      transition: all 0.2s;
+    }
+    .panel-btn-toggle:hover {
+      background-color: var(--p-toggle-hover);
+      color: var(--p-toggle-accent) !important;
+    }
 
-      /* Estado Ativo / Pressionado (Toda a label esverdeada translúcida) */
-      .detection-card--checked {
-        background-color: rgba(60, 200, 122, 0.08); /* Fundo esverdeado suave */
-        border-color: rgba(60, 200, 122, 0.25);    /* Borda sutil verde */
-      }
-      
-      /* Efeito de hover discreto para dar o feedback tátil antes de clicar */
-      .detection-card--unchecked:hover {
-        background-color: rgba(255, 255, 255, 0.02);
-      }
+    /* ========================================================
+       MAPEAMENTO SEMÂNTICO DO PAINEL
+       ======================================================== */
+    .text-theme-title { color: var(--p-text-title); font-weight: 600; }
+    .text-theme-main { color: var(--p-text); }
+    .text-theme-muted { color: var(--p-text); opacity: 0.6; }
+    .text-theme-accent { color: var(--p-subtext); }
+    .border-theme-divider { border-color: var(--p-border); }
+    
+    .panel-subcard {
+      background-color: var(--p-header-bg);
+      border: 1px solid var(--p-border);
+      border-radius: 12px;
+      padding: 1rem;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
 
-      /* ========================================================
-     NOVAS IDENTIDADES DE CARDS E COMPONENTES TEMA-AWARE
-     ======================================================== */
-  
-      /* Card Interno / Sub-containers (usados dentro de painéis maiores) */
-      .panel-subcard {
-        background-color: var(--p-header-bg);
-        border: 1px solid var(--p-border);
-        border-radius: 12px;
-        padding: 1rem;
-        transition: background-color 0.2s, border-color 0.2s;
-      }
+    .badge-theme-industrial {
+      background-color: var(--p-header-bg);
+      border: 1px solid var(--p-border);
+      color: var(--p-text);
+    }
 
-      /* Textos padronizados com base no tema */
-      .text-theme-main {
-        color: var(--p-text);
-      }
+    .row-theme-hover:hover {
+      background-color: var(--p-header-bg);
+      opacity: 0.9;
+    }
 
-      .text-theme-muted {
-        color: var(--p-text);
-        opacity: 0.6;
-      }
+    /* ========================================================
+       DETECTION CARDS
+       ======================================================== */
+    .detection-card {
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background-color: transparent;
+      user-select: none;
+      transition: all 0.2s ease-out;
+    }
 
-      .text-theme-accent {
-        color: var(--p-subtext);
-      }
+    .detection-card--checked {
+      background-color: rgba(60, 200, 122, 0.08); 
+      border-color: rgba(60, 200, 122, 0.25);  
+    }
+    
+    .detection-card--unchecked:hover {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
 
-      /* Divisores de layout internos que respeitam a borda do tema */
-      .border-theme-divider {
-        border-color: var(--p-border);
-      }
+    /* ========================================================
+       MÉTRICAS & PROGRESS TRACK
+       ======================================================== */
+    .camera-card-container {
+      background-color: var(--p-header-bg);
+      border: 1px solid var(--p-border);
+      border-radius: 12px;
+      padding: 1rem;
+      transition: all 0.2s ease-in-out;
+    }
 
-      /* Badges adaptativos industriais */
-      .badge-theme-industrial {
-        background-color: var(--p-header-bg);
-        border: 1px solid var(--p-border);
-        color: var(--p-text);
-      }
+    .metric-block-divider {
+      border-top: 1px solid var(--p-border);
+      border-bottom: 1px solid var(--p-border);
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
 
-      /* Hover de linhas de tabela e listas baseado no background do cabeçalho */
-      .row-theme-hover:hover {
-        background-color: var(--p-header-bg);
-        opacity: 0.9;
-      }
-  /* ... seus mapas de temas (.panel-theme-light, etc.) continuam idênticos ... */
+    .progress-track-theme {
+      background-color: var(--p-bg) !important;
+      border: 1px solid var(--p-border);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
 
-  /* ========================================================
-     NOVAS IDENTIDADES DE DADOS (PROGRESS & SUB-ELEMENTS)
-     ======================================================== */
-  
-      /* Container interno de cada câmera */
-      .camera-card-container {
-        background-color: var(--p-header-bg);
-        border: 1px solid var(--p-border);
-        border-radius: 12px;
-        padding: 1rem;
-        transition: all 0.2s ease-in-out;
-      }
+    .progress-fill-theme {
+      background-color: var(--p-toggle-accent, var(--p-subtext)) !important;
+      transition: all 0.3s ease;
+    }
 
-      /* Bloco numérico de métricas (FPS, Resolução, Detecções) */
-      .metric-block-divider {
-        border-top: 1px solid var(--p-border);
-        border-bottom: 1px solid var(--p-border);
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-      }
+    .table-row-theme {
+      border-bottom: 1px solid var(--p-border);
+      transition: background-color 0.2s ease;
+    }
+    .table-row-theme:hover {
+      background-color: var(--p-header-bg);
+    }
 
-      /* O SEGREDO DO BUG: Trilho da Barra de Progresso (Uptime) */
-      .progress-track-theme {
-        background-color: var(--p-bg) !important;
-        border: 1px solid var(--p-border);
-        border-radius: 9999px;
-        overflow: hidden;
-      }
+    .avatar-theme-base {
+      background-color: var(--p-header-bg);
+      border: 1px solid var(--p-border);
+    }
 
-      /* O indicador preenchido da Barra de Progresso */
-      .progress-fill-theme {
-        /* No Dynamic: assume a cor de destaque do tema (Branco/Cinza Industrial) 
-          Nos outros: assume o subtext (Verde) */
-        background-color: var(--p-toggle-accent, var(--p-subtext)) !important;
-        transition: all 0.3s ease;
-      }
-
-      /* Titulo caso necessario */
-
-      .text-theme-title {
-        color: var(--p-text-title);
-        font-weight: 600;
-      }
-
-      /* Textos padronizados */
-      .text-main-theme { color: var(--p-text); }
-      .text-muted-theme { color: var(--p-text); opacity: 0.55; }
-
-    /* Linhas de tabela que herdam a borda do tema de forma sutil */
-      .table-row-theme {
-        border-bottom: 1px solid var(--p-border);
-        transition: background-color 0.2s ease;
-      }
-      .table-row-theme:hover {
-        background-color: var(--p-header-bg);
-      }
-
-      /* Avatares industriais integrados */
-      .avatar-theme-base {
-        background-color: var(--p-header-bg);
-        border: 1px solid var(--p-border);
-      }
-
-  /* Seu Layout Utilitário Legado Mantido Abaixo... */
-  .page-container { @apply w-full min-h-screen p-8 bg-gradient-to-tr from-neutral-500 to-neutral-950; }
-  .page-content { @apply mx-auto; }
-  .page-grid-sidebar { @apply grid gap-6 items-start; grid-template-columns: 1fr 300px; }
-  .sidebar-stack { @apply flex flex-col gap-5; }
-  .page-title { @apply text-xl font-bold tracking-wide uppercase; color: #e2e4e8; font-family: 'Barlow Condensed', sans-serif; letter-spacing: .06em; }
-  .page-subtitle { @apply text-xs mt-1; color: #45484f; }
-  .page-divider { @apply h-px; background: #1e2025; }
-  .font-label-auth { @apply text-3xl font-bold text-white mb-2; }
-  .font-label-logs { @apply text-black font-bold text-xs uppercase tracking-widest flex-1 text-center; }
-  .auth-card-dark { @apply bg-neutral-900/80 backdrop-blur-md border border-neutral-700 p-8 rounded-2xl shadow-2xl; }
-  .bg-projeto-main { @apply w-full min-h-screen bg-gradient-to-tr from-neutral-500 to-neutral-950; }
-  .auth-card { @apply bg-white rounded-2xl shadow-xl border border-neutral-800/10; }
-  .form-input-icon { @apply w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500; }
-  .btn-primary { @apply w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20; }
-  .link-emerald { @apply text-emerald-500 font-medium hover:text-emerald-400 transition-colors; }
-  
-  /* Custom Scrollbar */
-  .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-  .custom-scrollbar::-webkit-scrollbar-thumb { background: #333338; border-radius: 20px; border: 2px solid transparent; background-clip: content-box; }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #b59481; }
-  .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }
+    /* ========================================================
+       LAYOUT UTILITÁRIO LEGADO (RESTAURADO E SEGURO)
+       ======================================================== */
+    .page-container { @apply w-full min-h-screen p-8 bg-gradient-to-tr from-neutral-500 to-neutral-950; }
+    .page-content { @apply mx-auto; }
+    .page-grid-sidebar { @apply grid gap-6 items-start; grid-template-columns: 1fr 300px; }
+    .sidebar-stack { @apply flex flex-col gap-5; }
+    
+    /* Força o título das páginas legadas a manterem a cor correta */
+    .page-title { 
+      @apply text-xl font-bold tracking-wide uppercase; 
+      color: #e2e4e8 !important; 
+      font-family: 'Barlow Condensed', sans-serif; 
+      letter-spacing: .06em; 
+    }
+    
+    .page-subtitle { @apply text-xs mt-1; color: #45484f; }
+    .page-divider { @apply h-px; background: #1e2025; }
+    .font-label-auth { @apply text-3xl font-bold text-white mb-2; }
+    .font-label-logs { @apply text-black font-bold text-xs uppercase tracking-widest flex-1 text-center; }
+    .auth-card-dark { @apply bg-neutral-900/80 backdrop-blur-md border border-neutral-700 p-8 rounded-2xl shadow-2xl; }
+    
+    /* RESTAURADO: Mantém o gradiente escuro industrial padrão do app */
+    .bg-projeto-main { @apply w-full min-h-screen bg-gradient-to-tr from-neutral-500 to-neutral-950; }
+    
+    .auth-card { @apply bg-white rounded-2xl shadow-xl border border-neutral-800/10; }
+    .form-input-icon { @apply w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500; }
+    .btn-primary { @apply w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20; }
+    .link-emerald { @apply text-emerald-500 font-medium hover:text-emerald-400 transition-colors; }
+    
+    /* Custom Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #333338; border-radius: 20px; border: 2px solid transparent; background-clip: content-box; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #b59481; }
+    .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }
 }

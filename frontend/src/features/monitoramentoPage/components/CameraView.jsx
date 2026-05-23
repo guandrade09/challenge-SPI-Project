@@ -1,15 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Maximize2 } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
+import { useUiStore } from '../../../store/useUiStore'; 
+import { ExpandButton } from '../../../components/shared/ExpandButton'; // Importado aqui
 
 const WS_URL = 'ws://localhost:8765';
 
-// Cantoneiras usando classes nativas do Tailwind para evitar estilos Inline
 const CORNER_CLASSES = [
-  'top-4 left-4 border-t-2 border-l-2 border-neutral-800',
-  'top-4 right-4 border-t-2 border-r-2 border-neutral-800',
-  'bottom-4 left-4 border-b-2 border-l-2 border-neutral-800',
-  'bottom-4 right-4 border-b-2 border-r-2 border-neutral-800',
+  'top-4 left-4 border-t-2 border-l-2',
+  'top-4 right-4 border-t-2 border-r-2',
+  'bottom-4 left-4 border-b-2 border-l-2',
+  'bottom-4 right-4 border-b-2 border-r-2',
 ];
 
 export function CameraView() {
@@ -17,13 +17,18 @@ export function CameraView() {
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
 
+  const currentTheme = useUiStore((s) => s.theme);
+  const isDark = currentTheme === 'dark';
+
   const [connected, setConnected] = useState(false);
   const [uptime, setUptime] = useState(0);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  const toggleMaximize = useCallback(() => setIsMaximized((p) => !p), []);
 
   const addAlerta = useMonitoramentoStore((s) => s.addAlerta);
   const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
 
-  // 1. Gerenciamento do WebSocket
   useEffect(() => {
     function connect() {
       if (wsRef.current) {
@@ -47,7 +52,7 @@ export function CameraView() {
             setLiveDetections(msg.data);
           }
         } catch {
-          // Captura erros de parsing de JSON inválido silenciosamente
+          // Fail-silent
         }
       };
 
@@ -69,13 +74,11 @@ export function CameraView() {
     };
   }, [addAlerta, setLiveDetections]);
 
-  // 2. Contador de Uptime Refatorado (Garante precisão sem mutar Refs manualmente)
   useEffect(() => {
     if (!connected) {
       setUptime(0);
       return;
     }
-
     const id = setInterval(() => {
       setUptime((prev) => prev + 1);
     }, 1000);
@@ -91,16 +94,25 @@ export function CameraView() {
   };
 
   return (
-    <div className="camera-container rounded-2xl border border-neutral-800 bg-neutral-900 overflow-hidden shadow-2xl">
-      {/* Header */}
-      <div className="camera-header flex items-center justify-between p-4 bg-neutral-950/40 border-b border-neutral-800/60">
+    <div className={`min-h-0 flex flex-col w-full transition-colors duration-300 ${
+      isDark ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-900'
+    }`}>
+      
+      {/* Header Dinâmico */}
+      <div className={`flex items-center justify-between p-4 border-b transition-colors duration-300 ${
+        isDark 
+          ? 'border-neutral-800 bg-neutral-900/50' 
+          : 'border-neutral-200 bg-neutral-50'
+      }`}>
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
             {['bg-red-500/80', 'bg-amber-500/80', 'bg-emerald-500/80'].map((bgClass, i) => (
               <div key={i} className={`w-2.5 h-2.5 rounded-full ${bgClass}`} />
             ))}
           </div>
-          <span className="font-mono text-[11px] font-bold text-neutral-400 uppercase tracking-wider ml-1">
+          <span className={`font-mono text-[11px] font-bold uppercase tracking-wider ml-1 ${
+            isDark ? 'text-neutral-400' : 'text-neutral-500'
+          }`}>
             câmera ao vivo
           </span>
         </div>
@@ -109,38 +121,40 @@ export function CameraView() {
           <span 
             className={`w-2 h-2 rounded-full transition-all duration-300 ${
               connected 
-                ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] animate-pulse' 
-                : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)]'
+                ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse' 
+                : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
             }`} 
           />
-          <span className={connected ? 'text-emerald-400' : 'text-amber-500'}>
+          <span className={connected ? 'text-emerald-500 font-bold' : 'text-amber-500 font-bold'}>
             {connected ? 'conectado' : 'aguardando'}
           </span>
         </div>
       </div>
 
-      {/* Feed da Câmera */}
-      <div className="relative flex items-center justify-center h-[520px] bg-neutral-950 overflow-hidden">
-        {/* Cantoneiras de Foco */}
+      {/* Visor Central do Streaming */}
+      <div className="relative flex items-center justify-center h-[520px] overflow-hidden bg-neutral-950">
         {CORNER_CLASSES.map((classes, i) => (
-          <div key={i} className={`absolute w-5 h-5 z-10 pointer-events-none ${classes}`} />
+          <div 
+            key={i} 
+            className={`absolute w-5 h-5 z-10 pointer-events-none transition-colors duration-300 ${
+              connected ? 'border-emerald-500/50' : 'border-neutral-700'
+            } ${classes}`} 
+          />
         ))}
 
-        {/* Linha de Scanner Animada */}
         {connected && (
-          <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent z-20 pointer-events-none animate-[scanline_4s_linear_infinite]" />
+          <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent z-20 pointer-events-none animate-[scanline_4s_linear_infinite]" />
         )}
 
-        {/* Fundo de Linhas de Grade/Xadrez (Modo Offline) */}
         {!connected && (
           <div 
-            className="absolute inset-0 opacity-40 mix-blend-overlay pointer-events-none"
+            className="absolute inset-0 opacity-5 mix-blend-overlay pointer-events-none"
             style={{
               backgroundImage: `
-                linear-gradient(45deg, #16161a 25%, transparent 25%), 
-                linear-gradient(-45deg, #16161a 25%, transparent 25%), 
-                linear-gradient(45deg, transparent 75%, #16161a 75%), 
-                linear-gradient(-45deg, transparent 75%, #16161a 75%)
+                linear-gradient(45deg, #fff 25%, transparent 25%), 
+                linear-gradient(-45deg, #fff 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #fff 75%), 
+                linear-gradient(-45deg, transparent 75%, #fff 75%)
               `,
               backgroundSize: '20px 20px',
               backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0'
@@ -148,7 +162,6 @@ export function CameraView() {
           />
         )}
 
-        {/* Imagem do Streaming */}
         <img
           ref={imgRef}
           alt="Grower IA Stream"
@@ -157,34 +170,39 @@ export function CameraView() {
           }`}
         />
 
-        {/* Placeholder Sem Sinal */}
         {!connected && (
-          <div className="relative z-10 text-center select-none bg-neutral-900/60 p-6 rounded-xl border border-neutral-800/40 backdrop-blur-sm">
-            <p className="font-mono text-xs font-bold tracking-widest text-neutral-500 animate-pulse">
+          <div className="relative z-10 text-center select-none p-6 rounded-xl bg-neutral-900/90 border border-neutral-800 shadow-xl backdrop-blur-sm">
+            <p className="font-mono text-xs font-bold tracking-widest text-neutral-100 animate-pulse">
               SEM SINAL TRANSMISSÃO
             </p>
-            <p className="font-mono text-[11px] text-neutral-600 mt-2 truncate max-w-xs px-2">
+            <p className="font-mono text-[10px] text-neutral-400 opacity-80 mt-2 truncate max-w-xs px-2">
               {WS_URL}
             </p>
           </div>
         )}
       </div>
 
-      {/* Footer / Trailer */}
-      <div className="camera-trailer flex items-center justify-between p-4 bg-neutral-950/20 border-t border-neutral-800/40 font-mono text-xs">
-        <span className="text-neutral-500">
+      {/* Footer Dinâmico */}
+      <div className={`flex items-center justify-between p-4 font-mono text-xs shrink-0 border-t transition-colors duration-300 ${
+        isDark 
+          ? 'border-neutral-800 bg-neutral-900/50' 
+          : 'border-neutral-200 bg-neutral-50'
+      }`}>
+        <span className={`font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
           {connected ? (
-            <span className="text-emerald-500/80">{formatUptime(uptime)} <span className="text-neutral-600">· online</span></span>
+            <span className={isDark ? 'text-emerald-400 font-bold' : 'text-emerald-600 font-bold'}>
+              {formatUptime(uptime)}{' '}
+              <span className={`font-normal opacity-60 ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>· online</span>
+            </span>
           ) : (
-            '--:--:-- · offline'
+            <span className={`opacity-80 ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>--:--:-- · offline</span>
           )}
         </span>
-        <button className="p-1.5 rounded-lg border border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:text-white hover:bg-neutral-800 active:scale-95 transition-all">
-          <Maximize2 size={14} />
-        </button>
+        
+        {/* BOTÃO COMPARTILHADO INTEGRADO AQUI */}
+        <ExpandButton isMaximized={isMaximized} onClick={toggleMaximize} />
       </div>
 
-      {/* Injeção de Keyframes usando a sintaxe clássica do Tailwind ou escopo global */}
       <style>{`
         @keyframes scanline {
           0%   { top: 0; opacity: 0; }

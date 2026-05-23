@@ -1,21 +1,21 @@
 import React from 'react';
 import { PANEL_STATUS } from '../../../enums/enums';
+import { Badge } from '../../../components/ui/Badge';
 
-// Centralização limpa das cores utilizando classes de utilidade do Tailwind
 const STATUS_CONFIG = {
   [PANEL_STATUS.PRONTO]: {
-    dotClass: 'bg-[#3cc87a] shadow-[0_0_0_3px_rgba(60,200,122,0.2)] animate-pulse',
-    textClass: 'text-[#3cc87a]',
+    badgeVariant: 'secondary',
+    dotClass: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse',
     label: 'PRONTO',
   },
   [PANEL_STATUS.ATENCAO]: {
-    dotClass: 'bg-[#d4a017] shadow-[0_0_0_3px_rgba(212,160,23,0.2)] animate-pulse',
-    textClass: 'text-[#d4a017]',
+    badgeVariant: 'warning',
+    dotClass: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.4)] animate-pulse',
     label: 'ATENÇÃO',
   },
   [PANEL_STATUS.ALERTA]: {
-    dotClass: 'bg-[#e05252] shadow-none',
-    textClass: 'text-[#e05252]',
+    badgeVariant: 'destructive',
+    dotClass: 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)] animate-[ping_1.5s_infinite]',
     label: 'ALERTA',
   },
 };
@@ -24,24 +24,21 @@ export const AlertPanel = ({ message, status }) => {
   const c = STATUS_CONFIG[status] ?? STATUS_CONFIG[PANEL_STATUS.PRONTO];
 
   return (
-    <div className="alert-panel flex flex-col gap-2 p-4 rounded-xl border border-[var(--p-border)] bg-[var(--p-bg)]">
-      <div className="alert-panel-header flex items-center gap-2">
-        {/* Indicador Luminoso de Status */}
-        <span className={`status-dot w-2 h-2 rounded-full inline-block ${c.dotClass}`} />
-        
-        {/* Rótulo em Letras Monas */}
-        <span className={`label-mono font-mono font-medium text-[10px] tracking-[0.14em] uppercase ${c.textClass}`}>
+    <div className="panel-subcard flex flex-col gap-3 transition-all duration-200">
+      <div className="flex items-center justify-between">
+        <Badge variant={c.badgeVariant} className="gap-1.5 px-2.5 py-1">
+          <span className={`w-1.5 h-1.5 rounded-full inline-block ${c.dotClass}`} />
           {c.label}
-        </span>
+        </Badge>
       </div>
 
-      {/* Corpo da Mensagem de Log / Alerta */}
-      <div className="alert-panel-body">
+      {/* Corpo da Mensagem de Log / Alerta usando classe de texto dinâmico */}
+      <div className="min-w-0">
         <p
-          className="text-[12px] leading-[1.65] tracking-[0.01em] m-0 panel-text-sub"
+          className="text-[12px] leading-relaxed tracking-wide m-0 text-theme-main font-mono whitespace-pre-wrap"
           style={{ fontFamily: "'Barlow', sans-serif" }}
         >
-          {message || 'Nenhuma mensagem.'}
+          {message || 'Nenhum evento registrado no log.'}
         </p>
       </div>
     </div>
