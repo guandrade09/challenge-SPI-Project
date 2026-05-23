@@ -13,7 +13,7 @@ export function DownloadHistory({ data, theme = "light" }) {
             <CardTitle className="font-mono text-sm uppercase tracking-wider text-theme-main">
               Histórico de Downloads
             </CardTitle>
-            <CardDescription className="text-xs font-mono text-theme-muted mt-0.5">
+            <CardDescription className="text-xs font-mono text-theme-onbg-white mt-0.5">
               Relatórios e logs exportados recentemente
             </CardDescription>
           </div>
@@ -35,7 +35,7 @@ export function DownloadHistory({ data, theme = "light" }) {
                   <TableCell className="font-medium text-theme-main py-3">
                     <div className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5 opacity-60" />
-                      <span className="truncate max-w-xs">{download.fileName}</span>
+                      <span className="truncate max-w-xs uppercase">{download.fileName}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -44,7 +44,7 @@ export function DownloadHistory({ data, theme = "light" }) {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1 font-mono text-xs text-theme-muted">
+                    <div className="flex items-center gap-1 font-mono text-xs text-theme-main">
                       <Calendar className="h-3 w-3 opacity-50" />
                       {new Date(download.date).toLocaleDateString('pt-BR')}
                     </div>

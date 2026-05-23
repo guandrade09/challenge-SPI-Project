@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconButtonModal } from './IconButtonModal';
+import { ExpandButton } from './ExpandButton'; // Importação do novo botão genérico
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '../ui/Card';
 
 export const BasePanelModal = ({
@@ -21,7 +22,6 @@ export const BasePanelModal = ({
 
   const toggleMaximize = useCallback(() => setIsMaximized((p) => !p), []);
   
-  // Handlers protegidos para garantir que o clique de paginação nunca suba para o modal pai
   const nextChart = useCallback((e) => {
     if (e) {
       e.preventDefault();
@@ -56,7 +56,6 @@ export const BasePanelModal = ({
     };
   }, [isMaximized, availableCharts.length, nextChart, prevChart]);
 
-  // Transmutado de subcomponente para render function simples, evitando que o DOM se destrua
   const renderContent = () => (
     <div className="w-full h-full min-h-0 flex flex-col relative" onClick={(e) => e.stopPropagation()}>
       {isGraf ? (
@@ -101,12 +100,9 @@ export const BasePanelModal = ({
           </CardTitle>
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
             {headerAction && <div>{headerAction}</div>}
+            {/* 1º INTEGRAÇÃO: Botão de expandir no painel em grade normal */}
             {allowFullScreen && (
-              <IconButtonModal 
-                onClick={toggleMaximize} 
-                icon={Maximize2} 
-                variant="ghost" 
-              />
+              <ExpandButton isMaximized={isMaximized} onClick={toggleMaximize} />
             )}
           </div>
         </CardHeader>
@@ -124,7 +120,7 @@ export const BasePanelModal = ({
         >
           <Card 
             className="w-full h-full max-w-[1600px] flex flex-col min-h-0 overflow-hidden animate-[zoomIn_0.25s_ease-out]" 
-            onClick={(e) => e.stopPropagation()} // Trava bolha de cliques no corpo do Card
+            onClick={(e) => e.stopPropagation()} 
           >
             <CardHeader className="py-4 px-6 md:px-8 flex-row items-center justify-between shrink-0 border-b border-theme-divider">
               <div className="flex flex-col">
@@ -135,15 +131,14 @@ export const BasePanelModal = ({
                   {theme === 'dynamic' ? 'Modo de Performance Industrial' : 'Painel de Monitoramento Ampliado'}
                 </CardDescription>
               </div>
-              <IconButtonModal
+              {/* 2º INTEGRAÇÃO: Botão que agora vira o ícone de fechar (Minimize) nativamente */}
+              <ExpandButton
+                isMaximized={isMaximized}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   toggleMaximize();
                 }}
-                icon={Minimize2}
-                label="Sair"
-                variant="ghost"
               />
             </CardHeader>
             
