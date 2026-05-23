@@ -2,63 +2,68 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/Table";
 import { Badge }  from "../../../components/ui/Badge";
 import { Download, FileText, Calendar } from "lucide-react";
-import { Button } from "../../../components/ui/Button";
-import { IconButtonModal } from '../../../components/shared'
+import { IconButtonModal } from '../../../components/shared';
 
-export function DownloadHistory({ data }) {
+export function DownloadHistory({ data, theme = "light" }) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <div className={`panel-theme-${theme}`}>
+      <Card className="panel-base backdrop-blur-sm">
+        <CardHeader className="panel-header-base">
           <div>
-            <CardTitle>Histórico de Downloads</CardTitle>
-            <CardDescription>Relatórios e logs exportados recentemente</CardDescription>
+            <CardTitle className="font-mono text-sm uppercase tracking-wider text-theme-main">
+              Histórico de Downloads
+            </CardTitle>
+            <CardDescription className="text-xs font-mono text-theme-muted mt-0.5">
+              Relatórios e logs exportados recentemente
+            </CardDescription>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Arquivo</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead>Tamanho</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((download) => (
-              <TableRow key={download.id}>
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    {download.fileName}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{download.type}</Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    {new Date(download.date).toLocaleDateString('pt-BR')}
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{download.size}</TableCell>
-                <TableCell className="text-right">
-                  <IconButtonModal
-                  onClick={() => alert("Ainda n funciona")}
-                  icon={Download}
-                  className="bg-blue-100 hover:bg-blue-600"
-                  variant="ghost"/>
-                </TableCell>
+        </CardHeader>
+        <CardContent className="pt-2">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-theme-divider hover:bg-transparent">
+                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-theme-main">Arquivo</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-theme-main">Tipo</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-theme-main">Data</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-theme-main">Tamanho</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-right text-theme-main">Ações</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {data.map((download) => (
+                <TableRow key={download.id} className="border-b border-theme-divider row-theme-hover transition-colors duration-200">
+                  <TableCell className="font-medium text-theme-main py-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 opacity-60" />
+                      <span className="truncate max-w-xs">{download.fileName}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="none" className="badge-theme-industrial font-mono text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md">
+                      {download.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1 font-mono text-xs text-theme-muted">
+                      <Calendar className="h-3 w-3 opacity-50" />
+                      {new Date(download.date).toLocaleDateString('pt-BR')}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-theme-muted">{download.size}</TableCell>
+                  <TableCell className="text-right py-2">
+                    <IconButtonModal
+                      onClick={() => alert("Ainda n funciona")}
+                      icon={Download}
+                      className="panel-btn-toggle"
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

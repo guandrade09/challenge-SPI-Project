@@ -1,34 +1,32 @@
 import React from 'react';
 
-export function Table({ children }) {
-  // Filtramos os filhos para garantir que o que for Header vá para o thead 
-  // e o que for Body vá para o tbody, sem depender de índices fixos [0] [1]
+export function Table({ children, className = "" }) {
   return (
-    <table className="min-w-full divide-y divide-gray-200">
+    <table className={`min-w-full border-collapse ${className}`}>
       {children}
     </table>
   );
 }
 
-export function TableHeader({ children }) {
+export function TableHeader({ children, className = "" }) {
   return (
-    <thead className="bg-gray-50">
+    <thead className={`border-b border-theme-divider hover:bg-transparent ${className}`}>
       {children}
     </thead>
   );
 }
 
-export function TableBody({ children }) {
+export function TableBody({ children, className = "" }) {
   return (
-    <tbody className="bg-white divide-y divide-gray-200">
+    <tbody className={`divide-y divide-theme-divider ${className}`}>
       {children}
     </tbody>
   );
 }
 
-export function TableRow({ children }) {
+export function TableRow({ children, className = "" }) {
   return (
-    <tr className="hover:bg-zinc-50 transition-colors">
+    <tr className={`table-row-theme ${className}`}>
       {children}
     </tr>
   );
@@ -36,7 +34,7 @@ export function TableRow({ children }) {
 
 export function TableHead({ children, className = "" }) {
   return (
-    <th className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${className}`}>
+    <th className={`px-6 py-3 text-left text-[11px] font-mono font-medium text-main-theme uppercase tracking-wider ${className}`}>
       {children}
     </th>
   );
@@ -44,7 +42,7 @@ export function TableHead({ children, className = "" }) {
 
 export function TableCell({ children, className = "" }) {
   return (
-    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${className}`}>
+    <td className={`px-6 py-4 whitespace-nowrap text-xs font-mono text-muted-theme ${className}`}>
       {children}
     </td>
   );

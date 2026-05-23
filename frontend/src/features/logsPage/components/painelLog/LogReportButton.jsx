@@ -24,7 +24,7 @@ export const LogReportButton = () => {
       label="Gerar Relatório"
       onClick={handleGenerateReport}
       variant="full"
-      className='bg-white hover:bg-gray-300'
+      className="panel-btn-toggle border border-theme-divider w-full justify-center"
     />
   );
 };

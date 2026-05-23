@@ -1,16 +1,18 @@
 import React from 'react';
 
-export function Button({ variant = 'default', size = 'md', className, children, ...props }) {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2';
-  const variantStyles = {
-    default: 'bg-blue-600 text-white hover:bg-blue-700',
-    outline: 'border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white',
-    ghost: 'bg-transparent text-blue-600 hover:bg-blue-100',
-  };
+export function Button({ variant = 'default', size = 'md', className = "", children, ...props }) {
+  const baseStyles = 'inline-flex items-center justify-center font-mono uppercase tracking-wider font-medium rounded-lg transition-all active:scale-95 focus:outline-none disabled:opacity-50';
+  
+const variantStyles = {
+  default: 'icon-btn-full border border-theme-divider',
+  outline: 'border border-theme-divider bg-transparent text-main-theme hover:bg-theme-hover',
+  ghost: 'bg-transparent text-muted-theme hover:text-main-theme hover:bg-theme-hover',
+};
+
   const sizeStyles = {
-    sm: 'px-2 py-1 text-sm',
-    md: 'px-4 py-2',
-    lg: 'px-6 py-3 text-lg',
+    sm: 'px-2.5 py-1 text-[10px]',
+    md: 'px-4 py-2 text-xs',
+    lg: 'px-6 py-3 text-sm',
   };
 
   return (

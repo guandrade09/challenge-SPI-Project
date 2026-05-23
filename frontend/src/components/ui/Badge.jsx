@@ -1,15 +1,20 @@
 import React from 'react';
 
-export function Badge({ variant, children, className }) {
-  const baseStyles = "inline-flex items-center px-2 py-1 rounded text-sm font-medium";
+export function Badge({ variant = "default", children, className = "" }) {
+  const baseStyles = "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider border transition-colors";
+  
   const variantStyles = {
-    default: "bg-gray-200 text-gray-800",
-    secondary: "bg-blue-200 text-blue-800",
-    destructive: "bg-red-200 text-red-800",
+    default: "badge-theme-industrial",
+    secondary: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    destructive: "bg-red-500/10 text-red-400 border-red-500/20",
+    warning: "bg-amber-500/10 text-amber-400 border-amber-500/20"
   };
 
+  // Garante um fallback caso uma variante inexistente seja passada
+  const activeStyle = variantStyles[variant] || variantStyles.default;
+
   return (
-    <span className={`${baseStyles} ${variantStyles[variant]} ${className}`}>
+    <span className={`${baseStyles} ${activeStyle} ${className}`}>
       {children}
     </span>
   );

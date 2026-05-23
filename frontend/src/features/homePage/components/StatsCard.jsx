@@ -1,23 +1,32 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/Card";
 
-export function StatsCard({ title, value, description, trend }) {
+export function StatsCard({ title, value, description, trend, theme = "dark" }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold uppercase animate-pulse">{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        )}
-        {trend && (
-          <p className={`text-xs mt-1 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-            {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}% vs. mês anterior
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <div className={`panel-theme-${theme}`}>
+      <Card className="panel-base backdrop-blur-sm">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-theme-accent">
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-mono font-bold uppercase animate-pulse text-theme-main">
+            {value}
+          </div>
+          {description && (
+            <p className="text-[11px] font-mono mt-1 text-theme-muted">{description}</p>
+          )}
+          {trend && (
+            <p className={`text-[11px] font-mono mt-1 flex items-center gap-1 ${
+              trend.isPositive ? 'text-emerald-500' : 'text-red-500'
+            }`}>
+              <span>{trend.isPositive ? '↑' : '↓'}</span>
+              <span>{Math.abs(trend.value)}% vs. mês anterior</span>
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
