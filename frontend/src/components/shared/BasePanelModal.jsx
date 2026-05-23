@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconButtonModal } from './IconButtonModal';
-import { ExpandButton } from './ExpandButton'; // Importação do novo botão genérico
+import { ExpandButton } from './ExpandButton';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '../ui/Card';
 
 export const BasePanelModal = ({
@@ -56,40 +56,45 @@ export const BasePanelModal = ({
     };
   }, [isMaximized, availableCharts.length, nextChart, prevChart]);
 
-  const renderContent = () => (
-    <div className="w-full h-full min-h-0 flex flex-col relative" onClick={(e) => e.stopPropagation()}>
-      {isGraf ? (
-        <div className="panel-graf-base flex-1 w-full h-full min-h-0 relative">
-          {availableCharts.length > 1 && (
-            <>
-              <IconButtonModal 
-                onClick={prevChart} 
-                icon={ChevronLeft} 
-                variant='ghost' 
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-20" 
-              />
-              <IconButtonModal 
-                onClick={nextChart} 
-                icon={ChevronRight} 
-                variant='ghost' 
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-20" 
-              />
-              <div className="absolute bottom-2 right-4 text-[10px] font-mono opacity-50 uppercase tracking-wider text-main-theme">
-                {currentIndex + 1} / {availableCharts.length}
-              </div>
-            </>
-          )}
-          <div className="w-full h-full min-h-0 flex-1">
-            {availableCharts.length > 0 ? availableCharts[currentIndex].component : children}
+  // AJUSTE AQUI: renderContent agora aceita receber a propriedade vinda de fora se necessário
+  const renderContent = () => {
+    const resolvedChildren = typeof children === 'function' ? children({ isMaximized }) : children;
+
+    return (
+      <div className="w-full h-full min-h-0 flex flex-col relative" onClick={(e) => e.stopPropagation()}>
+        {isGraf ? (
+          <div className="panel-graf-base flex-1 w-full h-full min-h-0 relative">
+            {availableCharts.length > 1 && (
+              <>
+                <IconButtonModal 
+                  onClick={prevChart} 
+                  icon={ChevronLeft} 
+                  variant='ghost' 
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-20" 
+                />
+                <IconButtonModal 
+                  onClick={nextChart} 
+                  icon={ChevronRight} 
+                  variant='ghost' 
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-20" 
+                />
+                <div className="absolute bottom-2 right-4 text-[10px] font-mono opacity-50 uppercase tracking-wider text-main-theme">
+                  {currentIndex + 1} / {availableCharts.length}
+                </div>
+              </>
+            )}
+            <div className="w-full h-full min-h-0 flex-1">
+              {availableCharts.length > 0 ? availableCharts[currentIndex].component : resolvedChildren}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0 flex flex-col w-full h-full">
-          {availableCharts.length > 0 ? availableCharts[0].component : children}
-        </div>
-      )}
-    </div>
-  );
+        ) : (
+          <div className="flex-1 min-h-0 flex flex-col w-full h-full">
+            {availableCharts.length > 0 ? availableCharts[0].component : resolvedChildren}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className={`${activeThemeClass} h-full w-full flex flex-col`}>
@@ -100,7 +105,6 @@ export const BasePanelModal = ({
           </CardTitle>
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
             {headerAction && <div>{headerAction}</div>}
-            {/* 1º INTEGRAÇÃO: Botão de expandir no painel em grade normal */}
             {allowFullScreen && (
               <ExpandButton isMaximized={isMaximized} onClick={toggleMaximize} />
             )}
@@ -115,7 +119,7 @@ export const BasePanelModal = ({
       {allowFullScreen && isMaximized && (
         <div 
           className="fixed inset-0 z-[9999] backdrop-blur-sm p-4 md:p-8 flex items-center justify-center animate-[fadeIn_0.2s_ease-out]" 
-          style={{ backgroundColor: 'var(--p-overlay)' }} 
+          style={{ backgroundColor: 'var(--p-overlay, rgba(0, 0, 0, 0.4))' }} 
           onClick={toggleMaximize}
         >
           <Card 
@@ -131,7 +135,6 @@ export const BasePanelModal = ({
                   {theme === 'dynamic' ? 'Modo de Performance Industrial' : 'Painel de Monitoramento Ampliado'}
                 </CardDescription>
               </div>
-              {/* 2º INTEGRAÇÃO: Botão que agora vira o ícone de fechar (Minimize) nativamente */}
               <ExpandButton
                 isMaximized={isMaximized}
                 onClick={(e) => {

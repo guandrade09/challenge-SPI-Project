@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 import { useUiStore } from '../../../store/useUiStore'; 
-import { ExpandButton } from '../../../components/shared/ExpandButton'; // Importado aqui
 
 const WS_URL = 'ws://localhost:8765';
 
@@ -12,7 +11,7 @@ const CORNER_CLASSES = [
   'bottom-4 right-4 border-b-2 border-r-2',
 ];
 
-export function CameraView() {
+export function CameraView({ isMaximized = false }) {
   const imgRef = useRef(null);
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -22,9 +21,6 @@ export function CameraView() {
 
   const [connected, setConnected] = useState(false);
   const [uptime, setUptime] = useState(0);
-  const [isMaximized, setIsMaximized] = useState(false);
-
-  const toggleMaximize = useCallback(() => setIsMaximized((p) => !p), []);
 
   const addAlerta = useMonitoramentoStore((s) => s.addAlerta);
   const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
@@ -94,45 +90,14 @@ export function CameraView() {
   };
 
   return (
-    <div className={`min-h-0 flex flex-col w-full transition-colors duration-300 ${
+    <div className={`min-h-0 flex flex-col w-full h-full transition-colors duration-300 ${
       isDark ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-900'
     }`}>
       
-      {/* Header Dinâmico */}
-      <div className={`flex items-center justify-between p-4 border-b transition-colors duration-300 ${
-        isDark 
-          ? 'border-neutral-800 bg-neutral-900/50' 
-          : 'border-neutral-200 bg-neutral-50'
+      {/* Visor Central do Streaming - Agora com mais área útil vertical */}
+      <div className={`relative flex items-center justify-center overflow-hidden bg-neutral-950 transition-all duration-300 ${
+        isMaximized ? 'flex-1 h-full min-h-[400px]' : 'h-[520px]'
       }`}>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            {['bg-red-500/80', 'bg-amber-500/80', 'bg-emerald-500/80'].map((bgClass, i) => (
-              <div key={i} className={`w-2.5 h-2.5 rounded-full ${bgClass}`} />
-            ))}
-          </div>
-          <span className={`font-mono text-[11px] font-bold uppercase tracking-wider ml-1 ${
-            isDark ? 'text-neutral-400' : 'text-neutral-500'
-          }`}>
-            câmera ao vivo
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wide">
-          <span 
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              connected 
-                ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse' 
-                : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
-            }`} 
-          />
-          <span className={connected ? 'text-emerald-500 font-bold' : 'text-amber-500 font-bold'}>
-            {connected ? 'conectado' : 'aguardando'}
-          </span>
-        </div>
-      </div>
-
-      {/* Visor Central do Streaming */}
-      <div className="relative flex items-center justify-center h-[520px] overflow-hidden bg-neutral-950">
         {CORNER_CLASSES.map((classes, i) => (
           <div 
             key={i} 
@@ -182,12 +147,14 @@ export function CameraView() {
         )}
       </div>
 
-      {/* Footer Dinâmico */}
+      {/* Footer Unificado - Lado esquerdo mantém o Uptime e lado direito exibe o Status do WS */}
       <div className={`flex items-center justify-between p-4 font-mono text-xs shrink-0 border-t transition-colors duration-300 ${
         isDark 
           ? 'border-neutral-800 bg-neutral-900/50' 
           : 'border-neutral-200 bg-neutral-50'
       }`}>
+        
+        {/* Lado Esquerdo: Tempo de transmissão */}
         <span className={`font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
           {connected ? (
             <span className={isDark ? 'text-emerald-400 font-bold' : 'text-emerald-600 font-bold'}>
@@ -198,9 +165,21 @@ export function CameraView() {
             <span className={`opacity-80 ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>--:--:-- · offline</span>
           )}
         </span>
-        
-        {/* BOTÃO COMPARTILHADO INTEGRADO AQUI */}
-        <ExpandButton isMaximized={isMaximized} onClick={toggleMaximize} />
+
+        {/* Lado Direito: Status da conexão (Transferido do antigo Header) */}
+        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wide select-none">
+          <span 
+            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+              connected 
+                ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse' 
+                : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+            }`} 
+          />
+          <span className={connected ? 'text-emerald-500 font-bold' : 'text-amber-500 font-bold'}>
+            {connected ? 'conectado' : 'aguardando'}
+          </span>
+        </div>
+
       </div>
 
       <style>{`

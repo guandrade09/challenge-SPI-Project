@@ -1,7 +1,7 @@
 import React from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { IconButtonModal } from './IconButtonModal';
-import { useUiStore } from '../../../store/useUiStore';
+import { useUiStore } from '../../store/useUiStore';
 
 export function ExpandButton({ isMaximized, onClick, className = "" }) {
   const currentTheme = useUiStore((s) => s.theme);
