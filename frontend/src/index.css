@@ -119,87 +119,96 @@ code {
 }
 
 @layer utilities {
-  /* ========================================================
-     THEMES MAP (LIGHT / DARK / DYNAMIC) - CENTRALIZAÇÃO DRY
-     ======================================================== */
-  
+    /* ========================================================
+      THEMES MAP (LIGHT / DARK / DYNAMIC) - REVISADO E AJUSTADO
+      ======================================================== */
+
     .panel-theme-light {
-        --p-bg: #ffffff;
-        --p-border: #e5e5e5;
-        --p-header-bg: #f9fafb;
-        --p-text: #3f3f46;
-        --p-subtext: #059669;
-        --p-graf-bg: #f9fafb;
-        --p-toggle-hover: #e4e4e7;
-        --p-toggle-text: #71717a;
-        --p-toggle-accent: #059669;
-        --p-overlay: rgba(10, 10, 10, 0.4);
+      --p-bg: #ffffff;
+      --p-border: #e5e5e5;
+      --p-header-bg: #f9fafb;
+      --p-text-title: #ffffff;
+      --p-text: #18181b;         /* Corrigido para dar leitura perfeita */
+      --p-subtext: #059669;
+      --p-graf-bg: #f9fafb;
+      --p-toggle-hover: #e4e4e7;
+      --p-toggle-text: #71717a;
+      --p-button-bg: #f4f4f5;     /* Fundo dinâmico para botões cheios */
+      --p-button-text: #18181b;   /* Texto escuro no Light */
+      --p-toggle-accent: #059669;
+      --p-overlay: rgba(10, 10, 10, 0.4);
 
-        --chart-grid: #e5e5e5;
-        --chart-text: #71717a;
-        --chart-axis: #d4d4d8;
-        --chart-tooltip-bg: #ffffff;
-        --chart-tooltip-border: #e5e5e5;
-        --chart-alertas: #B59481;
-        --chart-proc: #71717a;
-        --chart-normal-node: #B59481;
+      --chart-grid: #e5e5e5;
+      --chart-text: #71717a;
+      --chart-axis: #d4d4d8;
+      --chart-tooltip-bg: #ffffff;
+      --chart-tooltip-border: #e5e5e5;
+      --chart-alertas: #B59481;
+      --chart-proc: #71717a;
+      --chart-normal-node: #B59481;
 
-        --chart-radar-fill: #65ffd1;
-        --chart-radar-stroke: #22c55e;
-        --chart-core-ml: #6366f1;
-      }
+      --chart-radar-fill: rgba(34, 197, 94, 0.15);
+      --chart-radar-stroke: #22c55e;
+      --chart-core-ml: #6366f1;
+    }
 
-      .panel-theme-dark {
-        --p-bg: rgba(23, 23, 23, 0.7);
-        --p-border: rgba(63, 63, 70, 0.4);
-        --p-header-bg: rgba(10, 10, 10, 0.3);
-        --p-text: #d4d4d8;
-        --p-subtext: #10b981;
-        --p-graf-bg: rgba(10, 10, 10, 0.5);
-        --p-toggle-hover: rgba(63, 63, 70, 0.4);
-        --p-toggle-text: #a1a1aa;
-        --p-toggle-accent: #34d399;
-        --p-overlay: rgba(10, 10, 10, 0.85);
+    .panel-theme-dark {
+      --p-bg: rgba(23, 23, 23, 0.95); /* Levemente mais opaco para não vazar o fundo */
+      --p-border: rgba(63, 63, 70, 0.6);
+      --p-header-bg: rgba(10, 10, 10, 0.6);
+      --p-text-title: #d4d4d8;
+      --p-text: #d4d4d8;
+      --p-subtext: #10b981;
+      --p-graf-bg: rgba(10, 10, 10, 0.5);
+      --p-toggle-hover: rgba(63, 63, 70, 0.6);
+      --p-toggle-text: #a1a1aa;
+      --p-button-bg: #27272a;     /* Botão escuro integrado no Dark */
+      --p-button-text: #ffffff;   /* Texto branco para contraste no Dark */
+      --p-toggle-accent: #34d399;
+      --p-overlay: rgba(10, 10, 10, 0.85);
 
-        --chart-grid: #262626;
-        --chart-text: #a3a3a3;
-        --chart-axis: #52525b;
-        --chart-tooltip-bg: #0a0a0a;
-        --chart-tooltip-border: #262626;
-        --chart-alertas: #B59481;
-        --chart-proc: #52525b;
-        --chart-normal-node: #B59481;
+      --chart-grid: #262626;
+      --chart-text: #a3a3a3;
+      --chart-axis: #52525b;
+      --chart-tooltip-bg: #0a0a0a;
+      --chart-tooltip-border: #262626;
+      --chart-alertas: #B59481;
+      --chart-proc: #52525b;
+      --chart-normal-node: #B59481;
 
-        --chart-radar-fill: rgba(101, 255, 209, 0.2);
-        --chart-radar-stroke: #65ffd1;
-        --chart-core-ml: #818cf8;
-      }
+      --chart-radar-fill: rgba(101, 255, 209, 0.1);
+      --chart-radar-stroke: #65ffd1;
+      --chart-core-ml: #818cf8;
+    }
 
-      .panel-theme-dynamic {
-        --p-bg: #18181b;
-        --p-border: #3f3f46;
-        --p-header-bg: #000000;
-        --p-text: #f4f4f5;
-        --p-subtext: #a1a1aa;
-        --p-graf-bg: #09090b;
-        --p-toggle-hover: #27272a;
-        --p-toggle-text: #a1a1aa;
-        --p-toggle-accent: #ffffff;
-        --p-overlay: rgba(0, 0, 0, 0.95);
+    .panel-theme-dynamic {
+      --p-bg: #18181b;
+      --p-border: #3f3f46;
+      --p-header-bg: #000000;
+      --p-text-title: #f4f4f5;
+      --p-text: #f4f4f5;
+      --p-subtext: #a1a1aa;
+      --p-graf-bg: #09090b;
+      --p-toggle-hover: #27272a;
+      --p-toggle-text: #a1a1aa;
+      --p-button-bg: #565656;     /* Botão industrial de destaque (Imagem 1 e 4) */
+      --p-button-text: #000000;   /* Texto preto para estourar o contraste no fundo claro */
+      --p-toggle-accent: #ffffff;
+      --p-overlay: rgba(0, 0, 0, 0.95);
 
-        --chart-grid: #27272a;
-        --chart-text: #d4d4d8;
-        --chart-axis: #3f3f46;
-        --chart-tooltip-bg: #000000;
-        --chart-tooltip-border: #3f3f46;
-        --chart-alertas: #ffffff;
-        --chart-proc: #71717a;
-        --chart-normal-node: #ffffff;
+      --chart-grid: #27272a;
+      --chart-text: #d4d4d8;
+      --chart-axis: #3f3f46;
+      --chart-tooltip-bg: #000000;
+      --chart-tooltip-border: #3f3f46;
+      --chart-alertas: #ffffff;
+      --chart-proc: #71717a;
+      --chart-normal-node: #ffffff;
 
-        --chart-radar-fill: rgba(255, 255, 255, 0.15);
-        --chart-radar-stroke: #ffffff;
-        --chart-core-ml: #a1a1aa; /* Escala de cinzas industrial */
-      }
+      --chart-radar-fill: rgba(255, 255, 255, 0.15);
+      --chart-radar-stroke: #ffffff;
+      --chart-core-ml: #a1a1aa;
+    }
 
       /* --- CLASSES ESTRUTURAIS LENDO AS VARIÁVEIS --- */
       .panel-base {
@@ -241,52 +250,70 @@ code {
       }
 
       /* ========================================================
-         CLASSES DOS BOTÕES (RESTAURAÇÃO DO SEU LAYOUT)
-         ======================================================== */
+        CLASSES DOS BOTÕES AJUSTADAS PARA ENGENHARIA DE TEMAS
+        ======================================================== */
       .icon-btn-full {
         display: flex;
         align-items: center;
         justify-content: center;
         width: 100%;
         padding: 0.75rem 1rem;
-        background-color: #ffffff;
-        border: 1px solid var(--p-border, #e5e5e5);
-        border-radius: 12px; /* Garante o arredondamento suave dos botões */
+        /* Lê dinamicamente a cor de fundo do botão definida no tema */
+        background-color: var(--p-button-bg);
+        /* Força a cor do texto/ícone a seguir a variável de contraste */
+        color: var(--p-button-text) !important;
+        border: 1px solid var(--p-border);
+        border-radius: 12px;
         cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      .icon-btn-full:hover {
-        transform: scale(1.01);
+        font-weight: 600;
+        transition: all 0.2s ease-in-out;
       }
 
-      .icon-btn-ghost {
+      .icon-btn-full:hover {
+        transform: scale(1.01);
+        background-color: var(--p-toggle-hover);
+        color: var(--p-toggle-accent) !important;
+      }
+
+      /* Ajuste fino para botões de controle internos (Setas de Gráficos e Close de Modais) */
+      .icon-btn-ghost, 
+      .chart-control-btn, 
+      .modal-close-btn {
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0.5rem;
-        background-color: transparent;
-        border: none;
+        /* Em vez de fundo branco, usa o background do cabeçalho do tema correspondente */
+        background-color: var(--p-header-bg, transparent);
+        /* O ícone herda a cor principal de texto do tema automaticamente */
+        color: var(--p-text) !important;
+        border: 1px solid var(--p-border);
         cursor: pointer;
         border-radius: 8px;
         transition: all 0.2s ease;
       }
-      .icon-btn-ghost:hover {
-        background-color: var(--p-toggle-hover, rgba(0,0,0,0.05));
+
+      .icon-btn-ghost:hover, 
+      .chart-control-btn:hover, 
+      .modal-close-btn:hover {
+        background-color: var(--p-toggle-hover);
+        color: var(--p-toggle-accent) !important;
       }
 
-/* Classes auxiliares para os elementos internos do JSX ficarem limpos */
-      .panel-text-title { color: var(--p-text); }
-      .panel-text-sub { color: var(--p-subtext); }
-      
+      /* Chaveador de classe estrutural */
       .panel-btn-toggle {
-        color: var(--p-toggle-text);
+        color: var(--p-button-text) !important;
+        background-color: var(--p-button-bg);
         transition: all 0.2s;
       }
       .panel-btn-toggle:hover {
         background-color: var(--p-toggle-hover);
-        color: var(--p-toggle-accent);
+        color: var(--p-toggle-accent) !important;
       }
-
+      /* Classes auxiliares para os elementos internos do JSX ficarem limpos */
+            .panel-text-title { color: var(--p-text); }
+            .panel-text-sub { color: var(--p-subtext); }
+      
       /* ========================================================
          DETECTION CARDS (EFEITO BOTÃO PRESSIONADO DE AUTOMAÇÃO)
          ======================================================== */
@@ -313,6 +340,115 @@ code {
       /* Efeito de hover discreto para dar o feedback tátil antes de clicar */
       .detection-card--unchecked:hover {
         background-color: rgba(255, 255, 255, 0.02);
+      }
+
+      /* ========================================================
+     NOVAS IDENTIDADES DE CARDS E COMPONENTES TEMA-AWARE
+     ======================================================== */
+  
+      /* Card Interno / Sub-containers (usados dentro de painéis maiores) */
+      .panel-subcard {
+        background-color: var(--p-header-bg);
+        border: 1px solid var(--p-border);
+        border-radius: 12px;
+        padding: 1rem;
+        transition: background-color 0.2s, border-color 0.2s;
+      }
+
+      /* Textos padronizados com base no tema */
+      .text-theme-main {
+        color: var(--p-text);
+      }
+
+      .text-theme-muted {
+        color: var(--p-text);
+        opacity: 0.6;
+      }
+
+      .text-theme-accent {
+        color: var(--p-subtext);
+      }
+
+      /* Divisores de layout internos que respeitam a borda do tema */
+      .border-theme-divider {
+        border-color: var(--p-border);
+      }
+
+      /* Badges adaptativos industriais */
+      .badge-theme-industrial {
+        background-color: var(--p-header-bg);
+        border: 1px solid var(--p-border);
+        color: var(--p-text);
+      }
+
+      /* Hover de linhas de tabela e listas baseado no background do cabeçalho */
+      .row-theme-hover:hover {
+        background-color: var(--p-header-bg);
+        opacity: 0.9;
+      }
+  /* ... seus mapas de temas (.panel-theme-light, etc.) continuam idênticos ... */
+
+  /* ========================================================
+     NOVAS IDENTIDADES DE DADOS (PROGRESS & SUB-ELEMENTS)
+     ======================================================== */
+  
+      /* Container interno de cada câmera */
+      .camera-card-container {
+        background-color: var(--p-header-bg);
+        border: 1px solid var(--p-border);
+        border-radius: 12px;
+        padding: 1rem;
+        transition: all 0.2s ease-in-out;
+      }
+
+      /* Bloco numérico de métricas (FPS, Resolução, Detecções) */
+      .metric-block-divider {
+        border-top: 1px solid var(--p-border);
+        border-bottom: 1px solid var(--p-border);
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+      }
+
+      /* O SEGREDO DO BUG: Trilho da Barra de Progresso (Uptime) */
+      .progress-track-theme {
+        background-color: var(--p-bg) !important;
+        border: 1px solid var(--p-border);
+        border-radius: 9999px;
+        overflow: hidden;
+      }
+
+      /* O indicador preenchido da Barra de Progresso */
+      .progress-fill-theme {
+        /* No Dynamic: assume a cor de destaque do tema (Branco/Cinza Industrial) 
+          Nos outros: assume o subtext (Verde) */
+        background-color: var(--p-toggle-accent, var(--p-subtext)) !important;
+        transition: all 0.3s ease;
+      }
+
+      /* Titulo caso necessario */
+
+      .text-theme-title {
+        color: var(--p-text-title);
+        font-weight: 600;
+      }
+
+      /* Textos padronizados */
+      .text-main-theme { color: var(--p-text); }
+      .text-muted-theme { color: var(--p-text); opacity: 0.55; }
+
+    /* Linhas de tabela que herdam a borda do tema de forma sutil */
+      .table-row-theme {
+        border-bottom: 1px solid var(--p-border);
+        transition: background-color 0.2s ease;
+      }
+      .table-row-theme:hover {
+        background-color: var(--p-header-bg);
+      }
+
+      /* Avatares industriais integrados */
+      .avatar-theme-base {
+        background-color: var(--p-header-bg);
+        border: 1px solid var(--p-border);
       }
 
   /* Seu Layout Utilitário Legado Mantido Abaixo... */
