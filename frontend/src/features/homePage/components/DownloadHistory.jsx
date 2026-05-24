@@ -30,7 +30,7 @@ export function DownloadHistory({ data, theme = "light" }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((download) => (
+              {data?.map((download) => (
                 <TableRow key={download.id} className="border-b border-theme-divider row-theme-hover transition-colors duration-200">
                   <TableCell className="font-medium text-theme-main py-3">
                     <div className="flex items-center gap-2">
@@ -59,6 +59,14 @@ export function DownloadHistory({ data, theme = "light" }) {
                   </TableCell>
                 </TableRow>
               ))}
+
+              {data?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4 text-sm text-theme-muted">
+                    Nenhum download recente encontrado.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

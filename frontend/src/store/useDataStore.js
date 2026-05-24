@@ -4,6 +4,7 @@ import { reportService } from '../services/reportService'; // ajuste o caminho d
 
 export const useDataStore = create((set, get) => ({
   reportData: null,
+  reportFiles: [],
   isLoading: false,
   lastUpdated: null,
   error: null,
@@ -22,5 +23,18 @@ export const useDataStore = create((set, get) => ({
     } catch (err) {
       set({ error: err.message, isLoading: false });
     }
+  },
+
+  fetchReportFiles: async ({ day, month, year } = {}) => {
+    set({ isLoading: true, error: null });
+    try {
+      const files = await reportService.listReportFiles({ day, month, year });
+      // Aqui você pode escolher como armazenar os arquivos no estado, por exemplo:
+      set({ reportFiles: files || [], isLoading: false });
+    } catch (err) {
+      set({ error: err.message, isLoading: false });
+    }
   }
+
+
 }));

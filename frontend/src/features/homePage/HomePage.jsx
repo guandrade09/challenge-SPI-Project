@@ -13,17 +13,19 @@ function HomePage() {
   // Controle de tema unificado para a página ("dynamic" | "dark" | "light")
   const currentTheme = useUiStore((s) => s.theme); // Obtém o tema atual do Zustand para garantir reatividade
 
-  const { reportData, fetchReport, lastUpdated, isLoading } = useDataStore();
+  const { reportData, fetchReport, lastUpdated, isLoading, reportFiles, fetchReportFiles } = useDataStore();
   const [timeSinceUpdate, setTimeSinceUpdate] = useState("Atualizando...");
 
   // Polling Automático (A cada 30 segundos)
   useEffect(() => {
     fetchReport();
+    fetchReportFiles();
     const interval = setInterval(() => {
       fetchReport();
+      fetchReportFiles();
     }, 30000);
     return () => clearInterval(interval);
-  }, [fetchReport]);
+  }, [fetchReport, fetchReportFiles]);
 
   // Atualização do contador visual de tempo
   useEffect(() => {
@@ -52,6 +54,13 @@ function HomePage() {
   const precisao = reportData?.accuracy ? `${(reportData.accuracy.acertos / (reportData.accuracy.acertos + reportData.accuracy.erros) * 100).toFixed(1)}%` : "---";
   const piorEpi = reportData?.prediction ? `${reportData.prediction}` : "Analisando...";
   const alertasPendentes = reportData?.accuracy?.erros ?? "---";
+  
+  const nomeArquivo = reportFiles?.length > 0 ? reportFiles[0].nome : "Nenhum arquivo encontrado";
+  const tipoArquivo = reportFiles?.length > 0 ? reportFiles[0].tipo : "N/A";
+  const dataGeracao = reportFiles?.length > 0 ? new Date(reportFiles[0].dataGeracao).toLocaleString() : "N/A";
+  const tamanhoArquivo = reportFiles?.length > 0 ? `${(reportFiles[0].tamanho / (1024 * 1024)).toFixed(2)} MB` : "N/A";
+
+  const reportFilesInfo = reportFiles?.length > 0 ? `Arquivo: ${nomeArquivo} | Tipo: ${tipoArquivo} | Gerado em: ${dataGeracao} | Tamanho: ${tamanhoArquivo}` : "Nenhum arquivo de relatório encontrado para as datas selecionadas.";
 
   const chartsForCarousel = [
     { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} theme={currentTheme}/> },
@@ -113,7 +122,7 @@ function HomePage() {
 
         {/* SEÇÃO 4: Histórico */}
         <section className="w-full overflow-hidden">
-            <DownloadHistory theme={currentTheme} data={mockDownloads}/>
+            <DownloadHistory theme={currentTheme} data={reportFiles} />
         </section>
 
         {/* SEÇÃO 5: Camera Info */}
