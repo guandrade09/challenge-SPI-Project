@@ -1,4 +1,4 @@
-import { viewReportPdf, viewReportExcel, getReportSummary as getReportSummaryService } from "../services/report.service.js";
+import { viewReportPdf, viewReportExcel, getReportSummary as getReportSummaryService, listReportFiles } from "../services/report.service.js";
 import { ErrorHandler } from "../utils/appError.js";
 
 export async function downloadReportPdf(req, res) {
@@ -41,4 +41,14 @@ export async function getReportSummary(req, res) {
     const { label, start, end } = req.query;
     const summary = await getReportSummaryService(label, start, end);
     res.json(summary);
+}
+
+export async function getReportFiles(req, res) {
+  try {
+    const { day = null, month = null, year = null } = req.query;
+    const files = await listReportFiles({ day, month, year });
+    res.json(files);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao listar arquivos de relatórios' });
+  }
 }

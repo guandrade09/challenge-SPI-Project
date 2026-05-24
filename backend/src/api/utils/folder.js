@@ -229,7 +229,8 @@ export async function saveExcel(workbook, fileName = null)
         fs.mkdirSync(reportsDir, { recursive: true });
     }
 
-    const finalFileName = fileName || `report-${Date.now()}.xlsx`;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const finalFileName = fileName || `relatorio-${timestamp}.xlsx`;
 
     const filePath = path.join(reportsDir, finalFileName);
 
