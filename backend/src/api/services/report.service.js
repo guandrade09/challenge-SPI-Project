@@ -14,6 +14,10 @@ import { generateExcelReport, getExcelBuffer } from "../utils/report/excel.js";
 import { savePdfToUploads, saveExcel } from "../utils/folder.js";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function viewReportPdf(label = null, timestamp_start = null, timestamp_end = null) {
     const detectionAll = await getAllDetections();
@@ -62,11 +66,38 @@ export async function getReportSummary(label = null, timestamp_start = null, tim
 
 export async function listReportFiles({ day = null, month = null, year = null } = {}) {
     const directories = [
-        path.resolve("backend/src/api/uploads/relatorios/pdf"),
-        path.resolve("backend/src/api/uploads/relatorios/excel")
+        path.resolve(__dirname, "../uploads/relatorios/pdf"),
+        path.resolve(__dirname, "../uploads/relatorios/excel")
     ];
 
     const results = [];
+
+    async function readDirectory(dir) {
+        try {
+            if (!fs.existsSync(dir)) return;
+
+            const files = await fs.promises.readdir(dir);
+
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                const stat = await fs.promises.stat(fullPath);
+
+                if (!stat.isFile()) continue;
+
+                const date = await getFileDate(file, stat.mtime);
+
+                if (!matchesFilter(date, day, month, year)) continue;
+
+                results.push({
+                    fileName: file,
+                    size: stat.size,
+                    date: date.toISOString(),
+                    type: path.extname(file).slice(1).toLowerCase()
+                });
+            }
+        } catch {
+        }
+    }
 
     for (const dir of directories) {
         await readDirectory(dir);
@@ -83,9 +114,9 @@ export async function getReportFile(filename) {
 
     let directory = null;
     if (filename.endsWith('.pdf')) {
-        directory = path.resolve('backend/src/api/uploads/relatorios/pdf');
+        directory = path.resolve(__dirname, '../uploads/relatorios/pdf');
     } else if (filename.endsWith('.xlsx')) {
-        directory = path.resolve('backend/src/api/uploads/relatorios/excel');
+        directory = path.resolve(__dirname, '../uploads/relatorios/excel');
     } else {
         throw new Error('Tipo de arquivo não suportado');
     }
@@ -108,38 +139,7 @@ async function GetDataForReport(label, timestamp_start, timestamp_end) {
     return await getAllDetections();
 }
 
-async function readDirectory(dir) 
-{
-    try {
-        if (!fs.existsSync(dir)) return;
-
-        const files = await fs.promises.readdir(dir);
-
-        for (const file of files) {
-            const fullPath = path.join(dir, file);
-            const stat = await fs.promises.stat(fullPath);
-
-            if (!stat.isFile()) continue;
-
-            const date = getFileDate(file, stat.mtime);
-
-            if (!matchesFilter(date)) continue;
-
-            results.push({
-                fileName: file,
-                size: stat.size,
-                date: date.toISOString(),
-                type: path.extname(file).slice(1).toLowerCase()
-            });
-        }
-    } 
-    catch 
-    {
-    }
-}
-
-async function matchesFilter(date) 
-{
+function matchesFilter(date, day, month, year) {
     if (!date || isNaN(date.getTime())) {
         return !day && !month && !year;
     }
@@ -157,7 +157,7 @@ async function matchesFilter(date)
     );
 }
 
-async function getFileDate(fileName, fallbackDate) {
+function getFileDate(fileName, fallbackDate) {
     return (
         parseIsoDate(fileName) ||
         parseTimestamp(fileName, 13) ||
@@ -166,7 +166,7 @@ async function getFileDate(fileName, fallbackDate) {
     );
 }
 
-async function parseIsoDate(text) {
+function parseIsoDate(text) {
     const match = text.match(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:-\d+)?Z?/);
 
     if (!match) return null;
@@ -187,7 +187,7 @@ async function parseIsoDate(text) {
     return isNaN(date) ? null : date;
 }
 
-async function parseTimestamp(text, digits, seconds = false) {
+function parseTimestamp(text, digits, seconds = false) {
     const match = text.match(new RegExp(`(\\d{${digits}})`));
 
     if (!match) return null;
