@@ -138,7 +138,7 @@ async function readDirectory(dir)
     }
 }
 
-function matchesFilter(date) 
+async function matchesFilter(date) 
 {
     if (!date || isNaN(date.getTime())) {
         return !day && !month && !year;
@@ -157,7 +157,7 @@ function matchesFilter(date)
     );
 }
 
-function getFileDate(fileName, fallbackDate) {
+async function getFileDate(fileName, fallbackDate) {
     return (
         parseIsoDate(fileName) ||
         parseTimestamp(fileName, 13) ||
@@ -166,7 +166,7 @@ function getFileDate(fileName, fallbackDate) {
     );
 }
 
-function parseIsoDate(text) {
+async function parseIsoDate(text) {
     const match = text.match(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:-\d+)?Z?/);
 
     if (!match) return null;
@@ -187,7 +187,7 @@ function parseIsoDate(text) {
     return isNaN(date) ? null : date;
 }
 
-function parseTimestamp(text, digits, seconds = false) {
+async function parseTimestamp(text, digits, seconds = false) {
     const match = text.match(new RegExp(`(\\d{${digits}})`));
 
     if (!match) return null;
