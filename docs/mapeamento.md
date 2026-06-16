@@ -39,12 +39,13 @@ Tela de entrada do sistema, responsável pela autenticação do usuário antes d
 - Link **"Esqueceu a senha?"** para fluxo de recuperação de credenciais.
 - Botão principal **"Entrar no Sistema"**, que efetiva o login.
 - Link **"Criar conta"** para cadastro de novos usuários.
+- Protocolo JWT para autenticação de usuário.
 
 ## 2. 📊 Dashboard / Análise — "Central de Logs e Métricas"
 
 Painel analítico e de observabilidade do sistema, reunindo o histórico de eventos e indicadores de desempenho do modelo de IA em um único lugar.
 
-- **Central de Logs**: feed cronológico de eventos do sistema, incluindo inicialização de protocolos (MQTT), alertas de segurança (ex.: colaborador sem capacete em determinada zona), erros críticos, confirmações de detecção da IA, telemetria de hardware (ex.: temperatura do ESP32, ativação de resfriamento), leituras ambientais (ex.: umidade acima do limite acionando atuadores), problemas de rede, alertas de invasão/objeto não identificado, sincronização de relógio (NTP) e atualizações do modelo de machine learning. Conta com um botão **"Gerar Relatório"** para exportar essas informações.
+- **Central de Logs**: feed cronológico de eventos do sistema, alertas de segurança, erros críticos, confirmações de detecção da IA, problemas de rede, sincronização de relógio (NTP) e atualizações do modelo de machine learning. Conta com um botão **"Gerar Relatório"** para exportar essas informações.
 - **Análise Composta**: gráfico de área mostrando a evolução de uma métrica ao longo das 24 horas do dia (00:00 a 23:59), com navegação por setas para alternar entre diferentes gráficos.
 - **Gráfico de Detecções**: gráfico circular (gauge) com a prevalência de cada classe detectada pela IA — Capacete, Colete, Óculos e Erros — exibido com legenda e paginação.
 - **Eficiência Operacional**: gráfico de radar comparando cinco indicadores-chave do sistema: Precisão da IA, Conexão com o ESP32, Segurança (EPI), Tempo de Resposta e Estabilidade.
@@ -54,7 +55,7 @@ Painel analítico e de observabilidade do sistema, reunindo o histórico de even
 
 Tela de monitoramento ao vivo, onde o vídeo da câmera é exibido e analisado pela IA para identificar o uso correto de equipamentos de proteção.
 
-- **Painel de Câmera ao Vivo**: área de exibição do streaming de vídeo, conectado via WebSocket (endereço exibido, ex.: `ws://localhost:8765`). Quando não há transmissão, mostra o estado **"Sem sinal transmissão"** e um indicador de status (ex.: "Aguardando").
+- **Painel de Câmera ao Vivo**: área de exibição do streaming de vídeo, conectado via WebSocket. Quando não há transmissão, mostra o estado **"Sem sinal transmissão"** e um indicador de status (ex.: "Aguardando").
 - **Detecção de EPIs**: painel lateral com checkboxes para selecionar quais equipamentos devem ser monitorados em tempo real — Colete, Óculos, Capacete e Máscara.
 - **Status de detecção**: indicador de prontidão do sistema (ex.: "Pronto") e mensagem de espera ("Aguardando detecções...") até que a IA identifique algo no vídeo.
 
@@ -77,7 +78,7 @@ Tela inicial do sistema, com um painel-resumo do estado geral da operação e um
 
 Tela de gestão completa do ciclo de vida dos Equipamentos de Proteção Individual, dividida em quatro blocos.
 
-- **Cadastro de Novo EPI**: formulário em etapas (passo 1 de 3) para registrar um novo equipamento, com campos como Nome do Equipamento, Número do CA (Certificado de Aprovação), Fabricante, Modelo, Descrição Detalhada, upload de foto, Categoria, Tamanho/Especificações e Zonas de Risco Recomendadas. Possui os botões **Registrar** e **Cancelar**.
+- **Cadastro de Novo EPI**: formulário para registrar um novo equipamento, com campos como Nome do Equipamento, Número do CA (Certificado de Aprovação), Fabricante, Modelo, Descrição Detalhada, upload de foto, Categoria, Tamanho/Especificações e Zonas de Risco Recomendadas. Possui os botões **Registrar** e **Cancelar**.
 - **Consulta de EPI por Colaborador**: campo de busca por nome do empregador ou ID, e uma tabela listando colaborador, ID, setor, EPI atribuído e status do CA — útil para verificar rapidamente quem está usando qual equipamento e sua situação de conformidade.
 - **Resumo do EPI**: cartão de detalhes do equipamento selecionado, com foto, modelo, fabricante e números de identificação/certificação (CH e CA).
 - **Prescrições de Uso**: lista de recomendações de treinamento associadas ao EPI (ex.: uso e manutenção anual, procedimentos de emergência semestrais, diretrizes de instalação anuais) e diretrizes departamentais complementares.
@@ -95,7 +96,7 @@ Esta seção cruza os casos de uso (UC01 a UC08) do diagrama de casos de uso do 
 | **UC01** | Capturar feed da câmera | Câmera ao Vivo | Painel "Câmera ao Vivo" exibe o streaming recebido via WebSocket (ou o estado "Sem sinal transmissão" quando a Câmera Industrial não está conectada). |
 | **UC02** | Detectar EPI e classificar a classe | Câmera ao Vivo | Painel lateral "Detecção de EPIs" define quais classes (Colete, Óculos, Capacete, Máscara) serão monitoradas; o resultado da classificação aparece no status ("Pronto" / "Aguardando detecções..."). |
 | **UC03** | Emitir alerta sonoro e visual | Câmera ao Vivo → Dashboard / Análise | O disparo do alerta gera uma entrada na Central de Logs do Dashboard (ex.: "Segurança: Operário detectado sem capacete na Zona B"). |
-| **UC04** | Receber o alerta no maquinário | *(sem tela própria)* | Ocorre fisicamente no maquinário do Operador (hardware/ESP32), fora da interface web — só é rastreável indiretamente pelos registros na Central de Logs. |
+| **UC04** | Receber o alerta no maquinário | *(sem tela própria)* | Ocorre fisicamente no maquinário do Operador, fora da interface web — só é rastreável indiretamente pelos registros na Central de Logs. |
 | **UC05** | Armazenar os dados no Dashboard | Dashboard / Análise | Base de dados que alimenta os gráficos "Análise Composta", "Gráfico de Detecções", "Eficiência Operacional" e "Matriz de Confusão". |
 | **UC06** | Armazenar os frames | *(sem tela própria)* | Função de armazenamento de evidências em back-end; ainda não há uma tela dedicada (ex.: galeria/histórico de frames capturados) na documentação atual. |
 | **UC07** | Monitorar Dashboard | Dashboard / Análise, Início | Tela principal consumida pelo Supervisor; um resumo equivalente também aparece nos cartões da tela Início. |
@@ -107,33 +108,6 @@ Esta seção cruza os casos de uso (UC01 a UC08) do diagrama de casos de uso do 
 - **Operador** → UC04 → recebe o alerta no maquinário (fora da UI), evento refletido na Central de Logs do **Dashboard**.
 - **Supervisor** → UC07 → consome a tela **Dashboard / Análise** (e o resumo na tela **Início**).
 - **Gestor** → UC08 → aciona o relatório a partir do **Dashboard / Análise** ou via **Assistente de IA** (tela Início).
-
-### Visualização do Mapeamento
-
-```mermaid
-flowchart LR
-    CAM[Câmera Industrial] --> UC01[UC01 Capturar feed]
-    OP[Operador] -.recebe.-> UC04[UC04 Receber alerta]
-    SUP[Supervisor] -.monitora.-> UC07[UC07 Monitorar Dashboard]
-    GES[Gestor] -.exporta.-> UC08[UC08 Exportar relatório]
-
-    UC01 --> UC02[UC02 Detectar EPI]
-    UC02 --> UC03[UC03 Emitir alerta]
-    UC02 --> UC05[UC05 Armazenar dados]
-    UC02 --> UC06[UC06 Armazenar frames]
-    UC03 --> UC04
-    UC05 --> UC07
-    UC07 --> UC08
-
-    UC01 -.-> T3[["Tela: Câmera ao Vivo"]]
-    UC02 -.-> T3
-    UC03 -.-> T3
-    UC05 -.-> T2[["Tela: Dashboard / Análise"]]
-    UC07 -.-> T2
-    UC07 -.-> T5[["Tela: Início + IA"]]
-    UC08 -.-> T2
-    UC08 -.-> T5
-```
 
 ### Lacunas Identificadas
 
