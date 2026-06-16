@@ -105,8 +105,15 @@ A solução foi projetada com base nas seguintes normas regulamentadoras brasile
 - [🔄 Diagrama de Atividades](docs/atividades.md)
 - [📋 Levantamento de Requisitos](docs/REQUISITOS.md)
 - [🧩 Diagrama de Classes](docs/classes.md)
+- [💻 Mapeamento de Telas](docs/mapeamento.md)
 
 ---
+
+## Figma do Projeto
+
+- [🎨 Roteiro de Telas](https://www.figma.com/proto/uGj3qxy9ClUpzskzSfyO2s/Roteiro-de-Telas?node-id=0-1&t=aR0EgGS9eaSZBB8Z-1)
+
+### Como 
 
 ## ⚙️ Como Executar (Sprint 1 — MVP)
 
