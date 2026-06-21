@@ -2,61 +2,55 @@ import React from 'react';
 
 const CheckIcon = () => (
   <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-    <polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2.5"
-      strokeLinecap="round" strokeLinejoin="round" />
+    <polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 export const DetectionCard = ({ label, isChecked, onToggle }) => {
-  const cardClass = isChecked
-    ? 'detection-card detection-card--checked'
-    : 'detection-card detection-card--unchecked';
-
   return (
-    <div onClick={onToggle} className={cardClass}>
+    <div 
+      onClick={onToggle} 
+      className={`detection-card ${
+        isChecked 
+          ? 'detection-card--checked' 
+          : 'detection-card--unchecked'
+      }`}
+    >
+      {/* Detalhe da Borda Lateral Esquerda com o seu efeito de Glow Adaptativo */}
       <div
-        className="absolute left-0 top-0 bottom-0"
-        style={{
-          width: 2,
-          background: isChecked ? '#3cc87a' : 'transparent',
-          transition: 'background .2s',
-          borderRadius: '8px 0 0 8px',
-        }}
+        className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-all duration-200 ${
+          isChecked 
+            ? 'bg-theme-accent shadow-[0_0_8px_var(--p-subtext)]' 
+            : 'bg-transparent'
+        }`}
       />
 
+      {/* Caixa do Checkbox personalizado */}
       <div
-        className="flex items-center justify-center shrink-0 rounded"
-        style={{
-          width: 18, height: 18,
-          background: isChecked ? '#3cc87a' : 'transparent',
-          border: `1.5px solid ${isChecked ? '#3cc87a' : '#3d4050'}`,
-          transition: 'all .15s',
-        }}
+        className={`flex items-center justify-center shrink-0 rounded w-[18px] h-[18px] border transition-all duration-150 ${
+          isChecked 
+            ? 'bg-theme-accent border-theme-accent text-green-50' 
+            : 'bg-transparent border-theme-divider text-transparent'
+        }`}
       >
-        {isChecked && <CheckIcon />}
+        <CheckIcon />
       </div>
 
+      {/* Rótulo da Classe */}
       <span
-        className="shrink-0"
-        style={{
-          fontFamily: "'Barlow Condensed','Barlow',sans-serif",
-          fontSize: 13, fontWeight: 700,
-          letterSpacing: '.14em', textTransform: 'uppercase',
-          color: isChecked ? '#a8f0c6' : '#6a6e7a',
-          transition: 'color .15s',
-        }}
+        className={`shrink-0 font-bold text-[12px] tracking-[0.12em] uppercase transition-colors duration-150 ${
+          isChecked ? 'text-theme-accent' : 'text-neutral-400 light:text-neutral-500 panel-text-sub'
+        }`}
+        style={{ fontFamily: "'Barlow Condensed', 'Barlow', sans-serif" }}
       >
         {label}
       </span>
 
+      {/* Indicador de Estado Lado Direito */}
       <span
-        className="ml-auto"
-        style={{
-          fontFamily: "'IBM Plex Mono',monospace",
-          fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase',
-          color: isChecked ? 'rgba(60,200,122,0.6)' : 'transparent',
-          transition: 'color .2s',
-        }}
+        className={`ml-auto text-[9px] tracking-[0.08em] uppercase font-mono transition-all duration-200 ${
+          isChecked ? 'text-theme-accent opacity-80 shadow-sm animate-pulse' : 'text-transparent'
+        }`}
       >
         ativo
       </span>

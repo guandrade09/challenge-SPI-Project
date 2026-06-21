@@ -1,7 +1,7 @@
 import React from 'react';
 import { FileDownIcon } from 'lucide-react';
 import { useUiStore } from '../../../../store/useUiStore';
-import { IconButton } from '../../../../components/shared/IconButtonModal';
+import { IconButtonModal } from '../../../../components/shared/IconButtonModal';
 import { reportService } from '../../../../services/reportService';
 import { useToast } from '../../../../components/ui/NotificationToast';
 
@@ -19,11 +19,12 @@ export const LogReportButton = () => {
   };
 
   return (
-    <IconButton
+    <IconButtonModal
       icon={FileDownIcon}
       label="Gerar Relatório"
       onClick={handleGenerateReport}
       variant="full"
+      className="panel-btn-toggle border border-theme-divider w-full justify-center"
     />
   );
 };

@@ -3,14 +3,15 @@ import { Home, Camera, LogsIcon, Settings, LogOut, Eye, EyeOff, Copy, Check } fr
 import { NavLink } from 'react-router-dom';
 import { cn } from "../utils/cn";
 import { AiToggleButton } from '../features/chatAi/AiToggleButton';
+import { ThemeToggleButton } from '../components/ui/ThemeToggleButton'; // Novo Import
 import { useAuthStore } from '../store/useAuthStore';
 
 const navItems = [
-  { id: 'logs',      icon: LogsIcon,  label: 'Logs',            path: '/logs' },
-  { id: 'home',      icon: Home,       label: 'Home',            path: '/' },
-  { id: 'camera',    icon: Camera,    label: 'Monitoramento',    path: '/monitoramento' },
-  { id: 'settings',  icon: Settings,   label: 'Configurações',   path: '/settings' },
-  { id: 'logout',    icon: LogOut,    label: 'Logout',           path: '/logout' },
+  { id: 'logs',    icon: LogsIcon,  label: 'Logs',           path: '/logs' },
+  { id: 'home',    icon: Home,       label: 'Home',           path: '/' },
+  { id: 'camera',  icon: Camera,    label: 'Monitoramento',    path: '/monitoramento' },
+  { id: 'settings', icon: Settings,   label: 'Configurações',   path: '/settings' },
+  { id: 'logout',  icon: LogOut,    label: 'Logout',           path: '/logout' },
 ];
 
 export const NavBar = () => {
@@ -91,7 +92,12 @@ export const NavBar = () => {
           </div>
         )}
 
-        <div className="mx-6 text-white animate-pulse">
+        {/* Botão de Controle de Tema do Sistema */}
+        <div className="ml-2 mr-4">
+          <ThemeToggleButton />
+        </div>
+
+        <div className="mx-2 text-white animate-pulse">
           <AiToggleButton />
         </div>
       </div>

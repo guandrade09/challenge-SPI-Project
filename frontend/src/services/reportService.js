@@ -16,7 +16,6 @@ export const reportService = {
     return response.data;
   },
 
-  // AINDA NÃO UTILIZADO
   downloadPdf: async ({ label, start, end } = {}) => {
     const response = await api.get('/report/pdf/download', {
       params: { label, start, end },
@@ -33,7 +32,6 @@ export const reportService = {
     window.URL.revokeObjectURL(url);
   },
 
-  // AINDA NÃO UTILIZADO
   downloadExcel: async ({ label, start, end } = {}) => {
     const response = await api.get('/report/excel/download', {
       params: { label, start, end },
@@ -49,4 +47,9 @@ export const reportService = {
     link.remove();
     window.URL.revokeObjectURL(url);
   },
+
+  listReportFiles: async ({ day, month, year } = {}) => {
+    const response = await api.get('/report/files', { params: { day, month, year } });
+    return response.data;
+  }
 };

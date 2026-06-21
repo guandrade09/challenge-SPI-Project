@@ -4,27 +4,39 @@ import { LogSkeleton } from './LogSkeleton';
 
 export const LogPanel = ({ logs = [] }) => {
   return (
-    <div className="relative flex flex-col h-full min-h-0 overflow-hidden">
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-2 pb-20 custom-scrollbar">
+    <div className="relative flex flex-col h-full min-h-0 overflow-hidden w-full">
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-2 pb-24 custom-scrollbar">
         {logs.length > 0 ? (
           logs.map((log, index) => (
-            <div key={index} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-panel-header">
-              <p className="text-zinc-800 font-mono text-[11px] leading-tight">
-                <span className="opacity-50">{log.timestamp}</span> - {log.message}
+            <div 
+              key={index} 
+              className="p-3 rounded-xl border-l-4 border-theme-divider shadow-sm transition-all duration-200"
+              style={{ backgroundColor: 'var(--p-header-bg)' }}
+            >
+              <p className="text-main-theme font-mono text-[11px] leading-tight">
+                <span className="text-muted-theme opacity-60">{log.timestamp}</span>
+                <span className="text-theme-accent mx-1">|</span> 
+                {log.message}
               </p>
             </div>
           ))
         ) : (
           <div className="flex flex-col items-center justify-center h-full">
             <LogSkeleton />
-            <span className="mt-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest animate-bounce">
+            <span className="mt-4 text-[10px] font-bold font-mono text-muted-theme uppercase tracking-widest animate-pulse">
               Aguardando Logs...
             </span>
           </div>
         )}
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-panel-bg via-panel-bg/90 to-transparent pt-10">
+      {/* O gradiente inferior agora desvanece suavemente usando a variável nativa de fundo do tema */}
+      <div 
+        className="absolute bottom-0 left-0 right-0 p-4 pt-12 shrink-0"
+        style={{
+          background: 'linear-gradient(to top, var(--p-bg) 0%, var(--p-bg) 70%, transparent 100%)'
+        }}
+      >
         <LogReportButton />
       </div>
     </div>
