@@ -23,6 +23,20 @@ const STATUS_CONFIG = {
     label:     'ALERTA',
     pulse:     false,
   },
+  [PANEL_STATUS.ALERTA_CRITICO]: {
+    dotColor:  '#ff2d2d',
+    dotGlow:   'none',
+    textColor: '#ff2d2d',
+    label:     'ALERTA CRÍTICO',
+    pulse:     false,
+  },
+  [PANEL_STATUS.ALERTA_MULTIPLO]: {
+    dotColor:  '#ff6b2d',
+    dotGlow:   'none',
+    textColor: '#ff6b2d',
+    label:     'ALERTA MÚLTIPLO',
+    pulse:     false,
+  },
 };
 
 export const AlertPanel = ({ message, status }) => {

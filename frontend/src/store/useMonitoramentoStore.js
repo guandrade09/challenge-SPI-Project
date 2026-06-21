@@ -12,14 +12,20 @@ const LABEL_MAP = {
 export const useMonitoramentoStore = create((set, get) => ({
   status: CAMERA_STATUS.IDLE,
   detections: {
-    colete:   false,
-    oculos:   false,
-    capacete: false,
-    mascara:  false,
+    colete:    false,
+    oculos:    false,
+    capacete:  false,
+    mascara:   false,
+    ergonomia: true,
+    zona:      true,
   },
-  alertas: [],
-  alertaAtivo: null,
-  liveDetections: [], // ← detecções ao vivo do modelo
+  alertas:        [],
+  alertaAtivo:    null,
+  liveDetections: [],
+  verdict:        null,   // { status, reasons, sources, confidence, timestamp }
+  metrics:        null,   // { latencia_total_ms, latencia_epi_ms, latencia_pose_ms, pck_pose, conf_media_epi }
+  lastFrame:      null,   // data URL do último frame recebido (para preview no modal de zona)
+  zonaConfig:     null,   // { camera_id, nome, pontos } zona ativa
 
   setStatus: (newStatus) => set({ status: newStatus }),
 
@@ -28,6 +34,14 @@ export const useMonitoramentoStore = create((set, get) => ({
   })),
 
   setLiveDetections: (data) => set({ liveDetections: data }),
+
+  setVerdict: (v) => set({ verdict: v }),
+
+  setMetrics: (m) => set({ metrics: m }),
+
+  setLastFrame: (url) => set({ lastFrame: url }),
+
+  setZonaConfig: (z) => set({ zonaConfig: z }),
 
   addAlerta: (alerta) => {
     const { detections } = get();

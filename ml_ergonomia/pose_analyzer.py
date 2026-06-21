@@ -95,14 +95,31 @@ class PoseAnalyzer:
                 bbox     = []
                 conf_det = 0.0
 
-            kp_s = kps[RIGHT_SHOULDER]
-            kp_h = kps[RIGHT_HIP]
-            kp_k = kps[RIGHT_KNEE]
-            coluna = None
-            if _kp_visible(kp_s) and _kp_visible(kp_h) and _kp_visible(kp_k):
-                coluna = _angle(kp_s[:2], kp_h[:2], kp_k[:2])
+            # Usa o lado com melhor visibilidade (evita oclusão)
+            kp_sr, kp_hr, kp_kr = kps[RIGHT_SHOULDER], kps[RIGHT_HIP], kps[RIGHT_KNEE]
+            kp_sl, kp_hl, kp_kl = kps[LEFT_SHOULDER],  kps[LEFT_HIP],  kps[LEFT_KNEE]
 
-            kp_n   = kps[NOSE]
+            right_ok = _kp_visible(kp_sr) and _kp_visible(kp_hr) and _kp_visible(kp_kr)
+            left_ok  = _kp_visible(kp_sl) and _kp_visible(kp_hl) and _kp_visible(kp_kl)
+
+            coluna = None
+            if right_ok and left_ok:
+                # usa o lado com maior confiança média
+                conf_r = (float(kp_sr[2]) + float(kp_hr[2]) + float(kp_kr[2])) / 3
+                conf_l = (float(kp_sl[2]) + float(kp_hl[2]) + float(kp_kl[2])) / 3
+                if conf_r >= conf_l:
+                    coluna = _angle(kp_sr[:2], kp_hr[:2], kp_kr[:2])
+                else:
+                    coluna = _angle(kp_sl[:2], kp_hl[:2], kp_kl[:2])
+            elif right_ok:
+                coluna = _angle(kp_sr[:2], kp_hr[:2], kp_kr[:2])
+            elif left_ok:
+                coluna = _angle(kp_sl[:2], kp_hl[:2], kp_kl[:2])
+
+            # Pescoço: usa o ombro mais visível
+            kp_n = kps[NOSE]
+            kp_s = kp_sr if float(kp_sr[2]) >= float(kp_sl[2]) else kp_sl
+            kp_h = kp_hr if float(kp_hr[2]) >= float(kp_hl[2]) else kp_hl
             pescoco = None
             if _kp_visible(kp_n) and _kp_visible(kp_s) and _kp_visible(kp_h):
                 pescoco = _angle(kp_n[:2], kp_s[:2], kp_h[:2])

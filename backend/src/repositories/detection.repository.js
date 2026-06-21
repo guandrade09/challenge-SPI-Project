@@ -7,8 +7,8 @@ export async function saveDetection(detection) {
   const db = await connect();
 
   const query = `
-    INSERT INTO detections (timestamp, label, confidence, img_path)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO detections (timestamp, label, confidence, img_path, source)
+    VALUES (?, ?, ?, ?, ?)
   `;
 
   const isoDate = new Date(detection.timestamp).toISOString();
@@ -21,7 +21,8 @@ export async function saveDetection(detection) {
     isoDate,
     detection.label,
     detection.confidence,
-    imagePath
+    imagePath,
+    detection.source ?? null,
   ]);
 }
 //#endregion

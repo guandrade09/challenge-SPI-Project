@@ -11,6 +11,7 @@ import os
 import asyncio
 import queue
 import threading
+import time
 import base64
 import json
 import cv2
@@ -372,12 +373,16 @@ def main():
                 zona_pessoas  = []
                 zona_confirmed = False
 
-            # 4. Veredicto unificado
-            verdict = _aggregate(
-                epi_confirmed,
-                ergo_pessoas if ergo_confirmed else [],
-                zona_pessoas if zona_confirmed else [],
+            # 4. Veredicto em tempo real (para exibição no frontend — sem debounce)
+            ergo_em_risco = [p for p in ergo_pessoas if p["classe"] != "adequada"]
+            zona_em_risco = [p for p in zona_pessoas if p["invadiu"]]
+
+            live_verdict = _aggregate(
+                epi_incidents,
+                ergo_pessoas if ergo_em_risco else [],
+                zona_pessoas  if zona_em_risco  else [],
             )
+            _send_verdict(live_verdict)
 
             # 5. WebSocket → frontend
             send_frame(raw_epi[0].plot())
@@ -387,10 +392,15 @@ def main():
                 for d in epi_dets
             ])
 
-            if verdict.status != "MONITORANDO":
+            # 6. Veredicto confirmado (debounced) → ações: beep + banco
+            if epi_confirmed or ergo_confirmed or zona_confirmed:
+                confirmed_verdict = _aggregate(
+                    epi_confirmed,
+                    ergo_pessoas if ergo_confirmed else [],
+                    zona_pessoas  if zona_confirmed  else [],
+                )
                 timestamp = datetime.now()
 
-                # Alerta individual por EPI (compatibilidade com frontend atual)
                 for d in epi_confirmed:
                     send_alert(
                         label=d.label,
@@ -398,22 +408,17 @@ def main():
                         timestamp=timestamp.isoformat(),
                     )
 
-                # Veredicto completo (novo — frontend ignorará por enquanto)
-                _send_verdict(verdict)
-
-                # Beep em thread separada, não bloqueia o loop
                 threading.Thread(target=_beep, daemon=True).start()
 
-                # POST ao backend via fila única
                 _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
                 img_b64 = base64.b64encode(buffer).decode("utf-8")
 
                 _post_queue.put({
                     "timestamp":  timestamp.isoformat(),
-                    "label":      ", ".join(verdict.reasons),
-                    "confidence": verdict.confidence,
+                    "label":      ", ".join(confirmed_verdict.reasons),
+                    "confidence": confirmed_verdict.confidence,
                     "img_Frame":  img_b64,
-                    "source":     ", ".join(verdict.sources),
+                    "source":     ", ".join(confirmed_verdict.sources),
                 })
 
             # Métricas de latência e qualidade — enviadas a cada frame

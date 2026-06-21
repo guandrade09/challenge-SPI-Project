@@ -16,7 +16,22 @@ export async function initDatabase() {
       label TEXT NOT NULL,
       confidence REAL NOT NULL,
       img_path TEXT,
-      img_frame TEXT
+      img_frame TEXT,
+      source TEXT
+    );
+  `);
+
+  await db.exec(`
+    ALTER TABLE detections ADD COLUMN source TEXT;
+  `).catch(() => {});
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS zonas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      camera_id TEXT NOT NULL UNIQUE,
+      nome TEXT NOT NULL,
+      pontos TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
   `);
 

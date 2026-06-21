@@ -13,8 +13,11 @@ export const CameraView = () => {
   const [connected, setConnected]       = useState(false);
   const [uptime, setUptimeDisplay]      = useState(0);  // ← renomeado
 
-  const addAlerta        = useMonitoramentoStore((s) => s.addAlerta);
+  const addAlerta         = useMonitoramentoStore((s) => s.addAlerta);
   const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
+  const setVerdict        = useMonitoramentoStore((s) => s.setVerdict);
+  const setMetrics        = useMonitoramentoStore((s) => s.setMetrics);
+  const setLastFrame      = useMonitoramentoStore((s) => s.setLastFrame);
 
   useEffect(() => {
     function connect() {
@@ -32,11 +35,17 @@ export const CameraView = () => {
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'frame' && imgRef.current) {
-            imgRef.current.src = `data:image/jpeg;base64,${msg.data}`;
+            const dataUrl = `data:image/jpeg;base64,${msg.data}`;
+            imgRef.current.src = dataUrl;
+            setLastFrame(dataUrl);
           } else if (msg.type === 'alert') {
             addAlerta(msg);
           } else if (msg.type === 'detections') {
             setLiveDetections(msg.data);
+          } else if (msg.type === 'verdict') {
+            setVerdict(msg);
+          } else if (msg.type === 'metrics') {
+            setMetrics(msg);
           }
         } catch {
           // ignorado
@@ -61,7 +70,7 @@ export const CameraView = () => {
         wsRef.current.close();
       }
     };
-  }, [addAlerta, setLiveDetections]);
+  }, [addAlerta, setLiveDetections, setVerdict, setMetrics, setLastFrame]);
 
   useEffect(() => {
     if (!connected) {

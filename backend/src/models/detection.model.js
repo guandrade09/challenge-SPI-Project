@@ -1,9 +1,10 @@
 export default class Detection {
-  constructor({ timestamp, label, confidence, img_Path, img_Frame}) {
+  constructor({ timestamp, label, confidence, img_Path, img_Frame, source }) {
     this.timestamp = timestamp;
     this.label = label;
     this.confidence = confidence;
     this.img_Path = img_Path;
     this.img_Frame = img_Frame;
+    this.source = source ?? null;
   }
 }

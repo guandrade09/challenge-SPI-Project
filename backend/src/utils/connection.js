@@ -3,7 +3,7 @@ import { open } from "sqlite";
 
 export async function connect() {
   return open({
-    filename: "./backend/src/config/database.sqlite",
+    filename: new URL("../config/database.sqlite", import.meta.url).pathname,
     driver: sqlite3.Database,
   });
 }
