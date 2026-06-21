@@ -5,25 +5,24 @@ import { usePerformanceStore } from '../../store/usePerformanceStore';
 
 export function PerformanceObserver() {
   const location = useLocation();
-  
   const incrementPagesLoaded = usePerformanceStore((s) => s.incrementPagesLoaded);
   const syncPerformanceData = usePerformanceStore((s) => s.syncPerformanceData);
 
-  // Escuta cada mudança de página/rota
+  // Escuta cada mudança de página/rota com segurança
   useEffect(() => {
     incrementPagesLoaded();
-  }, [location.pathname, incrementPagesLoaded]);
+  }, [location.pathname]); 
 
-  // Envia os dados acumulados a cada 1 minuto
+  // Envia os dados acumulados a cada 5 minutos
   useEffect(() => {
     const interval = setInterval(() => {
       syncPerformanceData();
-    }, 60000); 
+    }, 300000); 
 
     return () => clearInterval(interval);
   }, [syncPerformanceData]);
 
-  // Garante o envio caso o usuário feche a aba ou saia do sistema
+  // Envia se o usuário fechar a aba
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
