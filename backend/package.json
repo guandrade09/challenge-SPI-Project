@@ -2,11 +2,11 @@
   "name": "detection-api",
   "version": "1.0.0",
   "description": "API para salvar detecções (EPI)",
-  "main": "src/app.js",
+  "main": "src/api/server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon src/app.js",
-    "start": "node src/app.js"
+    "dev": "nodemon src/api/server.js",
+    "start": "node src/api/server.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

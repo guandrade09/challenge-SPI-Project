@@ -2,69 +2,78 @@ import { viewReportPdf, viewReportExcel, getReportSummary as getReportSummarySer
 import { ErrorHandler } from "../utils/appError.js";
 
 export async function downloadReportPdf(req, res) {
-  const { label, start, end } = req.query;
+  try {
+    const { label, start, end } = req.query;
+    const pdfBuffer = await viewReportPdf(label, start, end);
 
-  const pdfBuffer = await viewReportPdf(label, start, end);
-
-  res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", "attachment; filename=relatorio.pdf");
-  res.setHeader("Content-Length", pdfBuffer.length);
-
-  res.end(pdfBuffer);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "attachment; filename=relatorio.pdf");
+    res.setHeader("Content-Length", pdfBuffer.length);
+    return res.end(pdfBuffer);
+  } catch (error) {
+    return ErrorHandler.handle(res, error);
+  }
 }
 
 export async function getReportPdf(req, res) {
-  const { label, start, end } = req.query;
+  try {
+    const { label, start, end } = req.query;
+    const pdfBuffer = await viewReportPdf(label, start, end);
 
-  const pdfBuffer = await viewReportPdf(label, start, end);
-
-  res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", "inline; filename=relatorio.pdf");
-  res.setHeader("Content-Length", pdfBuffer.length);
-
-  res.end(pdfBuffer);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "inline; filename=relatorio.pdf");
+    res.setHeader("Content-Length", pdfBuffer.length);
+    return res.end(pdfBuffer);
+  } catch (error) {
+    return ErrorHandler.handle(res, error);
+  }
 }
 
 export async function downloadReportExcel(req, res) {
-  const { label, start, end } = req.query;
+  try {
+    const { label, start, end } = req.query;
+    const excelBuffer = await viewReportExcel(label, start, end);
 
-  const excelBuffer = await viewReportExcel(label, start, end);
-
-  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", "attachment; filename=relatorio.xlsx");
-  res.setHeader("Content-Length", excelBuffer.length);
-
-  res.end(excelBuffer);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=relatorio.xlsx");
+    res.setHeader("Content-Length", excelBuffer.length);
+    return res.end(excelBuffer);
+  } catch (error) {
+    return ErrorHandler.handle(res, error);
+  }
 }
 
 export async function getReportSummary(req, res) {
+  try {
     const { label, start, end } = req.query;
     const summary = await getReportSummaryService(label, start, end);
-    res.json(summary);
+    return res.json(summary);
+  } catch (error) {
+    return ErrorHandler.handle(res, error);
+  }
 }
 
 export async function getReportFiles(req, res) {
   try {
     const { day = null, month = null, year = null } = req.query;
     const files = await listReportFiles({ day, month, year });
-    res.json(files);
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao listar arquivos de relatórios' });
+    return res.json(files);
+  } catch (error) {
+    return ErrorHandler.handle(res, error);
   }
 }
 
 export async function downloadReport(req, res) {
-  const filename = req.params.filename ?? req.query.filename;
-
-  if (!filename) {
-    return res.status(400).json({ error: 'Parâmetro filename é obrigatório' });
-  }
-
-  let fileBuffer;
   try {
-    fileBuffer = await getReportFile(filename);
+    const filename = req.params.filename ?? req.query.filename;
 
+    if (!filename) {
+      return res.status(400).json({ error: 'Parâmetro filename é obrigatório' });
+    }
+
+    const fileBuffer = await getReportFile(filename);
     let contentType = "application/octet-stream";
+
     if (filename.endsWith(".pdf")) {
       contentType = "application/pdf";
     } else if (filename.endsWith(".xlsx")) {
@@ -75,8 +84,7 @@ export async function downloadReport(req, res) {
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.setHeader("Content-Length", fileBuffer.length);
     return res.end(fileBuffer);
-  } catch (err) {
-    console.error(err);
-    return res.status(404).json({ error: `Arquivo não encontrado: ${filename}` });
+  } catch (error) {
+    return ErrorHandler.handle(res, error);
   }
 }
