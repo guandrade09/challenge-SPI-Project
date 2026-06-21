@@ -27,7 +27,7 @@ class RealtimeDetectionService {
     // Enviar métricas de thread a cada 15 segundos
     this.threadMonitorIntervalId = setInterval(async () => {
       await this.reportBackendThreadConsumption();
-    }, 15000);
+    }, 300000);
 
     console.log("Serviço iniciado. Verificando novas detecções a cada 150ms e métricas de threads a cada 15s.");
   }
