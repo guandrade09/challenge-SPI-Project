@@ -101,22 +101,28 @@ class PoseAnalyzer:
             right_ok = _kp_visible(kp_sr) and _kp_visible(kp_hr) and _kp_visible(kp_kr)
             left_ok  = _kp_visible(kp_sl) and _kp_visible(kp_hl) and _kp_visible(kp_kl)
 
-            # Ângulos de coluna e pescoço só são geometricamente válidos em visão LATERAL.
-            # Quando ambos os lados estão visíveis (visão frontal/3/4), o deslocamento
-            # lateral do ombro em relação ao quadril na projeção 2D produz ângulos
-            # artificialmente pequenos mesmo com postura ereta — falso positivo garantido.
-            # Solução: só calcula se apenas UM lado está visível (câmera de lado).
-            side_right = right_ok and not left_ok
-            side_left  = left_ok  and not right_ok
+            # O modelo prediz AMBOS os lados mesmo de câmera lateral (estima keypoints ocluídos).
+            # Distinguimos visão frontal de lateral pela DIFERENÇA de confiança entre os lados:
+            # de lado → lado visível tem conf ~0.8, lado estimado ~0.35  → diff grande
+            # de frente → ambos os lados têm conf similar               → diff pequena
+            conf_r = (float(kp_sr[2]) + float(kp_hr[2]) + float(kp_kr[2])) / 3
+            conf_l = (float(kp_sl[2]) + float(kp_hl[2]) + float(kp_kl[2])) / 3
+            conf_diff = conf_r - conf_l  # positivo → direito mais visível
+
+            SIDE_DIFF = 0.15  # limiar de assimetria de confiança para considerar visão lateral
 
             coluna = None
             kp_s_neck = kp_h_neck = None
-            if side_right:
+
+            if conf_diff >= SIDE_DIFF and right_ok:
+                # visão lateral direita
                 coluna = _angle(kp_sr[:2], kp_hr[:2], kp_kr[:2])
                 kp_s_neck, kp_h_neck = kp_sr, kp_hr
-            elif side_left:
+            elif conf_diff <= -SIDE_DIFF and left_ok:
+                # visão lateral esquerda
                 coluna = _angle(kp_sl[:2], kp_hl[:2], kp_kl[:2])
                 kp_s_neck, kp_h_neck = kp_sl, kp_hl
+            # |conf_diff| < 0.15 → visão frontal → ângulos 2D inválidos, não calcula
 
             kp_n = kps[NOSE]
             pescoco = None
