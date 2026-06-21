@@ -19,17 +19,13 @@ class RealtimeDetectionService {
     this.initializeCpuMonitor();
     await this.reportBackendThreadConsumption();
 
-    // Verificar novas detecções a cada 150ms
     this.intervalId = setInterval(async () => {
       await this.checkForNewDetections();
     }, 150);
 
-    // Enviar métricas de thread a cada 15 segundos
     this.threadMonitorIntervalId = setInterval(async () => {
       await this.reportBackendThreadConsumption();
     }, 300000);
-
-    console.log("Serviço iniciado. Verificando novas detecções a cada 150ms e métricas de threads a cada 15s.");
   }
 
   async stop() {
@@ -79,8 +75,8 @@ class RealtimeDetectionService {
       const processLoad = this.getProcessLoad();
       const payload = {
         thread_name: `backend-process-${process.pid}`,
-        quantity_of_cpu_ind_percentage: threadCount,
-        process_loaded: processLoad,
+        quantity_of_cpu_ind_percentage: processLoad,
+        process_loaded: threadCount,
       };
 
       await this.postThreadMetric(payload);
@@ -91,8 +87,7 @@ class RealtimeDetectionService {
 
   async postThreadMetric(payload) {
     const urls = [
-      "http://127.0.0.1:3000/api/threads",
-      "http://127.0.0.1:3000/api/threads",
+      "http://localhost:3000/api/threads"
     ];
 
     for (const url of urls) {
@@ -104,17 +99,18 @@ class RealtimeDetectionService {
         });
 
         if (!response.ok) {
-          throw new Error(`Status ${response.status}`);
+          const text = await response.text();
+          throw new Error(`Status ${response.status}: ${text}`);
         }
 
-        console.log(`[THREAD MONITOR] Métrica enviada para ${url}`, payload);
+        console.log(`[THREAD MONITOR] Métrica enviada`);
         return;
       } catch (error) {
         console.warn(`[THREAD MONITOR] Falha ao enviar para ${url}:`, error.message);
       }
     }
 
-    console.error("[THREAD MONITOR] Não foi possível enviar a métrica para nenhum endpoint.");
+    console.error("[THREAD MONITOR] Não foi possível enviar a métrica para o banco de dados.");
   }
 
   async initializeLastId() {

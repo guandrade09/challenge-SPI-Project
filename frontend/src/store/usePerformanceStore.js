@@ -26,6 +26,7 @@ export const usePerformanceStore = create((set, get) => ({
 
     try {
       const payload = {
+        totalPagesLoaded,
         thread_name: `renderFrontend_pages_${totalPagesLoaded}`, 
         quantity_of_cpu_ind_percentage: floatMetric 
       };

@@ -10,7 +10,7 @@ import threadsConsume from "../models/thread.model.js";
 export async function register(data) {
     const Consume = new threadsConsume(data);
 
-    if (!Consume.thread_name || !Consume.quantity_of_cpu_ind_percentage) {
+    if (!Consume.thread_name || Consume.quantity_of_cpu_ind_percentage === undefined || Consume.quantity_of_cpu_ind_percentage === null) {
         throw new AppError("Dados inválidos", 400);
     }
 
