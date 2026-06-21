@@ -101,33 +101,25 @@ class PoseAnalyzer:
             right_ok = _kp_visible(kp_sr) and _kp_visible(kp_hr) and _kp_visible(kp_kr)
             left_ok  = _kp_visible(kp_sl) and _kp_visible(kp_hl) and _kp_visible(kp_kl)
 
-            # O modelo prediz AMBOS os lados mesmo de câmera lateral (estima keypoints ocluídos).
-            # Distinguimos visão frontal de lateral pela DIFERENÇA de confiança entre os lados:
-            # de lado → lado visível tem conf ~0.8, lado estimado ~0.35  → diff grande
-            # de frente → ambos os lados têm conf similar               → diff pequena
-            conf_r = (float(kp_sr[2]) + float(kp_hr[2]) + float(kp_kr[2])) / 3
-            conf_l = (float(kp_sl[2]) + float(kp_hl[2]) + float(kp_kl[2])) / 3
-            conf_diff = conf_r - conf_l  # positivo → direito mais visível
-
-            SIDE_DIFF = 0.15  # limiar de assimetria de confiança para considerar visão lateral
-
             coluna = None
-            kp_s_neck = kp_h_neck = None
-
-            if conf_diff >= SIDE_DIFF and right_ok:
-                # visão lateral direita
+            if right_ok and left_ok:
+                conf_r = (float(kp_sr[2]) + float(kp_hr[2]) + float(kp_kr[2])) / 3
+                conf_l = (float(kp_sl[2]) + float(kp_hl[2]) + float(kp_kl[2])) / 3
+                if conf_r >= conf_l:
+                    coluna = _angle(kp_sr[:2], kp_hr[:2], kp_kr[:2])
+                else:
+                    coluna = _angle(kp_sl[:2], kp_hl[:2], kp_kl[:2])
+            elif right_ok:
                 coluna = _angle(kp_sr[:2], kp_hr[:2], kp_kr[:2])
-                kp_s_neck, kp_h_neck = kp_sr, kp_hr
-            elif conf_diff <= -SIDE_DIFF and left_ok:
-                # visão lateral esquerda
+            elif left_ok:
                 coluna = _angle(kp_sl[:2], kp_hl[:2], kp_kl[:2])
-                kp_s_neck, kp_h_neck = kp_sl, kp_hl
-            # |conf_diff| < 0.15 → visão frontal → ângulos 2D inválidos, não calcula
 
             kp_n = kps[NOSE]
+            kp_s = kp_sr if float(kp_sr[2]) >= float(kp_sl[2]) else kp_sl
+            kp_h = kp_hr if float(kp_hr[2]) >= float(kp_hl[2]) else kp_hl
             pescoco = None
-            if kp_s_neck is not None and _kp_visible(kp_n) and _kp_visible(kp_s_neck) and _kp_visible(kp_h_neck):
-                pescoco = _angle(kp_n[:2], kp_s_neck[:2], kp_h_neck[:2])
+            if _kp_visible(kp_n) and _kp_visible(kp_s) and _kp_visible(kp_h):
+                pescoco = _angle(kp_n[:2], kp_s[:2], kp_h[:2])
 
             angulos = {}
             if coluna  is not None:
