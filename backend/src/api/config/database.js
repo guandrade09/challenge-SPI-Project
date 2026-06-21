@@ -69,7 +69,7 @@ export async function initDatabase() {
       timestamp TEXT NOT NULL,
       thread_name TEXT NOT NULL,
       quantity_of_cpu_ind_percentage INTERGER NOT NULL, 
-      renderization_process INTERGER
+      process_loaded INTERGER
     );
   `);
   

@@ -9,7 +9,7 @@ import { ErrorHandler } from "./utils/appError.js";
 const app = express();
 
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3300", "http://192.168.0.214:3000"],
+  origin: ["http://localhost:3000", "http://localhost:3300"],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   exposedHeaders: ['Content-Disposition', 'Content-Length']
 }));
