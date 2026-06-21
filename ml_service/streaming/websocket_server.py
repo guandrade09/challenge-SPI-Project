@@ -93,6 +93,19 @@ def send_detections(detections: list):
                 CONNECTED_CLIENTS.discard(client)
     asyncio.run_coroutine_threadsafe(_broadcast(), _loop)
 
+
+def send_pose(ergo_pessoas: list):
+    if not _loop or not CONNECTED_CLIENTS:
+        return
+    msg = json.dumps({"type": "pose", "pessoas": ergo_pessoas})
+    async def _broadcast():
+        for client in list(CONNECTED_CLIENTS):
+            try:
+                await client.send(msg)
+            except Exception:
+                CONNECTED_CLIENTS.discard(client)
+    asyncio.run_coroutine_threadsafe(_broadcast(), _loop)
+
 def start_server_in_thread():
     global _loop
     _loop = asyncio.new_event_loop()

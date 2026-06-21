@@ -29,7 +29,7 @@ from ultralytics import YOLO
 from ml_service.inference.camera import Camera
 from ml_service.inference.detector import EPIDetector, IncidentDebouncer
 from ml_service.streaming.websocket_server import (
-    send_frame, send_alert, send_detections, start_server_in_thread,
+    send_frame, send_alert, send_detections, send_pose, start_server_in_thread,
 )
 import ml_service.streaming.websocket_server as _ws
 from core.entities import Detection
@@ -385,12 +385,19 @@ def main():
             _send_verdict(live_verdict)
 
             # 5. WebSocket → frontend
-            send_frame(raw_epi[0].plot())
+            send_frame(frame)                            # frame limpo — frontend desenha as caixas
 
-            send_detections([
-                {"label": d.label, "confidence": round(float(d.confidence), 4)}
+            send_detections([                            # inclui bbox para o canvas do frontend
+                {
+                    "label":      d.label,
+                    "confidence": round(float(d.confidence), 4),
+                    "x1": int(d.x1), "y1": int(d.y1),
+                    "x2": int(d.x2), "y2": int(d.y2),
+                }
                 for d in epi_dets
             ])
+
+            send_pose(ergo_pessoas)                      # keypoints para skeleton no frontend
 
             # 6. Veredicto confirmado (debounced) → ações: beep + banco
             if epi_confirmed or ergo_confirmed or zona_confirmed:

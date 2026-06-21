@@ -136,6 +136,7 @@ class PoseAnalyzer:
                 "classe":             _classify(coluna, pescoco, kps),
                 "angulos":            angulos,
                 "confianca_deteccao": conf_det,
+                "keypoints":          kps.tolist(),   # [[x, y, conf] × 17] para desenho no frontend
             })
 
         return pessoas
