@@ -76,8 +76,10 @@ export const cameras = [
 
 
 export const teamMembers = [
-  { id: 1, name: "Ana Silva", role: "Coordenadora de Segurança", initials: "AS" },
-  { id: 2, name: "Carlos Santos", role: "Engenheiro ML", initials: "CS" },
-  { id: 3, name: "Maria Oliveira", role: "Analista de Dados", initials: "MO" },
-  { id: 4, name: "João Costa", role: "Técnico de Segurança", initials: "JC" }
+  { id: 1, name: "Gabriel Lacerda", role: "Desenvolvedor Front-end", initials: "GL" },
+  { id: 2, name: "Lucas Rodrigues", role: "Desenvolvedor Back-end", initials: "LR" },
+  { id: 3, name: "Mayene G. Doria", role: "Tech Lead de Machine Learning", initials: "MGD" },
+  { id: 4, name: "Gustavo Andrade", role: "Gestor de Dados", initials: "GA" },
+  { id: 5, name: "Thais Helena", role: "Analista de Dados", initials: "TH" },
+  { id: 6, name: "Geovana Carvalho", role: "Analista de Dados", initials: "RS" }
 ];
