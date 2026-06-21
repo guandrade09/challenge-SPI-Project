@@ -63,13 +63,12 @@ export async function initDatabase() {
   // thread_name: nome da thread (ex: "CameraThread-1")
   // quantity_of_cpu_ind_percentage : quantidade de CPU consumida pela thread no momento do registro
   await db.exec(`
-    
     CREATE TABLE IF NOT EXISTS threadsConsume (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       timestamp TEXT NOT NULL,
       thread_name TEXT NOT NULL,
-      quantity_of_cpu_ind_percentage INTERGER NOT NULL, 
-      renderization_process INTERGER
+      quantity_of_cpu_ind_percentage INTEGER NOT NULL,
+      process_loaded INTEGER
     );
   `);
   
