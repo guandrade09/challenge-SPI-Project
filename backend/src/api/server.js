@@ -2,6 +2,7 @@ import cluster from "cluster";
 import os from "os";
 import app from "./app.js";
 import { initDatabase } from "./config/database.js";
+import realtimeService from "../services/realtime-service.js";
 
 const numCPUs = os.cpus().length;
 const PORT = 3000;
@@ -25,8 +26,9 @@ if (cluster.isPrimary) {
     try {
       await initDatabase();
 
-      app.listen(PORT, () => {
+      app.listen(PORT, async () => {
         console.log(`Worker ${process.pid} rodando na porta ${PORT}`);
+        await realtimeService.start();
       });
 
     } catch (err) {

@@ -22,7 +22,7 @@ export async function getThreadsConsume()
   const db = await connect();
 
   return await db.all(`
-    SELECT timestamp, thread_name, quantity_of_cpu_ind_percentage, process_loaded
+    SELECT id,timestamp, thread_name, quantity_of_cpu_ind_percentage, process_loaded
     FROM threadsConsume
   `);
 }
@@ -32,7 +32,7 @@ export async function getThreadsConsumeByThreadName(thread_name)
   const db = await connect();
 
   return await db.all(`
-    SELECT timestamp, thread_name, quantity_of_cpu_ind_percentage, process_loaded
+    SELECT id,timestamp, thread_name, quantity_of_cpu_ind_percentage, process_loaded
     FROM threadsConsume
     where TRIM(LOWER(thread_name)) = TRIM(LOWER(?))
   `, [thread_name])
@@ -43,7 +43,7 @@ export async function getThreadsConsumeByTimeStamp(timestamp)
   const db = await connect();
 
   return await db.all(`
-    SELECT timestamp, thread_name, quantity_of_cpu_ind_percentage, process_loaded
+    SELECT id,timestamp, thread_name, quantity_of_cpu_ind_percentage, process_loaded
     FROM threadsConsume
     where timestamp >= ?
   `, [timestamp])
