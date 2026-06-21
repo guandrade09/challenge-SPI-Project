@@ -4,7 +4,6 @@ import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 
 const WS_URL = 'ws://localhost:8765';
 
-// Mapa label EPI → chave do toggle no store
 const LABEL_TO_TOGGLE = {
   'Hardhat':        'capacete',
   'NO-Hardhat':     'capacete',
@@ -16,16 +15,15 @@ const LABEL_TO_TOGGLE = {
   'NO-Mask':        'mascara',
 };
 
-// Conexões do skeleton COCO (17 keypoints)
 const SKELETON = [
-  [0, 1], [0, 2], [1, 3], [2, 4],          // cabeça
-  [5, 6],                                    // ombros
-  [5, 7], [7, 9],                            // braço esq
-  [6, 8], [8, 10],                           // braço dir
-  [5, 11], [6, 12],                          // torso
-  [11, 12],                                  // quadris
-  [11, 13], [13, 15],                        // perna esq
-  [12, 14], [14, 16],                        // perna dir
+  [0, 1], [0, 2], [1, 3], [2, 4],
+  [5, 6],
+  [5, 7], [7, 9],
+  [6, 8], [8, 10],
+  [5, 11], [6, 12],
+  [11, 12],
+  [11, 13], [13, 15],
+  [12, 14], [14, 16],
 ];
 
 const CLASSE_COLOR = {
@@ -35,50 +33,53 @@ const CLASSE_COLOR = {
 };
 
 const CLASSE_PT = {
-  adequada:                   'Adequada',
   ergonomicamente_inadequada: 'Postura Inadequada',
   risco_imediato:             'Risco Imediato',
 };
 
-const KP_CONF_MIN = 0.3;
+const KP_MIN = 0.3;
 
 function drawPessoa(ctx, pessoa) {
   const kps   = pessoa.keypoints ?? [];
-  const color = CLASSE_COLOR[pessoa.classe] ?? '#ffffff';
+  const color = CLASSE_COLOR[pessoa.classe] ?? '#fff';
 
-  // Linhas do skeleton
   ctx.strokeStyle = color;
   ctx.lineWidth   = 2;
   for (const [a, b] of SKELETON) {
-    const kpA = kps[a];
-    const kpB = kps[b];
-    if (!kpA || !kpB || kpA[2] < KP_CONF_MIN || kpB[2] < KP_CONF_MIN) continue;
+    const A = kps[a], B = kps[b];
+    if (!A || !B || A[2] < KP_MIN || B[2] < KP_MIN) continue;
     ctx.beginPath();
-    ctx.moveTo(kpA[0], kpA[1]);
-    ctx.lineTo(kpB[0], kpB[1]);
+    ctx.moveTo(A[0], A[1]);
+    ctx.lineTo(B[0], B[1]);
     ctx.stroke();
   }
 
-  // Pontos dos keypoints
   ctx.fillStyle = color;
   for (const kp of kps) {
-    if (!kp || kp[2] < KP_CONF_MIN) continue;
+    if (!kp || kp[2] < KP_MIN) continue;
     ctx.beginPath();
     ctx.arc(kp[0], kp[1], 3, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Label de classificação acima da bbox
   if (pessoa.bbox?.length === 4 && pessoa.classe !== 'adequada') {
     const [x1, y1] = pessoa.bbox;
-    const text = CLASSE_PT[pessoa.classe] ?? pessoa.classe;
+    const label = CLASSE_PT[pessoa.classe] ?? pessoa.classe;
     ctx.font = 'bold 11px "IBM Plex Mono", monospace';
-    const tw = ctx.measureText(text).width;
+    const tw = ctx.measureText(label).width;
     ctx.fillStyle = color;
     ctx.fillRect(x1, Math.max(0, y1 - 18), tw + 6, 16);
     ctx.fillStyle = '#000';
-    ctx.fillText(text, x1 + 3, Math.max(13, y1 - 5));
+    ctx.fillText(label, x1 + 3, Math.max(13, y1 - 5));
   }
+}
+
+// Converte base64 → Blob sem passar por data URL (mais rápido)
+function b64ToBlob(b64) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: 'image/jpeg' });
 }
 
 export const CameraView = () => {
@@ -86,11 +87,13 @@ export const CameraView = () => {
   const wsRef        = useRef(null);
   const reconnectRef = useRef(null);
   const uptimeRef    = useRef(0);
+  const rafRef       = useRef(null);   // rAF pendente para redesenho por toggle
+  const seqRef       = useRef(0);      // evita frames fora de ordem (decode async)
 
-  // Dados de desenho em refs — sem causar re-render
-  const frameImgRef = useRef(null);
-  const epiDataRef  = useRef([]);   // [{label, confidence, x1, y1, x2, y2}, ...]
-  const poseDataRef = useRef([]);   // ergo_pessoas com keypoints
+  // Dados de renderização em refs — sem re-render React
+  const bitmapRef   = useRef(null);   // ImageBitmap do frame atual (GPU-ready)
+  const epiDataRef  = useRef([]);
+  const poseDataRef = useRef([]);
 
   const [connected, setConnected] = useState(false);
   const [uptime, setUptimeDisplay] = useState(0);
@@ -103,35 +106,26 @@ export const CameraView = () => {
 
   const drawAll = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !bitmapRef.current) return;
     const ctx = canvas.getContext('2d');
     const W = canvas.width;
     const H = canvas.height;
-
-    // Lê toggles diretamente do store (imperativo — não reativo)
     const { detections: toggles } = useMonitoramentoStore.getState();
 
-    ctx.clearRect(0, 0, W, H);
+    // Frame (ImageBitmap — já decodificado, draw direto na GPU)
+    ctx.drawImage(bitmapRef.current, 0, 0, W, H);
 
-    // 1. Frame
-    if (frameImgRef.current) {
-      ctx.drawImage(frameImgRef.current, 0, 0, W, H);
-    }
-
-    // 2. Bounding boxes de EPI filtradas pelos toggles
+    // Bounding boxes EPI filtradas por toggle
     for (const det of epiDataRef.current) {
-      const toggleKey = LABEL_TO_TOGGLE[det.label];
-      if (toggleKey && !toggles[toggleKey]) continue;
+      const tk = LABEL_TO_TOGGLE[det.label];
+      if (tk && !toggles[tk]) continue;
 
-      const isRisk = det.label.startsWith('NO-');
-      const color  = isRisk ? '#ff4444' : '#3cc87a';
+      const color = det.label.startsWith('NO-') ? '#ff4444' : '#3cc87a';
       const { x1, y1, x2, y2 } = det;
-
       ctx.strokeStyle = color;
       ctx.lineWidth   = 2;
       ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
 
-      // Label com fundo colorido
       const text = `${det.label}  ${(det.confidence * 100).toFixed(0)}%`;
       ctx.font = 'bold 11px "IBM Plex Mono", monospace';
       const tw = ctx.measureText(text).width;
@@ -141,18 +135,20 @@ export const CameraView = () => {
       ctx.fillText(text, x1 + 3, Math.max(12, y1 - 3));
     }
 
-    // 3. Skeleton de pose (se toggle ergonomia ligado)
+    // Skeleton de pose (só se ergonomia ligado)
     if (toggles.ergonomia) {
-      for (const pessoa of poseDataRef.current) {
-        drawPessoa(ctx, pessoa);
-      }
+      for (const p of poseDataRef.current) drawPessoa(ctx, p);
     }
   }, []);
 
-  // Redesenha quando o usuário altera um toggle
+  // Redesenha via rAF quando toggle muda (batched — 1 draw por animation frame)
   const detections = useMonitoramentoStore((s) => s.detections);
   useEffect(() => {
-    drawAll();
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      drawAll();
+    });
   }, [detections, drawAll]);
 
   useEffect(() => {
@@ -161,7 +157,6 @@ export const CameraView = () => {
         wsRef.current.onclose = null;
         wsRef.current.close();
       }
-
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
@@ -172,29 +167,38 @@ export const CameraView = () => {
           const msg = JSON.parse(event.data);
 
           if (msg.type === 'frame') {
+            // Marca o frame atual para evitar race condition no decode async
+            const seq = ++seqRef.current;
             const dataUrl = `data:image/jpeg;base64,${msg.data}`;
             setLastFrame(dataUrl);
-            const img = new Image();
-            img.onload = () => {
-              // Sincroniza dimensões do canvas com o frame recebido
-              const canvas = canvasRef.current;
-              if (canvas && (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight)) {
-                canvas.width  = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-              }
-              frameImgRef.current = img;
-              drawAll();
-            };
-            img.src = dataUrl;
+
+            createImageBitmap(b64ToBlob(msg.data))
+              .then((bitmap) => {
+                if (seq !== seqRef.current) { bitmap.close(); return; } // frame já desatualizado
+                const canvas = canvasRef.current;
+                if (!canvas) { bitmap.close(); return; }
+
+                // Sincroniza dimensões do canvas UMA VEZ (na primeira mensagem)
+                if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
+                  canvas.width  = bitmap.width;
+                  canvas.height = bitmap.height;
+                }
+
+                // Libera bitmap anterior da GPU
+                if (bitmapRef.current) bitmapRef.current.close();
+                bitmapRef.current = bitmap;
+
+                drawAll(); // ← único ponto de redraw por frame
+              })
+              .catch(() => {});
 
           } else if (msg.type === 'detections') {
+            // Só atualiza ref — drawAll é chamado pelo próximo frame
             epiDataRef.current = msg.data ?? [];
             setLiveDetections(msg.data ?? []);
-            drawAll();
 
           } else if (msg.type === 'pose') {
             poseDataRef.current = msg.pessoas ?? [];
-            drawAll();
 
           } else if (msg.type === 'alert') {
             addAlerta(msg);
@@ -205,9 +209,7 @@ export const CameraView = () => {
           } else if (msg.type === 'metrics') {
             setMetrics(msg);
           }
-        } catch {
-          // ignorado
-        }
+        } catch { /* ignorado */ }
       };
 
       ws.onerror = () => {};
@@ -215,30 +217,23 @@ export const CameraView = () => {
       ws.onclose = () => {
         setConnected(false);
         const canvas = canvasRef.current;
-        if (canvas) {
-          canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-        }
-        frameImgRef.current = null;
+        if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        if (bitmapRef.current) { bitmapRef.current.close(); bitmapRef.current = null; }
         reconnectRef.current = setTimeout(connect, 3000);
       };
     }
 
     connect();
-
     return () => {
       clearTimeout(reconnectRef.current);
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
-      }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close(); }
+      if (bitmapRef.current) { bitmapRef.current.close(); bitmapRef.current = null; }
     };
   }, [addAlerta, setLiveDetections, setVerdict, setMetrics, setLastFrame, drawAll]);
 
   useEffect(() => {
-    if (!connected) {
-      uptimeRef.current = 0;
-      return;
-    }
+    if (!connected) { uptimeRef.current = 0; return; }
     uptimeRef.current = 0;
     const id = setInterval(() => {
       uptimeRef.current += 1;
@@ -247,27 +242,23 @@ export const CameraView = () => {
     return () => clearInterval(id);
   }, [connected]);
 
-  const formatUptime = (s) => {
-    const h   = String(Math.floor(s / 3600)).padStart(2, '0');
-    const m   = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-    const sec = String(s % 60).padStart(2, '0');
-    return `${h}:${m}:${sec}`;
-  };
+  const fmt = (s) => [
+    String(Math.floor(s / 3600)).padStart(2, '0'),
+    String(Math.floor((s % 3600) / 60)).padStart(2, '0'),
+    String(s % 60).padStart(2, '0'),
+  ].join(':');
 
   return (
-    <div
-      className="w-full flex flex-col overflow-hidden rounded-xl shadow-2xl"
-      style={{ border: '1px solid #1e2025', background: '#0d0e10' }}
-    >
+    <div className="w-full flex flex-col overflow-hidden rounded-xl shadow-2xl"
+      style={{ border: '1px solid #1e2025', background: '#0d0e10' }}>
+
       {/* Barra superior */}
-      <div
-        className="flex items-center px-4 gap-3"
-        style={{ height: 42, background: '#141518', borderBottom: '1px solid #1e2025', flexShrink: 0 }}
-      >
+      <div className="flex items-center px-4 gap-3"
+        style={{ height: 42, background: '#141518', borderBottom: '1px solid #1e2025', flexShrink: 0 }}>
         <div className="flex gap-1.5">
-          <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#e05252' }} />
-          <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#d4a017' }} />
-          <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#3cc87a' }} />
+          {['#e05252','#d4a017','#3cc87a'].map((c) => (
+            <div key={c} style={{ width: 11, height: 11, borderRadius: '50%', background: c }} />
+          ))}
         </div>
         <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: '#4a4e5a', letterSpacing: '0.04em', marginLeft: 6 }}>
           câmera ao vivo
@@ -284,12 +275,8 @@ export const CameraView = () => {
         </div>
       </div>
 
-      {/* Área de vídeo — aspect ratio 4:3 para alinhar com frames 640×480 */}
-      <div
-        className="relative overflow-hidden"
-        style={{ aspectRatio: '4/3', background: '#090a0c' }}
-      >
-        {/* Cantos decorativos */}
+      {/* Área de vídeo — 4:3 alinha com frames 640×480 */}
+      <div className="relative overflow-hidden" style={{ aspectRatio: '4/3', background: '#090a0c' }}>
         {[
           { top: 16, left: 16,    borderTop:    '1.5px solid #252830', borderLeft:   '1.5px solid #252830' },
           { top: 16, right: 16,   borderTop:    '1.5px solid #252830', borderRight:  '1.5px solid #252830' },
@@ -307,7 +294,6 @@ export const CameraView = () => {
           }} />
         )}
 
-        {/* Placeholder sem sinal */}
         {!connected && (
           <>
             <div style={{
@@ -321,44 +307,28 @@ export const CameraView = () => {
               backgroundPosition: '0 0,0 9px,9px -9px,-9px 0',
               backgroundColor: '#0d0e10',
             }} />
-            <div style={{
-              position: 'absolute', inset: 0, zIndex: 6,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
+            <div style={{ position: 'absolute', inset: 0, zIndex: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#2d3040', letterSpacing: '0.08em' }}>
-                  SEM SINAL
-                </p>
-                <p style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: '#1e2229', marginTop: 6, letterSpacing: '0.06em' }}>
-                  {WS_URL}
-                </p>
+                <p style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#2d3040', letterSpacing: '0.08em' }}>SEM SINAL</p>
+                <p style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: '#1e2229', marginTop: 6, letterSpacing: '0.06em' }}>{WS_URL}</p>
               </div>
             </div>
           </>
         )}
 
-        {/* Canvas principal — desenha frame + overlays */}
-        <canvas
-          ref={canvasRef}
-          width={640}
-          height={480}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
-        />
+        <canvas ref={canvasRef} width={640} height={480}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
       </div>
 
       {/* Barra inferior */}
-      <div
-        className="flex items-center justify-between px-4"
-        style={{ height: 44, background: '#141518', borderTop: '1px solid #1e2025', flexShrink: 0 }}
-      >
+      <div className="flex items-center justify-between px-4"
+        style={{ height: 44, background: '#141518', borderTop: '1px solid #1e2025', flexShrink: 0 }}>
         <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: '#2d3040', letterSpacing: '0.06em' }}>
-          {connected ? `${formatUptime(uptime)} · online` : '-- · offline'}
+          {connected ? `${fmt(uptime)} · online` : '-- · offline'}
         </span>
         <button style={{
-          width: 30, height: 30, borderRadius: 6,
-          background: '#1a1c21', border: '1px solid #252830',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#5a5e6a', cursor: 'pointer',
+          width: 30, height: 30, borderRadius: 6, background: '#1a1c21', border: '1px solid #252830',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5a5e6a', cursor: 'pointer',
         }}>
           <Maximize2 size={13} />
         </button>
