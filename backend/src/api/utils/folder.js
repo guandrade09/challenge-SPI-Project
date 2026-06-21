@@ -1,9 +1,17 @@
 import fs from "fs";
 import fsPromises from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
 
-export async function createFolderByTimestamp(timestamp, basePath = "./backend/src/api/uploads/imgens") 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export async function createFolderByTimestamp(timestamp, basePath = null) 
 {
+    if (!basePath) {
+        basePath = path.resolve(__dirname, "../uploads/imgens");
+    }
+
     const date = new Date(timestamp);
 
     const year = date.getFullYear();
@@ -200,7 +208,7 @@ export async function savePdfToUploads(pdfBuffer, fileName = null) {
     try {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const baseName = fileName || `relatorio-${timestamp}`;
-        const filePath = path.resolve("backend/src/api/uploads/relatorios/pdf/", `${baseName}.pdf`);
+        const filePath = path.resolve(__dirname, "../uploads/relatorios/pdf", `${baseName}.pdf`);
 
         const uploadsDir = path.dirname(filePath);
         if (!fs.existsSync(uploadsDir)) {
@@ -220,9 +228,7 @@ export async function savePdfToUploads(pdfBuffer, fileName = null) {
 
 export async function saveExcel(workbook, fileName = null) 
 {
-    const reportsDir = path.resolve(
-        "backend/src/api/uploads/relatorios/excel"
-    );
+    const reportsDir = path.resolve(__dirname, "../uploads/relatorios/excel");
 
     if (!fs.existsSync(reportsDir)) 
     {

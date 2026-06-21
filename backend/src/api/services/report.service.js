@@ -14,6 +14,10 @@ import { generateExcelReport, getExcelBuffer } from "../utils/report/excel.js";
 import { savePdfToUploads, saveExcel } from "../utils/folder.js";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function viewReportPdf(label = null, timestamp_start = null, timestamp_end = null) {
     const detectionAll = await getAllDetections();
@@ -31,20 +35,6 @@ export async function viewReportExcel(label = null, timestamp_start = null, time
     const reportExcel = await generateExcelReport(detection);
     await saveExcel(reportExcel);
     return await getExcelBuffer(reportExcel);
-}
-
-async function GetDataForReport(label, timestamp_start, timestamp_end) {
-    if (label != null && timestamp_start != null && timestamp_end != null) {
-        return await getSpecificDetections(label, timestamp_start, timestamp_end);
-    }
-
-    if (label != null) {
-        return await getDetectionsByLabel(label);
-    }
-    if (timestamp_start != null && timestamp_end != null) {
-        return await getDetectionsByDay(timestamp_start, timestamp_end);
-    }
-    return await getAllDetections();
 }
 
 export async function getReportSummary(label = null, timestamp_start = null, timestamp_end = null) {
@@ -75,106 +65,140 @@ export async function getReportSummary(label = null, timestamp_start = null, tim
 }
 
 export async function listReportFiles({ day = null, month = null, year = null } = {}) {
-    const pdfDir = path.resolve("backend/src/api/uploads/relatorios/pdf");
-    const excelDir = path.resolve("backend/src/api/uploads/relatorios/excel");
+    const directories = [
+        path.resolve(__dirname, "../uploads/relatorios/pdf"),
+        path.resolve(__dirname, "../uploads/relatorios/excel")
+    ];
 
     const results = [];
 
-    async function readDir(dir) {
+    async function readDirectory(dir) {
         try {
             if (!fs.existsSync(dir)) return;
-            const names = await fs.promises.readdir(dir);
-            for (const name of names) {
-                const full = path.join(dir, name);
-                const stat = await fs.promises.stat(full);
+
+            const files = await fs.promises.readdir(dir);
+
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                const stat = await fs.promises.stat(fullPath);
+
                 if (!stat.isFile()) continue;
 
-                const dateValue = parseDateFromFileName(name) || stat.mtime.toISOString();
-                const dateObj = new Date(dateValue);
-                if (!shouldInclude(dateObj, day, month, year)) continue;
+                const date = await getFileDate(file, stat.mtime);
+
+                if (!matchesFilter(date, day, month, year)) continue;
 
                 results.push({
-                    fileName: name,
+                    fileName: file,
                     size: stat.size,
-                    date: dateValue,
-                    type: path.extname(name).replace('.', '').toLowerCase()
+                    date: date.toISOString(),
+                    type: path.extname(file).slice(1).toLowerCase()
                 });
             }
-        } catch (err) {
-            // ignore folder access errors
+        } catch {
         }
     }
 
-    function shouldInclude(dateObj, day, month, year) {
-        if (!dateObj || isNaN(dateObj.getTime())) {
-            return !day && !month && !year;
-        }
-
-        const utcDay = dateObj.getUTCDate();
-        const utcMonth = dateObj.getUTCMonth() + 1;
-        const utcYear = dateObj.getUTCFullYear();
-
-        if (year && Number(year) !== utcYear) return false;
-        if (month && Number(month) !== utcMonth) return false;
-        if (day && Number(day) !== utcDay) return false;
-        return true;
+    for (const dir of directories) {
+        await readDirectory(dir);
     }
 
-    function parseDateFromFileName(name) {
-        // Try ISO-like timestamp (e.g. 2023-05-20T12-34-56-789Z)
-        const isoLike = name.match(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:-\d+)?Z?/);
-        if (isoLike) {
-            let ts = isoLike[0];
-            const hasZ = ts.endsWith("Z");
-            if (hasZ) ts = ts.slice(0, -1);
-            const [datePart, timePart] = ts.split('T');
-            const timePieces = timePart.split('-');
-            const hh = timePieces[0] || '00';
-            const mm = timePieces[1] || '00';
-            const ss = timePieces[2] || '00';
-            const ms = timePieces[3] || '0';
-            const iso = `${datePart}T${hh}:${mm}:${ss}.${ms}${hasZ ? 'Z' : ''}`;
-            const d = new Date(iso);
-            if (!isNaN(d)) return d.toISOString();
-        }
+    return results.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
 
-        // Try millisecond timestamp (13 digits)
-        const msMatch = name.match(/(\d{13})/);
-        if (msMatch) {
-            const v = Number(msMatch[1]);
-            const d = new Date(v);
-            if (!isNaN(d)) return d.toISOString();
-        }
-
-        // Try seconds timestamp (10 digits)
-        const sMatch = name.match(/(\d{10})/);
-        if (sMatch) {
-            const v = Number(sMatch[1]) * 1000;
-            const d = new Date(v);
-            if (!isNaN(d)) return d.toISOString();
-        }
-
-        return null;
+export async function getReportFile(filename) {
+    const safeFilename = path.basename(filename);
+    if (safeFilename !== filename) {
+        throw new Error('Nome de arquivo inválido');
     }
-    function shouldInclude(dateObj, day, month, year) {
-        if (!dateObj || isNaN(dateObj.getTime())) {
-            return !day && !month && !year;
-        }
 
-        const utcDay = dateObj.getUTCDate();
-        const utcMonth = dateObj.getUTCMonth() + 1;
-        const utcYear = dateObj.getUTCFullYear();
-
-        if (year && Number(year) !== utcYear) return false;
-        if (month && Number(month) !== utcMonth) return false;
-        if (day && Number(day) !== utcDay) return false;
-        return true;
+    let directory = null;
+    if (filename.endsWith('.pdf')) {
+        directory = path.resolve(__dirname, '../uploads/relatorios/pdf');
+    } else if (filename.endsWith('.xlsx')) {
+        directory = path.resolve(__dirname, '../uploads/relatorios/excel');
+    } else {
+        throw new Error('Tipo de arquivo não suportado');
     }
-    await readDir(pdfDir);
-    await readDir(excelDir);
 
-    // sort by date desc
-    results.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const filePath = path.join(directory, filename);
+    return fs.readFileSync(filePath);
+}
 
-    return results;
+async function GetDataForReport(label, timestamp_start, timestamp_end) {
+    if (label != null && timestamp_start != null && timestamp_end != null) {
+        return await getSpecificDetections(label, timestamp_start, timestamp_end);
+    }
+
+    if (label != null) {
+        return await getDetectionsByLabel(label);
+    }
+    if (timestamp_start != null && timestamp_end != null) {
+        return await getDetectionsByDay(timestamp_start, timestamp_end);
+    }
+    return await getAllDetections();
+}
+
+function matchesFilter(date, day, month, year) {
+    if (!date || isNaN(date.getTime())) {
+        return !day && !month && !year;
+    }
+
+    const filters = {
+        day: date.getUTCDate(),
+        month: date.getUTCMonth() + 1,
+        year: date.getUTCFullYear()
+    };
+
+    return (
+        (!day || Number(day) === filters.day) &&
+        (!month || Number(month) === filters.month) &&
+        (!year || Number(year) === filters.year)
+    );
+}
+
+function getFileDate(fileName, fallbackDate) {
+    return (
+        parseIsoDate(fileName) ||
+        parseTimestamp(fileName, 13) ||
+        parseTimestamp(fileName, 10, true) ||
+        new Date(fallbackDate)
+    );
+}
+
+function parseIsoDate(text) {
+    const match = text.match(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:-\d+)?Z?/);
+
+    if (!match) return null;
+
+    let timestamp = match[0];
+    const hasZ = timestamp.endsWith("Z");
+
+    if (hasZ) {
+        timestamp = timestamp.slice(0, -1);
+    }
+
+    const [datePart, timePart] = timestamp.split("T");
+    const [hh = "00", mm = "00", ss = "00", ms = "0"] = timePart.split("-");
+
+    const iso = `${datePart}T${hh}:${mm}:${ss}.${ms}${hasZ ? "Z" : ""}`;
+    const date = new Date(iso);
+
+    return isNaN(date) ? null : date;
+}
+
+function parseTimestamp(text, digits, seconds = false) {
+    const match = text.match(new RegExp(`(\\d{${digits}})`));
+
+    if (!match) return null;
+
+    let value = Number(match[1]);
+
+    if (seconds) {
+        value *= 1000;
+    }
+
+    const date = new Date(value);
+
+    return isNaN(date) ? null : date;
 }
