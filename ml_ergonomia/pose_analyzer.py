@@ -16,8 +16,8 @@ KP_CONF_THRESHOLD = 0.3
 
 COLUNA_RISCO_IMEDIATO = 120.0
 COLUNA_INADEQUADA_MAX = 160.0
-PESCOCO_INADEQUADO = 145.0
-ASSIMETRIA_OMBROS_PX = 20.0
+PESCOCO_INADEQUADO    = 145.0
+ASSIMETRIA_OMBROS_PX  = 40.0   # 20px causava falso positivo com ruído do modelo
 
 
 def decode_frame(frame_b64: str) -> np.ndarray:
@@ -95,34 +95,33 @@ class PoseAnalyzer:
                 bbox     = []
                 conf_det = 0.0
 
-            # Usa o lado com melhor visibilidade (evita oclusão)
             kp_sr, kp_hr, kp_kr = kps[RIGHT_SHOULDER], kps[RIGHT_HIP], kps[RIGHT_KNEE]
             kp_sl, kp_hl, kp_kl = kps[LEFT_SHOULDER],  kps[LEFT_HIP],  kps[LEFT_KNEE]
 
             right_ok = _kp_visible(kp_sr) and _kp_visible(kp_hr) and _kp_visible(kp_kr)
             left_ok  = _kp_visible(kp_sl) and _kp_visible(kp_hl) and _kp_visible(kp_kl)
 
-            coluna = None
-            if right_ok and left_ok:
-                # usa o lado com maior confiança média
-                conf_r = (float(kp_sr[2]) + float(kp_hr[2]) + float(kp_kr[2])) / 3
-                conf_l = (float(kp_sl[2]) + float(kp_hl[2]) + float(kp_kl[2])) / 3
-                if conf_r >= conf_l:
-                    coluna = _angle(kp_sr[:2], kp_hr[:2], kp_kr[:2])
-                else:
-                    coluna = _angle(kp_sl[:2], kp_hl[:2], kp_kl[:2])
-            elif right_ok:
-                coluna = _angle(kp_sr[:2], kp_hr[:2], kp_kr[:2])
-            elif left_ok:
-                coluna = _angle(kp_sl[:2], kp_hl[:2], kp_kl[:2])
+            # Ângulos de coluna e pescoço só são geometricamente válidos em visão LATERAL.
+            # Quando ambos os lados estão visíveis (visão frontal/3/4), o deslocamento
+            # lateral do ombro em relação ao quadril na projeção 2D produz ângulos
+            # artificialmente pequenos mesmo com postura ereta — falso positivo garantido.
+            # Solução: só calcula se apenas UM lado está visível (câmera de lado).
+            side_right = right_ok and not left_ok
+            side_left  = left_ok  and not right_ok
 
-            # Pescoço: usa o ombro mais visível
+            coluna = None
+            kp_s_neck = kp_h_neck = None
+            if side_right:
+                coluna = _angle(kp_sr[:2], kp_hr[:2], kp_kr[:2])
+                kp_s_neck, kp_h_neck = kp_sr, kp_hr
+            elif side_left:
+                coluna = _angle(kp_sl[:2], kp_hl[:2], kp_kl[:2])
+                kp_s_neck, kp_h_neck = kp_sl, kp_hl
+
             kp_n = kps[NOSE]
-            kp_s = kp_sr if float(kp_sr[2]) >= float(kp_sl[2]) else kp_sl
-            kp_h = kp_hr if float(kp_hr[2]) >= float(kp_hl[2]) else kp_hl
             pescoco = None
-            if _kp_visible(kp_n) and _kp_visible(kp_s) and _kp_visible(kp_h):
-                pescoco = _angle(kp_n[:2], kp_s[:2], kp_h[:2])
+            if kp_s_neck is not None and _kp_visible(kp_n) and _kp_visible(kp_s_neck) and _kp_visible(kp_h_neck):
+                pescoco = _angle(kp_n[:2], kp_s_neck[:2], kp_h_neck[:2])
 
             angulos = {}
             if coluna  is not None:
