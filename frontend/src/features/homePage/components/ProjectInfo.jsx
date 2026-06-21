@@ -22,10 +22,10 @@ export function ProjectInfo({ data, theme = "light" }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <p className="text-[11px] font-mono uppercase tracking-wider text-theme-muted opacity-60">Nome do Projeto</p>
-              <p className="text-sm font-medium text-theme-main">SafetyVision - EPI Monitor</p>
+              <p className="text-sm font-medium text-theme-main">Codexis - Monitoramento de EPI</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[11px] font-mono uppercase tracking-wider text-theme-muted opacity-60">Setor</p>
+              <p className="text-[11px] font-mono uppercase tracking-wider text-theme-muted opacity-60">Implementação Ideal</p>
               <p className="text-sm font-medium text-theme-main">Produção Industrial</p>
             </div>
             <div className="space-y-1">
@@ -33,14 +33,14 @@ export function ProjectInfo({ data, theme = "light" }) {
                 <Calendar className="h-3 w-3" />
                 Data de Início
               </p>
-              <p className="text-sm font-mono text-theme-main">01 de Janeiro, 2026</p>
+              <p className="text-sm font-mono text-theme-main">06 de Abril, 2026</p>
             </div>
             <div className="space-y-1">
               <p className="text-[11px] font-mono uppercase tracking-wider flex items-center gap-1 text-theme-muted opacity-60">
                 <Target className="h-3 w-3" />
                 Objetivo
               </p>
-              <p className="text-sm font-mono font-bold text-emerald-500">99% de conformidade</p>
+              <p className="text-sm font-mono font-bold text-emerald-500">~~% de conformidade</p>
             </div>
           </div>
 
@@ -66,7 +66,7 @@ export function ProjectInfo({ data, theme = "light" }) {
               Equipe do Projeto
             </CardTitle>
             <CardDescription className="text-xs font-mono text-theme-muted mt-0.5">
-              Membros responsáveis pelo monitoramento
+              Membros responsáveis pelo projeto de monitoramento
             </CardDescription>
           </div>
         </CardHeader>
