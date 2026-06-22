@@ -35,7 +35,7 @@ export function Login() {
         <div className="auth-card-dark">
           <div className="text-center mb-8">
             <h1 className="font-label-auth">Bem-vindo</h1>
-            <p className="text-neutral-400">Acesse o projeto do NOME_GRUPO</p>
+            <p className="text-neutral-400">Controle de segurança do funcionário</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

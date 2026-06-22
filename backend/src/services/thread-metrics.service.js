@@ -17,14 +17,14 @@ class ThreadMetricsService {
 
     this.metricCollectionIntervalId = setInterval(async () => {
       await this.collectAndSendWorkerThreadMetric();
-    }, 300000);
+    }, 100000);
 
   }
 
   startAggregator() {
     this.batchSendIntervalId = setInterval(async () => {
       await this.sendThreadMetricsBatch();
-    }, 100000);
+    }, 300000);
 
   }
 

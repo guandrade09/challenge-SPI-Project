@@ -7,6 +7,7 @@ import { DetectionBarChart, DetectionComposedChart, DetectionLineChart, Operatio
 import { BasePanelModal } from "../../components/shared";
 import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 import { colunasLogs, radarData, lineLogs, composedLogs } from '../../mocks/logsPageMocks/test'
+import detectionService from "../../services/detectionService";
 import { mockDownloads, cameras, teamMembers } from "../../mocks/indexPageMocks/test";
 // 🚀 Correção do caminho do import do serviço (retirado erro de digitação do seu código original)
 import { reportPerformanceService } from "../../services/reportPerfomance"; 
@@ -17,6 +18,10 @@ function HomePage() {
   const { reportData, fetchReport, lastUpdated, isLoading, reportFiles, fetchReportFiles } = useDataStore();
   const [timeSinceUpdate, setTimeSinceUpdate] = useState("Atualizando...");
   const [performanceData, setPerformanceData] = useState([]);
+  const [detectionsByCategory, setDetectionsByCategory] = useState([]);
+  const [detectionsLoaded, setDetectionsLoaded] = useState(false);
+  const [monthlyAlertData, setMonthlyAlertData] = useState([]);
+  const [monthlyAlertLoaded, setMonthlyAlertLoaded] = useState(false);
 
   const fetchPerformanceMetrics = async () => {
     try {
@@ -45,19 +50,102 @@ function HomePage() {
     }
   };
 
-  // Polling Automático dos relatórios do sistema (A cada 30 segundos)
+  const fetchDetectionsForCurrentMonth = async () => {
+    try {
+      const payload = await detectionService.list();
+      const items = payload?.data || [];
+
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      // Filtra pelas detecções do mês atual
+      const filtered = items.filter((it) => {
+        if (!it.timestamp) return false;
+        const d = new Date(it.timestamp);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      });
+
+      // Agrupa por label e conta ocorrências, classificando por confiança
+      const map = {};
+      filtered.forEach((it) => {
+        const label = it.label || 'Desconhecido';
+        const conf = typeof it.confidence !== 'undefined' ? parseFloat(it.confidence) : 1;
+        if (!map[label]) map[label] = { detectado: 0, naoDetectado: 0 };
+
+        if (!isNaN(conf) && conf < 0.6) {
+          map[label].naoDetectado += 1;
+        } else {
+          map[label].detectado += 1;
+        }
+      });
+
+      const result = Object.keys(map).map((label) => ({
+        name: label,
+        detectado: map[label].detectado,
+        naoDetectado: map[label].naoDetectado,
+      }));
+
+      // Agrupa os alertas do dia atual com confiança acima de 0.8 por hora
+      const alertMap = {};
+      const today = new Date();
+      const todayDay = today.getDate();
+      const todayMonth = today.getMonth();
+      const todayYear = today.getFullYear();
+
+      filtered
+        .filter((it) => {
+          const conf = typeof it.confidence !== 'undefined' ? parseFloat(it.confidence) : 0;
+          if (isNaN(conf) || conf <= 0.8) return false;
+          const date = new Date(it.timestamp);
+          return (
+            date.getDate() === todayDay &&
+            date.getMonth() === todayMonth &&
+            date.getFullYear() === todayYear
+          );
+        })
+        .forEach((it) => {
+          const date = new Date(it.timestamp);
+          const hourLabel = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          alertMap[hourLabel] = (alertMap[hourLabel] || 0) + 1;
+        });
+
+      const dailyAlerts = Object.keys(alertMap)
+        .sort((a, b) => {
+          const [hourA, minuteA] = a.split(':').map(Number);
+          const [hourB, minuteB] = b.split(':').map(Number);
+          return hourA - hourB || minuteA - minuteB;
+        })
+        .map((hora) => ({ hora, alertas: alertMap[hora] }));
+
+      setDetectionsByCategory(result);
+      setMonthlyAlertData(dailyAlerts);
+      setDetectionsLoaded(true);
+      setMonthlyAlertLoaded(true);
+    } catch (err) {
+      console.error('Erro ao buscar detecções:', err);
+      setDetectionsLoaded(true);
+      setMonthlyAlertLoaded(true);
+    }
+  };
+
+  // Fetch inicial de dados gerais e dos gráficos
   useEffect(() => {
     fetchReport();
     fetchReportFiles();
-    fetchPerformanceMetrics(); // 🚀 Dispara no carregamento inicial da página
-
-    const interval = setInterval(() => {
-      fetchReport();
-      fetchReportFiles();
-      fetchPerformanceMetrics(); // 🚀 Atualiza os gráficos em tempo real junto com o polling
-    }, 30000);
-    return () => clearInterval(interval);
+    fetchPerformanceMetrics();
+    fetchDetectionsForCurrentMonth();
   }, [fetchReport, fetchReportFiles]);
+
+  // Atualização automática apenas dos dados de gráfico a cada 15 segundos
+  useEffect(() => {
+    const chartInterval = setInterval(() => {
+      fetchPerformanceMetrics();
+      fetchDetectionsForCurrentMonth();
+    }, 15000);
+
+    return () => clearInterval(chartInterval);
+  }, []);
 
   // Atualização do contador visual de tempo
   useEffect(() => {
@@ -100,7 +188,7 @@ function HomePage() {
 
   // Configuração dos itens do Carrossel
   const chartsForCarousel = [
-    { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} theme={currentTheme}/> },
+    { label: "Detecções por Categoria", component: <DetectionBarChart data={detectionsLoaded ? detectionsByCategory : colunasLogs} theme={currentTheme}/> },
     { label: "Eficiencia Operacional", component: <OperationalRadar data={radarData} theme={currentTheme}/> },
     
     // 🚀 APLICAÇÃO DINÂMICA: Passamos as configurações específicas via props
@@ -118,7 +206,7 @@ function HomePage() {
     },
     
     { label: "Analise de eventos simultaneos", component: <DetectionComposedChart data={composedLogs} theme={currentTheme}/> },
-    { label: "Alertas Mensais", component: <DetectionLineChart data={lineLogs} theme={currentTheme} /> }
+    { label: "Alertas Mensais", component: <DetectionLineChart data={monthlyAlertLoaded ? monthlyAlertData : lineLogs} theme={currentTheme} /> }
   ];
 
   return (
@@ -137,7 +225,7 @@ function HomePage() {
             </p>
           </div>
           <button 
-            onClick={() => { fetchReport(); fetchPerformanceMetrics(); }}
+            onClick={() => { fetchReport(); fetchPerformanceMetrics(); fetchDetectionsForCurrentMonth(); }}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition-all duration-200 panel-btn-toggle border border-theme-divider disabled:opacity-50 self-start sm:self-auto"
           >
