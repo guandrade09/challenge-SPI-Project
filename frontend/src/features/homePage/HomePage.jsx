@@ -6,23 +6,55 @@ import { DownloadHistory, ProjectInfo, CameraInfo } from "./components";
 import { DetectionBarChart, DetectionComposedChart, DetectionLineChart, OperationalRadar, ResourceMonitor } from '../../components/graficos';
 import { BasePanelModal } from "../../components/shared";
 import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
-import { colunasLogs, radarData, lineLogs, composedLogs, resourceData } from '../../mocks/logsPageMocks/test'
+import { colunasLogs, radarData, lineLogs, composedLogs } from '../../mocks/logsPageMocks/test'
 import { mockDownloads, cameras, teamMembers } from "../../mocks/indexPageMocks/test";
+// 🚀 Correção do caminho do import do serviço (retirado erro de digitação do seu código original)
+import { reportPerformanceService } from "../../services/reportPerfomance"; 
 
 function HomePage() {
-  // Controle de tema unificado para a página ("dynamic" | "dark" | "light")
-  const currentTheme = useUiStore((s) => s.theme); // Obtém o tema atual do Zustand para garantir reatividade
+  const currentTheme = useUiStore((s) => s.theme);
 
   const { reportData, fetchReport, lastUpdated, isLoading, reportFiles, fetchReportFiles } = useDataStore();
   const [timeSinceUpdate, setTimeSinceUpdate] = useState("Atualizando...");
+  const [performanceData, setPerformanceData] = useState([]);
 
-  // Polling Automático (A cada 30 segundos)
+  const fetchPerformanceMetrics = async () => {
+    try {
+      const response = await reportPerformanceService.listMetrics();
+      const rawData = response?.data || response || [];
+
+      // 🚀 MODELAGEM DOS DADOS SIMPLIFICADA:
+      const formattedData = rawData.map((item) => {
+        let formattedTime = "00:00";
+        if (item.timestamp) {
+          const dateObj = new Date(item.timestamp);
+          formattedTime = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        return {
+          time: formattedTime,
+          memoria: item.quantity_of_cpu_ind_percentage ?? 0, // Vai para a linha de memória
+          paginas: item.process_loaded ?? 0                  // Pega direto da coluna de páginas
+        };
+      });
+
+      // Pega os últimos 10 registros em ordem cronológica
+      setPerformanceData(formattedData.reverse().slice(-10));
+    } catch (err) {
+      console.error("Erro ao buscar métricas de performance:", err);
+    }
+  };
+
+  // Polling Automático dos relatórios do sistema (A cada 30 segundos)
   useEffect(() => {
     fetchReport();
     fetchReportFiles();
+    fetchPerformanceMetrics(); // 🚀 Dispara no carregamento inicial da página
+
     const interval = setInterval(() => {
       fetchReport();
       fetchReportFiles();
+      fetchPerformanceMetrics(); // 🚀 Atualiza os gráficos em tempo real junto com o polling
     }, 30000);
     return () => clearInterval(interval);
   }, [fetchReport, fetchReportFiles]);
@@ -49,7 +81,6 @@ function HomePage() {
     return () => clearInterval(timerInterval);
   }, [lastUpdated]);
 
-  // Extração segura dos dados calculados
   const totalDeteccoes = reportData?.counts?.total ?? "---";
   const precisao = reportData?.accuracy ? `${(reportData.accuracy.acertos / (reportData.accuracy.acertos + reportData.accuracy.erros) * 100).toFixed(1)}%` : "---";
   const piorEpi = reportData?.prediction ? `${reportData.prediction}` : "Analisando...";
@@ -60,18 +91,37 @@ function HomePage() {
   const dataGeracao = reportFiles?.length > 0 ? new Date(reportFiles[0].dataGeracao).toLocaleString() : "N/A";
   const tamanhoArquivo = reportFiles?.length > 0 ? `${(reportFiles[0].tamanho / (1024 * 1024)).toFixed(2)} MB` : "N/A";
 
-  const reportFilesInfo = reportFiles?.length > 0 ? `Arquivo: ${nomeArquivo} | Tipo: ${tipoArquivo} | Gerado em: ${dataGeracao} | Tamanho: ${tamanhoArquivo}` : "Nenhum arquivo de relatório encontrado para as datas selecionadas.";
+  // 🚀 ASSINATURA DAS LINHAS DA HOMEPAGE:
+  // Definimos de forma declarativa o comportamento do nosso gráfico reutilizável para esta tela
+  const homeMetricsConfig = [
+    { key: 'memoria', name: 'Uso Heap JS', stroke: '#10b981', yAxisId: 'left', unit: '%' },
+    { key: 'paginas', name: 'Páginas Carregadas', stroke: '#3b82f6', yAxisId: 'right', unit: ' pág' }
+  ];
 
+  // Configuração dos itens do Carrossel
   const chartsForCarousel = [
     { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} theme={currentTheme}/> },
     { label: "Eficiencia Operacional", component: <OperationalRadar data={radarData} theme={currentTheme}/> },
-    { label: "Análise de Composta", component: <ResourceMonitor data={resourceData} theme={currentTheme}/> },
+    
+    // 🚀 APLICAÇÃO DINÂMICA: Passamos as configurações específicas via props
+    { 
+      label: "Monitoramento de Recursos do Front", 
+      component: (
+        <ResourceMonitor 
+          data={performanceData} 
+          theme={currentTheme}
+          linesConfig={homeMetricsConfig}
+          yAxisLeftDomain={[0, 'auto']} // Escala limpa para percentual
+          showRightAxis={true}          // Ativa o eixo Y secundário para contagem de páginas
+        />
+      ) 
+    },
+    
     { label: "Analise de eventos simultaneos", component: <DetectionComposedChart data={composedLogs} theme={currentTheme}/> },
     { label: "Alertas Mensais", component: <DetectionLineChart data={lineLogs} theme={currentTheme} /> }
   ];
 
   return (
-    // panel-theme define o escopo das variáveis CSS para a página inteira
     <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 bg-projeto-main`}>
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         
@@ -87,7 +137,7 @@ function HomePage() {
             </p>
           </div>
           <button 
-            onClick={fetchReport}
+            onClick={() => { fetchReport(); fetchPerformanceMetrics(); }}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition-all duration-200 panel-btn-toggle border border-theme-divider disabled:opacity-50 self-start sm:self-auto"
           >

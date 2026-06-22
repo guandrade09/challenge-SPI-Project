@@ -79,7 +79,7 @@ export const teamMembers = [
   { id: 1, name: "Gabriel Lacerda", role: "Desenvolvedor Front-end", initials: "GL" },
   { id: 2, name: "Lucas Rodrigues", role: "Desenvolvedor Back-end", initials: "LR" },
   { id: 3, name: "Mayene G. Doria", role: "Tech Lead de Machine Learning", initials: "MGD" },
-  { id: 4, name: "Gustavo Andrade", role: "Gestor de Dados", initials: "GA" },
-  { id: 5, name: "Thais Helena", role: "Analista de Dados", initials: "TH" },
-  { id: 6, name: "Geovana Carvalho", role: "Analista de Dados", initials: "RS" }
+  { id: 4, name: "Gustavo Andrade", role: "Analista de Machine Learning", initials: "GA" },
+  { id: 5, name: "Thais Helena", role: "Analista de Machine Learning", initials: "TH" },
+  { id: 6, name: "Geovana Carvalho", role: "Analista de Machine Learn", initials: "RS" }
 ];
