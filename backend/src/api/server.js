@@ -3,39 +3,61 @@ import os from "os";
 import app from "./app.js";
 import { initDatabase } from "./config/database.js";
 import realtimeService from "../services/realtime-service.js";
+import threadMetricsService from "../services/thread-metrics.service.js";
+import logMonitorService from "../services/log-monitor.service.js";
 
 const numCPUs = os.cpus().length;
 const PORT = 3000;
 
-if (cluster.isPrimary) {
-  console.log(`Master ${process.pid} rodando`);
-  console.log(`CPUs: ${numCPUs}`);
+async function startWorker() {
+  try {
+    app.listen(PORT, () => {
+      console.log(`Worker ${process.pid} rodando na porta ${PORT}`);
+      threadMetricsService.startWorker();
+    });
 
-  for (let i = 0; i < numCPUs; i++) {
-    cluster.fork();
+  } catch (err) {
+    console.error("Erro ao iniciar worker:", err);
+    process.exit(1);
   }
+}
 
-  cluster.on("exit", (worker) => {
-    console.log(`Worker ${worker.process.pid} morreu`);
-    console.log("Criando outro...");
-    cluster.fork();
-  });
-
-} else {
-  async function startWorker() {
+if (cluster.isPrimary) {
+  async function startPrimary() {
     try {
       await initDatabase();
+      console.log(`CPUs: ${numCPUs}`);
+      console.log("Banco de dados inicializado com sucesso");
+      console.log(`Iniciando serviço de detecções em tempo real`);
+      console.log(`Iniciando monitoramento de métricas de threads`);
 
-      app.listen(PORT, async () => {
-        console.log(`Worker ${process.pid} rodando na porta ${PORT}`);
-        await realtimeService.start();
+      for (let i = 0; i < numCPUs; i++) {
+        cluster.fork();
+      }
+
+      cluster.on("message", (worker, message) => {
+        if (message && message.type === "THREAD_METRIC" && message.payload) {
+          threadMetricsService.addWorkerMetric(message.payload);
+        }
       });
 
+      cluster.on("exit", (worker) => {
+        console.log(`Worker ${worker.process.pid} morreu`);
+        console.log("Criando outro...");
+        cluster.fork();
+      });
+
+      await realtimeService.start();
+      threadMetricsService.startAggregator();
+      await logMonitorService.start();
     } catch (err) {
-      console.error("Erro ao iniciar worker:", err);
+      console.error("Erro ao inicializar primary:", err);
       process.exit(1);
     }
   }
 
+  startPrimary();
+
+} else {
   startWorker();
 }

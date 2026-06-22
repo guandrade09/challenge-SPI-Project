@@ -81,6 +81,5 @@ export async function initDatabase() {
   //   ONEDRIVE_REFRESH_TOKEN,
   //   ONEDRIVE_EXPIRES_AT
   // ]);
-  
-  console.log("Banco de dados inicializado com sucesso");
+
 }
