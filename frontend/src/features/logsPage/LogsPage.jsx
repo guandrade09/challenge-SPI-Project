@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../../store/useUiStore';
 import { RenderColumn } from './RenderColumn';
 import {
@@ -14,8 +15,8 @@ import {
   ResourceMonitor,
 } from '../../components/graficos';
 import { LogPanel, LogReportModal } from './components/painelLog';
+import { logService } from '../../services/logService';
 import {
-  dummyLogs,
   colunasLogs,
   areaLogs,
   lineLogs,
@@ -43,8 +44,48 @@ const LogsPage = () => {
   const closePopUpModal  = useUiStore((s) => s.closePopUpModal);
   const reportData       = useUiStore((s) => s.reportData);
 
+  const [logs, setLogs] = useState([]);
+  const [isLogLoading, setIsLogLoading] = useState(false);
+  const logsRef = useRef([]);
+
+  const areLogsEqual = (a, b) => {
+    if (a.length !== b.length) return false;
+    return a.every((item, index) => item.timestamp === b[index]?.timestamp && item.message === b[index]?.message);
+  };
+
+  const fetchLogs = async () => {
+    const showLoading = logsRef.current.length === 0;
+    if (showLoading) setIsLogLoading(true);
+
+    try {
+      const entries = await logService.listEntries();
+      const normalizedLogs = (entries || []).map((entry) => ({
+        timestamp: entry.timestamp,
+        message: entry.line ?? entry.message ?? entry.logs ?? "",
+      }));
+
+      if (!areLogsEqual(logsRef.current, normalizedLogs)) {
+        logsRef.current = normalizedLogs;
+        setLogs(normalizedLogs);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar logs em tempo real:", error);
+      if (logsRef.current.length === 0) {
+        setLogs([]);
+      }
+    } finally {
+      if (showLoading) setIsLogLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const COMPONENT_MAP = {
-    logs: { label: "Central de Logs", component: <LogPanel logs={dummyLogs} theme={currentTheme}/> },
+    logs: { label: "Central de Logs", component: <LogPanel logs={logs} loading={isLogLoading} theme={currentTheme}/> },
 
     // Coluna 2 — Análise e Monitoramento
     area:     { label: "Análise Composta",        component: <AreaDetectionChart    data={areaLogs}  theme={currentTheme}    /> },

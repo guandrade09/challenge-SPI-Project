@@ -5,7 +5,7 @@ class LogMonitorService {
   constructor() {
     this.logsDir = path.join(process.cwd(), "logs");
     this.logsFile = path.join(this.logsDir, "realtime-log.json");
-    this.maxEntries = 50;
+    this.maxEntries = 15;
     this.intervalId = null;
   }
 

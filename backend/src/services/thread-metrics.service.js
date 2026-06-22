@@ -24,7 +24,7 @@ class ThreadMetricsService {
   startAggregator() {
     this.batchSendIntervalId = setInterval(async () => {
       await this.sendThreadMetricsBatch();
-    }, 300000);
+    }, 100000);
 
   }
 

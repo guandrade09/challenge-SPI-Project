@@ -61,7 +61,7 @@ class RealtimeDetectionService {
   sendRealtimeUpdate(label) {
     const entry = {
       timestamp: normalizeBrasiliaTimestamp(new Date()),
-      line: `[TEMPO REAL] Nova detecção: ${label}`
+      line: `Nova detecção: ${label}`
     };
 
     this.writeLogEntry(entry).catch(err => {
