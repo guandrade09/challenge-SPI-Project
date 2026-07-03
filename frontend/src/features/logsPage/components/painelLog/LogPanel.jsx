@@ -1,15 +1,47 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { LogReportButton } from './LogReportButton';
 import { LogSkeleton } from './LogSkeleton';
 
-export const LogPanel = ({ logs = [] }) => {
+export const LogPanel = ({ logs = [], loading = false }) => {
+  const hasLogs = Array.isArray(logs) && logs.length > 0;
+  const logContainerRef = useRef(null);
+  const savedScrollTop = useRef(0);
+  const previousLoading = useRef(false);
+
+  useLayoutEffect(() => {
+    const node = logContainerRef.current;
+    if (!node) {
+      previousLoading.current = loading;
+      return;
+    }
+
+    if (loading) {
+      savedScrollTop.current = node.scrollTop;
+    } else if (previousLoading.current && !loading) {
+      node.scrollTop = savedScrollTop.current;
+    }
+
+    previousLoading.current = loading;
+  }, [loading]);
+
+  const handleSaveScroll = () => {
+    const node = logContainerRef.current;
+    if (node) {
+      savedScrollTop.current = node.scrollTop;
+    }
+  };
+
   return (
     <div className="relative flex flex-col h-full min-h-0 overflow-hidden w-full">
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-2 pb-24 custom-scrollbar">
-        {logs.length > 0 ? (
+      <div
+        ref={logContainerRef}
+        onScroll={handleSaveScroll}
+        className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-2 pb-32 custom-scrollbar"
+      >
+        {hasLogs ? (
           logs.map((log, index) => (
             <div 
-              key={index} 
+              key={`${log.timestamp}-${index}`} 
               className="p-3 rounded-xl border-l-4 border-theme-divider shadow-sm transition-all duration-200"
               style={{ backgroundColor: 'var(--p-header-bg)' }}
             >
@@ -20,15 +52,26 @@ export const LogPanel = ({ logs = [] }) => {
               </p>
             </div>
           ))
-        ) : (
+        ) : loading ? (
           <div className="flex flex-col items-center justify-center h-full">
             <LogSkeleton />
             <span className="mt-4 text-[10px] font-bold font-mono text-muted-theme uppercase tracking-widest animate-pulse">
-              Aguardando Logs...
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full">
+            <span className="text-sm font-bold text-theme-title">Nenhum log disponível no momento.</span>
+            <span className="mt-2 text-[10px] font-mono text-muted-theme uppercase tracking-widest">
+              Verifique se o serviço de logs está ativo e atualize a página.
             </span>
           </div>
         )}
       </div>
+
+      {loading && hasLogs && (
+        <div className="absolute top-4 right-4 rounded-full bg-theme-divider/80 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-theme-title backdrop-blur-sm">
+        </div>
+      )}
 
       {/* O gradiente inferior agora desvanece suavemente usando a variável nativa de fundo do tema */}
       <div 

@@ -2,6 +2,7 @@ import fs from "fs";
 import fsPromises from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { formatBrasiliaTimestamp } from "./convert.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -206,7 +207,7 @@ export async function uploadBase64ImageToOneDrive(base64String, accessToken, rem
 
 export async function savePdfToUploads(pdfBuffer, fileName = null) {
     try {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const timestamp = formatBrasiliaTimestamp().replace(/[:.]/g, '-');
         const baseName = fileName || `relatorio-${timestamp}`;
         const filePath = path.resolve(__dirname, "../uploads/relatorios/pdf", `${baseName}.pdf`);
 
@@ -235,7 +236,7 @@ export async function saveExcel(workbook, fileName = null)
         fs.mkdirSync(reportsDir, { recursive: true });
     }
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = formatBrasiliaTimestamp().replace(/[:.]/g, '-');
     const finalFileName = fileName || `relatorio-${timestamp}.xlsx`;
 
     const filePath = path.join(reportsDir, finalFileName);

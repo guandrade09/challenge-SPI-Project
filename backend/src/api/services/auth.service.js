@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { createUser, findUserByEmailOrName } from "../repositories/auth.repository.js";
 import { AppError } from "../utils/appError.js";
 import User from "../models/user.model.js";
+import { normalizeBrasiliaTimestamp } from "../utils/convert.js";
 
 const SECRET = process.env.JWT_SECRET || "segredo_super_secreto";
 
@@ -29,7 +30,7 @@ export async function register(data)
         name: user.name,
         email: user.email,
         password: hash,
-        timestamp: new Date().toISOString()
+        timestamp: normalizeBrasiliaTimestamp()
     };
 
     await createUser(newUser);

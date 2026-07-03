@@ -3,8 +3,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Badge }  from "../../../components/ui/Badge";
 import { Download, FileText, Calendar } from "lucide-react";
 import { IconButtonModal } from '../../../components/shared';
+import { reportService } from '../../../services/reportService';
 
 export function DownloadHistory({ data, theme = "light" }) {
+  const handleDownload = async (filename) => {
+    try {
+      await reportService.downloadReportFile(filename);
+    } catch (error) {
+      console.error("Erro ao baixar arquivo:", error);
+    }
+  };
+
   return (
     <div className={`panel-theme-${theme}`}>
       <Card className="panel-base backdrop-blur-sm">
@@ -31,7 +40,7 @@ export function DownloadHistory({ data, theme = "light" }) {
             </TableHeader>
             <TableBody>
               {data?.map((download) => (
-                <TableRow key={download.id} className="border-b border-theme-divider row-theme-hover transition-colors duration-200">
+                <TableRow key={download.id || download.fileName} className="border-b border-theme-divider row-theme-hover transition-colors duration-200">
                   <TableCell className="font-medium text-theme-main py-3">
                     <div className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5 opacity-60" />
@@ -52,7 +61,7 @@ export function DownloadHistory({ data, theme = "light" }) {
                   <TableCell className="font-mono text-xs text-theme-muted">{download.size}</TableCell>
                   <TableCell className="text-right py-2">
                     <IconButtonModal
-                      onClick={() => alert("Ainda n funciona")}
+                      onClick={() => handleDownload(download.fileName)}
                       icon={Download}
                       className="panel-btn-toggle"
                     />
@@ -61,7 +70,7 @@ export function DownloadHistory({ data, theme = "light" }) {
               ))}
 
               {data?.length === 0 && (
-                <TableRow>
+                <TableRow key="empty" className="border-b border-theme-divider">
                   <TableCell colSpan={5} className="text-center py-4 text-sm text-theme-muted">
                     Nenhum download recente encontrado.
                   </TableCell>

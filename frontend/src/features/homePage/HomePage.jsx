@@ -6,26 +6,164 @@ import { DownloadHistory, ProjectInfo, CameraInfo } from "./components";
 import { DetectionBarChart, DetectionComposedChart, DetectionLineChart, OperationalRadar, ResourceMonitor } from '../../components/graficos';
 import { BasePanelModal } from "../../components/shared";
 import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
-import { colunasLogs, radarData, lineLogs, composedLogs, resourceData } from '../../mocks/logsPageMocks/test'
+import { colunasLogs, radarData, lineLogs, composedLogs } from '../../mocks/logsPageMocks/test'
+import detectionService from "../../services/detectionService";
 import { mockDownloads, cameras, teamMembers } from "../../mocks/indexPageMocks/test";
+// 🚀 Correção do caminho do import do serviço (retirado erro de digitação do seu código original)
+import { reportPerformanceService } from "../../services/reportPerfomance"; 
 
 function HomePage() {
-  // Controle de tema unificado para a página ("dynamic" | "dark" | "light")
-  const currentTheme = useUiStore((s) => s.theme); // Obtém o tema atual do Zustand para garantir reatividade
+  const currentTheme = useUiStore((s) => s.theme);
 
   const { reportData, fetchReport, lastUpdated, isLoading, reportFiles, fetchReportFiles } = useDataStore();
   const [timeSinceUpdate, setTimeSinceUpdate] = useState("Atualizando...");
+  const [performanceData, setPerformanceData] = useState([]);
+  const [detectionsByCategory, setDetectionsByCategory] = useState([]);
+  const [detectionsLoaded, setDetectionsLoaded] = useState(false);
+  const [monthlyAlertData, setMonthlyAlertData] = useState([]);
+  const [monthlyAlertLoaded, setMonthlyAlertLoaded] = useState(false);
 
-  // Polling Automático (A cada 30 segundos)
+  const fetchPerformanceMetrics = async () => {
+    try {
+      const response = await reportPerformanceService.listMetrics();
+      
+      // 🚀 CORREÇÃO: Como seu backend agora retorna { count, data }, buscamos a chave 'data'
+      // Adicionamos fallbacks caso a estrutura varie
+      const rawData = response?.data?.data || response?.data || response || [];
+
+      if (!Array.isArray(rawData)) {
+        console.warn("Formato de dados recebido não é um array válido:", response);
+        return;
+      }
+
+      // 🚀 TRATAMENTO E LIMPEZA VISUAL DOS DADOS:
+      const formattedData = rawData.map((item) => {
+        let formattedTime = "00:00";
+        
+        if (item.timestamp) {
+          const dateObj = new Date(item.timestamp);
+          // Formata para o padrão brasileiro de horas e minutos (HH:MM)
+          formattedTime = dateObj.toLocaleTimeString('pt-BR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+        }
+
+        return {
+          time: formattedTime,
+          // Garante que o valor seja numérico e limita a 2 casas decimais para o tooltip não ficar gigante
+          memoria: item.quantity_of_cpu_ind_percentage ? parseFloat(item.quantity_of_cpu_ind_percentage.toFixed(2)) : 0,
+          paginas: item.process_loaded ?? 0
+        };
+      });
+
+      // 🚀 OTIMIZAÇÃO DE EXIBIÇÃO:
+      // O banco SQLite retorna do mais antigo para o mais recente. 
+      // Pegamos apenas os últimos 35 registros para o gráfico ficar limpo e legível na tela.
+      const limitedData = formattedData.slice(-35);
+
+      setPerformanceData(limitedData);
+    } catch (err) {
+      console.error("Erro ao buscar métricas de performance na API:", err);
+    }
+  };
+
+  const fetchDetectionsForCurrentMonth = async () => {
+    try {
+      const payload = await detectionService.list();
+      const items = payload?.data || [];
+
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      // Filtra pelas detecções do mês atual
+      const filtered = items.filter((it) => {
+        if (!it.timestamp) return false;
+        const d = new Date(it.timestamp);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      });
+
+      // Agrupa por label e conta ocorrências, classificando por confiança
+      const map = {};
+      filtered.forEach((it) => {
+        const label = it.label || 'Desconhecido';
+        const conf = typeof it.confidence !== 'undefined' ? parseFloat(it.confidence) : 1;
+        if (!map[label]) map[label] = { detectado: 0, naoDetectado: 0 };
+
+        if (!isNaN(conf) && conf < 0.6) {
+          map[label].naoDetectado += 1;
+        } else {
+          map[label].detectado += 1;
+        }
+      });
+
+      const result = Object.keys(map).map((label) => ({
+        name: label,
+        detectado: map[label].detectado,
+        naoDetectado: map[label].naoDetectado,
+      }));
+
+      // Agrupa os alertas do dia atual com confiança acima de 0.8 por hora
+      const alertMap = {};
+      const today = new Date();
+      const todayDay = today.getDate();
+      const todayMonth = today.getMonth();
+      const todayYear = today.getFullYear();
+
+      filtered
+        .filter((it) => {
+          const conf = typeof it.confidence !== 'undefined' ? parseFloat(it.confidence) : 0;
+          if (isNaN(conf) || conf <= 0.8) return false;
+          const date = new Date(it.timestamp);
+          return (
+            date.getDate() === todayDay &&
+            date.getMonth() === todayMonth &&
+            date.getFullYear() === todayYear
+          );
+        })
+        .forEach((it) => {
+          const date = new Date(it.timestamp);
+          const hourLabel = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          alertMap[hourLabel] = (alertMap[hourLabel] || 0) + 1;
+        });
+
+      const dailyAlerts = Object.keys(alertMap)
+        .sort((a, b) => {
+          const [hourA, minuteA] = a.split(':').map(Number);
+          const [hourB, minuteB] = b.split(':').map(Number);
+          return hourA - hourB || minuteA - minuteB;
+        })
+        .map((hora) => ({ hora, alertas: alertMap[hora] }));
+
+      setDetectionsByCategory(result);
+      setMonthlyAlertData(dailyAlerts);
+      setDetectionsLoaded(true);
+      setMonthlyAlertLoaded(true);
+    } catch (err) {
+      console.error('Erro ao buscar detecções:', err);
+      setDetectionsLoaded(true);
+      setMonthlyAlertLoaded(true);
+    }
+  };
+
+  // Fetch inicial de dados gerais e dos gráficos
   useEffect(() => {
     fetchReport();
     fetchReportFiles();
-    const interval = setInterval(() => {
-      fetchReport();
-      fetchReportFiles();
-    }, 30000);
-    return () => clearInterval(interval);
+    fetchPerformanceMetrics();
+    fetchDetectionsForCurrentMonth();
   }, [fetchReport, fetchReportFiles]);
+
+  // Atualização automática apenas dos dados de gráfico a cada 15 segundos
+  useEffect(() => {
+    const chartInterval = setInterval(() => {
+      fetchPerformanceMetrics();
+      fetchDetectionsForCurrentMonth();
+    }, 15000);
+
+    return () => clearInterval(chartInterval);
+  }, []);
 
   // Atualização do contador visual de tempo
   useEffect(() => {
@@ -49,7 +187,6 @@ function HomePage() {
     return () => clearInterval(timerInterval);
   }, [lastUpdated]);
 
-  // Extração segura dos dados calculados
   const totalDeteccoes = reportData?.counts?.total ?? "---";
   const precisao = reportData?.accuracy ? `${(reportData.accuracy.acertos / (reportData.accuracy.acertos + reportData.accuracy.erros) * 100).toFixed(1)}%` : "---";
   const piorEpi = reportData?.prediction ? `${reportData.prediction}` : "Analisando...";
@@ -60,18 +197,37 @@ function HomePage() {
   const dataGeracao = reportFiles?.length > 0 ? new Date(reportFiles[0].dataGeracao).toLocaleString() : "N/A";
   const tamanhoArquivo = reportFiles?.length > 0 ? `${(reportFiles[0].tamanho / (1024 * 1024)).toFixed(2)} MB` : "N/A";
 
-  const reportFilesInfo = reportFiles?.length > 0 ? `Arquivo: ${nomeArquivo} | Tipo: ${tipoArquivo} | Gerado em: ${dataGeracao} | Tamanho: ${tamanhoArquivo}` : "Nenhum arquivo de relatório encontrado para as datas selecionadas.";
+  // 🚀 ASSINATURA DAS LINHAS DA HOMEPAGE:
+  // Definimos de forma declarativa o comportamento do nosso gráfico reutilizável para esta tela
+  const homeMetricsConfig = [
+    { key: 'memoria', name: 'Uso Heap JS', stroke: '#10b981', yAxisId: 'left', unit: '%' },
+    { key: 'paginas', name: 'Páginas Carregadas', stroke: '#3b82f6', yAxisId: 'right', unit: ' pág' }
+  ];
 
+  // Configuração dos itens do Carrossel
   const chartsForCarousel = [
-    { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} theme={currentTheme}/> },
+    { label: "Detecções por Categoria", component: <DetectionBarChart data={detectionsLoaded ? detectionsByCategory : colunasLogs} theme={currentTheme}/> },
     { label: "Eficiencia Operacional", component: <OperationalRadar data={radarData} theme={currentTheme}/> },
-    { label: "Análise de Composta", component: <ResourceMonitor data={resourceData} theme={currentTheme}/> },
+    
+    // 🚀 APLICAÇÃO DINÂMICA: Passamos as configurações específicas via props
+    { 
+      label: "Monitoramento de Recursos do Front", 
+      component: (
+        <ResourceMonitor 
+          data={performanceData} 
+          theme={currentTheme}
+          linesConfig={homeMetricsConfig}
+          yAxisLeftDomain={[0, 'auto']} // Escala limpa para percentual
+          showRightAxis={true}          // Ativa o eixo Y secundário para contagem de páginas
+        />
+      ) 
+    },
+    
     { label: "Analise de eventos simultaneos", component: <DetectionComposedChart data={composedLogs} theme={currentTheme}/> },
-    { label: "Alertas Mensais", component: <DetectionLineChart data={lineLogs} theme={currentTheme} /> }
+    { label: "Alertas Mensais", component: <DetectionLineChart data={monthlyAlertLoaded ? monthlyAlertData : lineLogs} theme={currentTheme} /> }
   ];
 
   return (
-    // panel-theme define o escopo das variáveis CSS para a página inteira
     <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 bg-projeto-main`}>
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         
@@ -87,7 +243,7 @@ function HomePage() {
             </p>
           </div>
           <button 
-            onClick={fetchReport}
+            onClick={() => { fetchReport(); fetchPerformanceMetrics(); fetchDetectionsForCurrentMonth(); }}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition-all duration-200 panel-btn-toggle border border-theme-divider disabled:opacity-50 self-start sm:self-auto"
           >

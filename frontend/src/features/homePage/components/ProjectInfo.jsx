@@ -40,7 +40,7 @@ export function ProjectInfo({ data, theme = "light" }) {
                 <Target className="h-3 w-3" />
                 Objetivo
               </p>
-              <p className="text-sm font-mono font-bold text-emerald-500">~~% de conformidade</p>
+              <p className="text-sm font-mono font-bold text-emerald-500">100% de conformidade</p>
             </div>
           </div>
 

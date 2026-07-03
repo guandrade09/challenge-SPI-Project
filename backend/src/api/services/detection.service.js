@@ -6,7 +6,7 @@ import {
   getDetectionsByDay
 } from "../repositories/detection.repository.js";
 import {findOnedriveAccessToken} from "../repositories/auth.repository.js";
-import { base64ToImage } from "../utils/convert.js";
+import { base64ToImage, normalizeBrasiliaTimestamp } from "../utils/convert.js";
 import {
   createFolderByTimestamp,
   createOneDriveFolderByTimestamp,
@@ -15,7 +15,8 @@ import {
 
 export async function createDetection(data) 
 {
-  const detection = new Detection(data);
+  const timestamp = normalizeBrasiliaTimestamp(new Date().toISOString());
+  const detection = new Detection({ ...data, timestamp });
 
   if (!detection.label || !detection.confidence ||
       !detection.img_Frame || !detection.timestamp) 
@@ -27,7 +28,7 @@ export async function createDetection(data)
   const imagePath = await base64ToImage(detection.img_Frame, folderPath);
 
   detection.img_path = imagePath;
-  detection.timestamp = new Date(detection.timestamp).toISOString();
+  detection.timestamp = normalizeBrasiliaTimestamp(detection.timestamp);
 
   await saveDetection(detection);
 
