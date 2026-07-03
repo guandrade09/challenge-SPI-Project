@@ -1,0 +1,32 @@
+{
+  "name": "challenge-spi-project",
+  "version": "1.0.0",
+  "description": "> **Challenge 2026 | FIAP × ABDI/SPI — Metaindústria**  \r > Engenharia da Computação — Turma 3ECR",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guandrade09/challenge-SPI-Project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/guandrade09/challenge-SPI-Project/issues"
+  },
+  "homepage": "https://github.com/guandrade09/challenge-SPI-Project#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jspdf": "^4.2.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1"
+  }
+}

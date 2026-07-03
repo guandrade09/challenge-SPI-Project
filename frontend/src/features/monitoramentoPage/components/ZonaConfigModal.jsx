@@ -1,22 +1,45 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 
-const BACKEND_URL    = 'http://localhost:3000/api/zonas';
+const BACKEND_URL      = 'http://localhost:3000/api/zonas';
 const ORQUESTRADOR_URL = 'http://localhost:5050/zona/configurar';
-const CAMERA_ID      = 'cam_01';
-const CANVAS_W       = 640;
-const CANVAS_H       = 480;
+const CAMERA_ID        = 'cam_01';
+const CANVAS_W         = 640;
+const CANVAS_H         = 480;
+
+const EPI_OPTIONS = [
+  { id: 'capacete',  label: 'Capacete'  },
+  { id: 'colete',    label: 'Colete'    },
+  { id: 'oculos',    label: 'Óculos'    },
+  { id: 'mascara',   label: 'Máscara'   },
+  { id: 'auricular', label: 'Auricular' },
+  { id: 'botas',     label: 'Botas'     },
+];
+
+// Mapeia toggle id → classes do modelo que representam uso correto
+const EPI_CERTO = {
+  capacete:  'CAPACETE - CERTO',
+  colete:    'COLETE - CERTO',
+  oculos:    'OCULOS - CERTO',
+  mascara:   'MASCARA - CERTO',
+  auricular: 'AURICULAR - CERTO',
+  botas:     'BOTAS - CERTO',
+};
 
 export const ZonaConfigModal = ({ onClose }) => {
-  const canvasRef  = useRef(null);
-  const lastFrame  = useMonitoramentoStore((s) => s.lastFrame);
-  const zonaConfig = useMonitoramentoStore((s) => s.zonaConfig);
+  const canvasRef     = useRef(null);
+  const lastFrame     = useMonitoramentoStore((s) => s.lastFrame);
+  const zonaConfig    = useMonitoramentoStore((s) => s.zonaConfig);
   const setZonaConfig = useMonitoramentoStore((s) => s.setZonaConfig);
 
-  const [pontos, setPontos]   = useState(zonaConfig?.pontos ?? []);
-  const [nome, setNome]       = useState(zonaConfig?.nome ?? 'Área restrita');
+  const [pontos,   setPontos]   = useState(zonaConfig?.pontos ?? []);
+  const [nome,     setNome]     = useState(zonaConfig?.nome ?? 'Área restrita');
+  const [epis,     setEpis]     = useState(zonaConfig?.epis_obrigatorios ?? []);
   const [salvando, setSalvando] = useState(false);
-  const [erro, setErro]       = useState(null);
+  const [erro,     setErro]     = useState(null);
+
+  const toggleEpi = (id) =>
+    setEpis((prev) => prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]);
 
   // ── Desenha canvas ──────────────────────────────────────────────────────────
   const draw = useCallback(() => {
@@ -25,7 +48,6 @@ export const ZonaConfigModal = ({ onClose }) => {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Fundo: último frame ou grade escura
     if (lastFrame) {
       const img = new Image();
       img.onload = () => {
@@ -44,18 +66,15 @@ export const ZonaConfigModal = ({ onClose }) => {
 
   const drawOverlay = (ctx, pts) => {
     if (pts.length === 0) return;
-
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
     pts.slice(1).forEach((p) => ctx.lineTo(p.x, p.y));
     if (pts.length >= 3) ctx.closePath();
-
     ctx.fillStyle = 'rgba(224, 82, 82, 0.18)';
     ctx.fill();
     ctx.strokeStyle = '#e05252';
     ctx.lineWidth = 2;
     ctx.stroke();
-
     pts.forEach((p, i) => {
       ctx.beginPath();
       ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
@@ -64,14 +83,12 @@ export const ZonaConfigModal = ({ onClose }) => {
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1.5;
       ctx.stroke();
-
       ctx.fillStyle = '#fff';
       ctx.font = '11px IBM Plex Mono, monospace';
       ctx.fillText(i + 1, p.x + 8, p.y - 6);
     });
   };
 
-  // ── Clique no canvas ────────────────────────────────────────────────────────
   const handleCanvasClick = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const scaleX = CANVAS_W / rect.width;
@@ -94,10 +111,15 @@ export const ZonaConfigModal = ({ onClose }) => {
     setSalvando(true);
     setErro(null);
 
-    const payload = { camera_id: CAMERA_ID, nome, pontos };
+    const payload = {
+      camera_id:         CAMERA_ID,
+      nome,
+      pontos,
+      epis_obrigatorios: epis,         // ex: ["capacete", "colete"]
+      epis_certo_labels: epis.map((e) => EPI_CERTO[e]),  // labels do modelo
+    };
 
     try {
-      // 1. Persiste no backend Node.js
       const r1 = await fetch(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,12 +127,11 @@ export const ZonaConfigModal = ({ onClose }) => {
       });
       if (!r1.ok) throw new Error(`Backend: ${r1.status}`);
 
-      // 2. Aplica imediatamente no orquestrador
       await fetch(ORQUESTRADOR_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }).catch(() => {}); // orquestrador pode estar offline — não bloqueia
+      }).catch(() => {});
 
       setZonaConfig(payload);
       onClose();
@@ -167,7 +188,7 @@ export const ZonaConfigModal = ({ onClose }) => {
         </div>
 
         <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Nome da zona */}
+          {/* Nome */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#4a4e5a', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>
               NOME DA ZONA
@@ -184,7 +205,43 @@ export const ZonaConfigModal = ({ onClose }) => {
             />
           </div>
 
-          {/* Instrução */}
+          {/* EPIs obrigatórios */}
+          <div>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#4a4e5a', letterSpacing: '0.1em' }}>
+              EPIS OBRIGATÓRIOS NESTA ZONA
+            </span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {EPI_OPTIONS.map(({ id, label }) => {
+                const ativo = epis.includes(id);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => toggleEpi(id)}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 6,
+                      border: `1px solid ${ativo ? '#3cc87a' : '#252830'}`,
+                      background: ativo ? 'rgba(60,200,122,0.1)' : '#0d0e10',
+                      color: ativo ? '#3cc87a' : '#4a4e5a',
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: 11, letterSpacing: '0.08em',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {ativo ? '✓ ' : ''}{label}
+                  </button>
+                );
+              })}
+            </div>
+            {epis.length === 0 && (
+              <p style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#3a3e48', marginTop: 6 }}>
+                Nenhum EPI selecionado — apenas invasão será detectada.
+              </p>
+            )}
+          </div>
+
+          {/* Instrução canvas */}
           <p style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#45484f', margin: 0, letterSpacing: '0.06em' }}>
             CLIQUE NO FRAME PARA ADICIONAR PONTOS DO POLÍGONO ({pontos.length} ponto{pontos.length !== 1 ? 's' : ''})
           </p>

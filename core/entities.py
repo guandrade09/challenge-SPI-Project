@@ -3,6 +3,21 @@ from datetime import datetime
 from dataclasses import dataclass
 
 
+# Classes do modelo que representam risco 
+RISK_LABELS = {
+    "AURICULAR - AUSENTE",
+    "AURICULAR - ERRADO",
+    "BOTAS - AUSENTE",
+    "CAPACETE - AUSENTE",
+    "CAPACETE - ERRADO",
+    "COLETE - AUSENTE",
+    "MASCARA - AUSENTE",
+    "MASCARA - ERRADO",
+    "OCULOS - AUSENTE",
+    "OCULOS - ERRADO",
+}
+
+
 @dataclass
 class Detection:
     label: str
@@ -22,15 +37,14 @@ class Detection:
 
     @property
     def width(self) -> float:
-        return (self.x2 - self.x1)
+        return self.x2 - self.x1
 
     @property
     def height(self) -> float:
-        return (self.y2 - self.y1)
+        return self.y2 - self.y1
 
     @property
     def is_risk(self) -> bool:
-        RISK_LABELS = {"NO-Hardhat", "NO-Mask", "NO-Safety Vest"}
         return self.label in RISK_LABELS
 
 

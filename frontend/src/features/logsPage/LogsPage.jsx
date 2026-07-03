@@ -2,6 +2,7 @@
 import React from 'react';
 import { useUiStore } from '../../store/useUiStore';
 import { AiChatSidebar } from '../../features/chatAi';
+import { ssmaReportMock } from '../../mocks/logsPageMocks/ssmaReportMock';
 
 // Importando o componente que você criou (ajustado o nome do arquivo/import)
 import { RenderColumn } from './RenderColumn'; 
@@ -95,7 +96,7 @@ const LogsPage = () => {
         <RenderColumn config={DASHBOARD_CONFIG.col3} componentMap={COMPONENT_MAP} />
       </main>
 
-      <LogReportModal isOpen={isPopUpModalOpen} onClose={closePopUpModal} data={reportSummaryMock} />
+      <LogReportModal isOpen={isPopUpModalOpen} onClose={closePopUpModal} data={ssmaReportMock} />
     </div>
   );
 };

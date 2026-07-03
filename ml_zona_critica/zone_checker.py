@@ -4,14 +4,28 @@ import cv2
 from ultralytics import YOLO
 from shapely.geometry import Point, Polygon
 
+# Keypoints verificados em ordem de prioridade
+# Se qualquer um deles estiver dentro da zona, considera invasão
 KEYPOINTS_CHECK = {
+    # Corpo inferior
     "tornozelo_esq": 15,
     "tornozelo_dir": 16,
+    "joelho_esq":    13,
+    "joelho_dir":    14,
     "quadril_esq":   11,
     "quadril_dir":   12,
+    # Corpo superior
+    "ombro_esq":     5,
+    "ombro_dir":     6,
+    "nariz":         0,
+    # Membros superiores — detecta mãos/braços na zona
+    "pulso_esq":     9,
+    "pulso_dir":     10,
+    "cotovelo_esq":  7,
+    "cotovelo_dir":  8,
 }
 
-KP_CONF_THRESHOLD = 0.3
+KP_CONF_THRESHOLD = 0.2
 
 
 def decode_frame(frame_b64: str) -> np.ndarray:
@@ -32,22 +46,31 @@ class ZoneChecker:
         self.model      = YOLO(model_path) if model_path else None
         self._zones: dict[str, dict] = {}
 
-    def configure(self, camera_id: str, nome: str, pontos: list[dict]) -> None:
+    def configure(self, camera_id: str, nome: str, pontos: list[dict],
+                   epis_obrigatorios: list[str] | None = None,
+                   epis_certo_labels: list[str] | None = None) -> None:
         coords = [(p["x"], p["y"]) for p in pontos]
         polygon = Polygon(coords)
         if not polygon.is_valid:
             raise ValueError("poligono invalido (auto-intersectante ou degenerado)")
         self._zones[camera_id] = {
-            "nome": nome,
-            "pontos": pontos,
-            "polygon": polygon,
+            "nome":              nome,
+            "pontos":            pontos,
+            "polygon":           polygon,
+            "epis_obrigatorios": epis_obrigatorios or [],   # ex: ["capacete", "colete"]
+            "epis_certo_labels": epis_certo_labels or [],   # ex: ["CAPACETE - CERTO"]
         }
 
     def get(self, camera_id: str) -> dict | None:
         zone = self._zones.get(camera_id)
         if zone is None:
             return None
-        return {"nome": zone["nome"], "pontos": zone["pontos"]}
+        return {
+            "nome":              zone["nome"],
+            "pontos":            zone["pontos"],
+            "epis_obrigatorios": zone.get("epis_obrigatorios", []),
+            "epis_certo_labels": zone.get("epis_certo_labels", []),
+        }
 
     def delete(self, camera_id: str) -> bool:
         return self._zones.pop(camera_id, None) is not None
@@ -65,6 +88,9 @@ class ZoneChecker:
         kps_all  = results[0].keypoints.data
         pessoas  = []
 
+        epis_certo  = zone.get("epis_certo_labels", [])
+        epis_obrig  = zone.get("epis_obrigatorios", [])
+
         for i, kps in enumerate(kps_all.cpu().numpy()):
             kps_dentro = []
             for nome_kp, idx in KEYPOINTS_CHECK.items():
@@ -73,10 +99,13 @@ class ZoneChecker:
                     if polygon.contains(Point(float(kp[0]), float(kp[1]))):
                         kps_dentro.append(nome_kp)
 
+            invadiu = len(kps_dentro) > 0
             pessoas.append({
-                "pessoa_id":       i,
-                "invadiu":         len(kps_dentro) > 0,
-                "keypoints_dentro": kps_dentro,
+                "pessoa_id":         i,
+                "invadiu":           invadiu,
+                "keypoints_dentro":  kps_dentro,
+                "epis_obrigatorios": epis_obrig,    # passa para o orquestrador cruzar com EPI detector
+                "epis_certo_labels": epis_certo,
             })
 
         return zone["nome"], pessoas

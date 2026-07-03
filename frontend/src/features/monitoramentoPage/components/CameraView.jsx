@@ -1,18 +1,37 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { QuedaModal } from './QuedaModal';
 import { Maximize2 } from 'lucide-react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 
 const WS_URL = 'ws://localhost:8765';
 
+// Mapeia label do modelo → chave do toggle (para filtrar desenho no canvas)
 const LABEL_TO_TOGGLE = {
-  'Hardhat':        'capacete',
-  'NO-Hardhat':     'capacete',
-  'Safety Vest':    'colete',
-  'NO-Safety Vest': 'colete',
-  'Goggles':        'oculos',
-  'NO-Goggles':     'oculos',
-  'Mask':           'mascara',
-  'NO-Mask':        'mascara',
+  'AURICULAR - AUSENTE': 'auricular',
+  'AURICULAR - CERTO':   'auricular',
+  'AURICULAR - ERRADO':  'auricular',
+  'BOTAS - AUSENTE':     'botas',
+  'BOTAS - CERTO':       'botas',
+  'CAPACETE - AUSENTE':  'capacete',
+  'CAPACETE - CERTO':    'capacete',
+  'CAPACETE - ERRADO':   'capacete',
+  'COLETE - AUSENTE':    'colete',
+  'COLETE - CERTO':      'colete',
+  'MASCARA - AUSENTE':   'mascara',
+  'MASCARA - CERTO':     'mascara',
+  'MASCARA - ERRADO':    'mascara',
+  'OCULOS - AUSENTE':    'oculos',
+  'OCULOS - CERTO':      'oculos',
+  'OCULOS - ERRADO':     'oculos',
+  // PESSOA não tem toggle — sempre desenhada
+};
+
+// Classes de risco → caixa vermelha; correto → verde; pessoa → cinza
+const LABEL_COLOR = (label) => {
+  if (label === 'PESSOA') return '#5a5e7a';
+  if (label.endsWith('- AUSENTE') || label.endsWith('- ERRADO')) return '#e05252';
+  if (label.endsWith('- CERTO')) return '#3cc87a';
+  return '#d4a017';
 };
 
 const SKELETON = [
@@ -26,23 +45,19 @@ const SKELETON = [
   [12, 14], [14, 16],
 ];
 
-const CLASSE_COLOR = {
-  adequada:                   '#3cc87a',
-  ergonomicamente_inadequada: '#d4a017',
-  risco_imediato:             '#e05252',
-};
-
-const CLASSE_PT = {
-  ergonomicamente_inadequada: 'Postura Inadequada',
-  risco_imediato:             'Risco Imediato',
+const REBA_COLOR = {
+  BAIXO: '#3cc87a',
+  MÉDIO: '#d4a017',
+  ALTO:  '#e05252',
 };
 
 const KP_MIN = 0.3;
 
 function drawPessoa(ctx, pessoa) {
   const kps   = pessoa.keypoints ?? [];
-  const color = CLASSE_COLOR[pessoa.classe] ?? '#fff';
+  const color = REBA_COLOR[pessoa.reba_level] ?? '#ffffff';
 
+  // Esqueleto
   ctx.strokeStyle = color;
   ctx.lineWidth   = 2;
   for (const [a, b] of SKELETON) {
@@ -54,6 +69,7 @@ function drawPessoa(ctx, pessoa) {
     ctx.stroke();
   }
 
+  // Pontos
   ctx.fillStyle = color;
   for (const kp of kps) {
     if (!kp || kp[2] < KP_MIN) continue;
@@ -62,9 +78,12 @@ function drawPessoa(ctx, pessoa) {
     ctx.fill();
   }
 
-  if (pessoa.bbox?.length === 4 && pessoa.classe !== 'adequada') {
+  // Badge REBA — só para MÉDIO e ALTO
+  const score = pessoa.reba_score;
+  const level = pessoa.reba_level;
+  if (pessoa.bbox?.length === 4 && level && level !== 'BAIXO') {
     const [x1, y1] = pessoa.bbox;
-    const label = CLASSE_PT[pessoa.classe] ?? pessoa.classe;
+    const label = `REBA ${score} · ${level}`;
     ctx.font = 'bold 11px "IBM Plex Mono", monospace';
     const tw = ctx.measureText(label).width;
     ctx.fillStyle = color;
@@ -74,7 +93,6 @@ function drawPessoa(ctx, pessoa) {
   }
 }
 
-// Converte base64 → Blob sem passar por data URL (mais rápido)
 function b64ToBlob(b64) {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
@@ -87,16 +105,16 @@ export const CameraView = () => {
   const wsRef        = useRef(null);
   const reconnectRef = useRef(null);
   const uptimeRef    = useRef(0);
-  const rafRef       = useRef(null);   // rAF pendente para redesenho por toggle
-  const seqRef       = useRef(0);      // evita frames fora de ordem (decode async)
+  const rafRef       = useRef(null);
+  const seqRef       = useRef(0);
 
-  // Dados de renderização em refs — sem re-render React
-  const bitmapRef   = useRef(null);   // ImageBitmap do frame atual (GPU-ready)
+  const bitmapRef   = useRef(null);
   const epiDataRef  = useRef([]);
   const poseDataRef = useRef([]);
 
   const [connected, setConnected] = useState(false);
   const [uptime, setUptimeDisplay] = useState(0);
+  const [quedaAtiva, setQuedaAtiva] = useState(false);
 
   const addAlerta         = useMonitoramentoStore((s) => s.addAlerta);
   const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
@@ -112,22 +130,25 @@ export const CameraView = () => {
     const H = canvas.height;
     const { detections: toggles } = useMonitoramentoStore.getState();
 
-    // Frame (ImageBitmap — já decodificado, draw direto na GPU)
     ctx.drawImage(bitmapRef.current, 0, 0, W, H);
 
-    // Bounding boxes EPI filtradas por toggle
+    // ── Bounding boxes EPI 
     for (const det of epiDataRef.current) {
       const tk = LABEL_TO_TOGGLE[det.label];
+
+      // PESSOA sempre desenha; EPIs só se o toggle estiver ativo
       if (tk && !toggles[tk]) continue;
 
-      const color = det.label.startsWith('NO-') ? '#ff4444' : '#3cc87a';
+      const color = LABEL_COLOR(det.label);
       const { x1, y1, x2, y2 } = det;
+
       ctx.strokeStyle = color;
       ctx.lineWidth   = 2;
       ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
 
+      
       const text = `${det.label}  ${(det.confidence * 100).toFixed(0)}%`;
-      ctx.font = 'bold 11px "IBM Plex Mono", monospace';
+      ctx.font = 'bold 10px "IBM Plex Mono", monospace';
       const tw = ctx.measureText(text).width;
       ctx.fillStyle = color;
       ctx.fillRect(x1, Math.max(0, y1 - 16), tw + 6, 16);
@@ -135,13 +156,12 @@ export const CameraView = () => {
       ctx.fillText(text, x1 + 3, Math.max(12, y1 - 3));
     }
 
-    // Skeleton de pose (só se ergonomia ligado)
+    
     if (toggles.ergonomia) {
       for (const p of poseDataRef.current) drawPessoa(ctx, p);
     }
   }, []);
 
-  // Redesenha via rAF quando toggle muda (batched — 1 draw por animation frame)
   const detections = useMonitoramentoStore((s) => s.detections);
   useEffect(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -167,33 +187,28 @@ export const CameraView = () => {
           const msg = JSON.parse(event.data);
 
           if (msg.type === 'frame') {
-            // Marca o frame atual para evitar race condition no decode async
             const seq = ++seqRef.current;
             const dataUrl = `data:image/jpeg;base64,${msg.data}`;
             setLastFrame(dataUrl);
 
             createImageBitmap(b64ToBlob(msg.data))
               .then((bitmap) => {
-                if (seq !== seqRef.current) { bitmap.close(); return; } // frame já desatualizado
+                if (seq !== seqRef.current) { bitmap.close(); return; }
                 const canvas = canvasRef.current;
                 if (!canvas) { bitmap.close(); return; }
 
-                // Sincroniza dimensões do canvas UMA VEZ (na primeira mensagem)
                 if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
                   canvas.width  = bitmap.width;
                   canvas.height = bitmap.height;
                 }
 
-                // Libera bitmap anterior da GPU
                 if (bitmapRef.current) bitmapRef.current.close();
                 bitmapRef.current = bitmap;
-
-                drawAll(); // ← único ponto de redraw por frame
+                drawAll();
               })
               .catch(() => {});
 
           } else if (msg.type === 'detections') {
-            // Só atualiza ref — drawAll é chamado pelo próximo frame
             epiDataRef.current = msg.data ?? [];
             setLiveDetections(msg.data ?? []);
 
@@ -208,6 +223,8 @@ export const CameraView = () => {
 
           } else if (msg.type === 'metrics') {
             setMetrics(msg);
+          } else if (msg.type === 'queda') {
+            setQuedaAtiva(true);
           }
         } catch { /* ignorado */ }
       };
@@ -249,10 +266,11 @@ export const CameraView = () => {
   ].join(':');
 
   return (
+    <>
+    {quedaAtiva && <QuedaModal onClose={() => setQuedaAtiva(false)} />}
     <div className="w-full flex flex-col overflow-hidden rounded-xl shadow-2xl"
       style={{ border: '1px solid #1e2025', background: '#0d0e10' }}>
 
-      {/* Barra superior */}
       <div className="flex items-center px-4 gap-3"
         style={{ height: 42, background: '#141518', borderBottom: '1px solid #1e2025', flexShrink: 0 }}>
         <div className="flex gap-1.5">
@@ -275,7 +293,6 @@ export const CameraView = () => {
         </div>
       </div>
 
-      {/* Área de vídeo — 4:3 alinha com frames 640×480 */}
       <div className="relative overflow-hidden" style={{ aspectRatio: '4/3', background: '#090a0c' }}>
         {[
           { top: 16, left: 16,    borderTop:    '1.5px solid #252830', borderLeft:   '1.5px solid #252830' },
@@ -320,7 +337,6 @@ export const CameraView = () => {
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
       </div>
 
-      {/* Barra inferior */}
       <div className="flex items-center justify-between px-4"
         style={{ height: 44, background: '#141518', borderTop: '1px solid #1e2025', flexShrink: 0 }}>
         <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: '#2d3040', letterSpacing: '0.06em' }}>
@@ -342,7 +358,8 @@ export const CameraView = () => {
           100% { top: 100%; opacity: 0; }
         }
       `}</style>
-    </div>
+</div>
+    </>
   );
 };
 

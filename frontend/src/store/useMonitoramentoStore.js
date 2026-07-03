@@ -1,31 +1,40 @@
 import { create } from 'zustand';
 import { CAMERA_STATUS } from '../enums/enums';
 
+// Classes do modelo que representam ausência ou uso incorreto de EPI
+// Mapeadas para a chave do toggle correspondente
 const LABEL_MAP = {
-  'NO-Hardhat':     'capacete',
-  'NO-Safety Vest': 'colete',
-  'NO-Goggles':     'oculos',
-  'NO-Mask':        'mascara',
-  'NO-Gloves':      'luvas',
+  'AURICULAR - AUSENTE': 'auricular',
+  'AURICULAR - ERRADO':  'auricular',
+  'BOTAS - AUSENTE':     'botas',
+  'CAPACETE - AUSENTE':  'capacete',
+  'CAPACETE - ERRADO':   'capacete',
+  'COLETE - AUSENTE':    'colete',
+  'MASCARA - AUSENTE':   'mascara',
+  'MASCARA - ERRADO':    'mascara',
+  'OCULOS - AUSENTE':    'oculos',
+  'OCULOS - ERRADO':     'oculos',
 };
 
 export const useMonitoramentoStore = create((set, get) => ({
   status: CAMERA_STATUS.IDLE,
   detections: {
-    colete:    false,
-    oculos:    false,
+    auricular: false,
+    botas:     false,
     capacete:  false,
+    colete:    false,
     mascara:   false,
+    oculos:    false,
     ergonomia: true,
     zona:      true,
   },
   alertas:        [],
   alertaAtivo:    null,
   liveDetections: [],
-  verdict:        null,   // { status, reasons, sources, confidence, timestamp }
-  metrics:        null,   // { latencia_total_ms, latencia_epi_ms, latencia_pose_ms, pck_pose, conf_media_epi }
-  lastFrame:      null,   // data URL do último frame recebido (para preview no modal de zona)
-  zonaConfig:     null,   // { camera_id, nome, pontos } zona ativa
+  verdict:        null,
+  metrics:        null,
+  lastFrame:      null,
+  zonaConfig:     (() => { try { const s = localStorage.getItem('zonaConfig'); return s ? JSON.parse(s) : null; } catch { return null; } })(),
 
   setStatus: (newStatus) => set({ status: newStatus }),
 
@@ -34,14 +43,14 @@ export const useMonitoramentoStore = create((set, get) => ({
   })),
 
   setLiveDetections: (data) => set({ liveDetections: data }),
-
-  setVerdict: (v) => set({ verdict: v }),
-
-  setMetrics: (m) => set({ metrics: m }),
-
-  setLastFrame: (url) => set({ lastFrame: url }),
-
-  setZonaConfig: (z) => set({ zonaConfig: z }),
+  setVerdict:        (v)    => set({ verdict: v }),
+  setMetrics:        (m)    => set({ metrics: m }),
+  setLastFrame:      (url)  => set({ lastFrame: url }),
+  setZonaConfig: (z) => {
+    if (z) localStorage.setItem('zonaConfig', JSON.stringify(z));
+    else   localStorage.removeItem('zonaConfig');
+    set({ zonaConfig: z });
+  },
 
   addAlerta: (alerta) => {
     const { detections } = get();
@@ -49,14 +58,14 @@ export const useMonitoramentoStore = create((set, get) => ({
     if (!epiKey || !detections[epiKey]) return;
 
     const novoAlerta = {
-      id: Date.now(),
-      label: alerta.label,
+      id:         Date.now(),
+      label:      alerta.label,
       confidence: alerta.confidence,
-      timestamp: alerta.timestamp,
+      timestamp:  alerta.timestamp,
     };
 
     set((state) => ({
-      alertas: [novoAlerta, ...state.alertas].slice(0, 50),
+      alertas:     [novoAlerta, ...state.alertas].slice(0, 50),
       alertaAtivo: novoAlerta,
     }));
   },
