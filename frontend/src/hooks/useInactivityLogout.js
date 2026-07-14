@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 
-const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+const INACTIVITY_LIMIT_MS = 950000; // 15 minutes
 
 export const useInactivityLogout = () => {
   const logout = useAuthStore((s) => s.logout);

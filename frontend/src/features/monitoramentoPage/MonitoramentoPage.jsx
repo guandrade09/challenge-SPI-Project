@@ -1,115 +1,85 @@
-import React, { useEffect } from 'react';
-import { CameraView, DetectionPanel, AlertPanel } from './components';
-import { PANEL_STATUS } from '../../enums/enums';
-import { useMonitoramentoStore } from '../../store/useMonitoramentoStore';
-import { useUiStore } from '../../store/useUiStore';
-import { BasePanelModal } from '../../components/shared/BasePanelModal'; // Importado o painel base
+import React, { useState, useEffect } from 'react';
+import { CameraCarousel } from './components/CameraCarousel';
+import { EpiSelectorPanel } from './components/EpiSelectorPanel';
 
-const DETECTION_CONFIG = [
-  { id: 'colete',   label: 'Detectar Colete'   },
-  { id: 'oculos',   label: 'Detectar Óculos'   },
-  { id: 'capacete', label: 'Detectar Capacete' },
-  { id: 'mascara',  label: 'Detectar Máscara'  },
+// 1. Adicione a importação do shallow aqui em cima:
+import { shallow } from 'zustand/shallow'; 
+
+// Importando ambas as stores
+import { useCameraPresetsStore } from '../../store/useCameraPresetsStore';
+import { useMonitoramentoStore } from '../../store/useMonitoramentoStore';
+
+const INITIAL_CAMERAS = [
+  { id: 1, nome: "Câmera Triagem A", setor: "Industrial", ip: "192.168.1.50", epis: ["capacete", "oculos", "colete"] },
+  { id: 2, nome: "Câmera Almoxarifado", setor: "Logística", ip: "192.168.1.51", epis: ["mascara", "luvas"] },
+  { id: 3, nome: "Câmera Linha de Montagem 04", setor: "Produção", ip: "192.168.1.52", epis: ["capacete", "oculos", "luvas"] },
+  { id: 4, nome: "Câmera Entrada Principal", setor: "Portaria", ip: "192.168.1.53", epis: ["colete"] },
 ];
 
-const LABEL_PT = {
-  'Hardhat':        'Capacete',
-  'Safety Vest':    'Colete',
-  'Goggles':        'Óculos',
-  'Mask':           'Máscara',
-  'NO-Hardhat':     'Sem Capacete',
-  'NO-Safety Vest': 'Sem Colete',
-  'NO-Goggles':     'Sem Óculos',
-  'NO-Mask':        'Sem Máscara',
-};
+// Criamos uma referência estável para o array vazio fora do componente
+// Isso impede o erro "The result of getSnapshot should be cached"
+const EMPTY_ARRAY = [];
 
-const RISK_LABELS = new Set(['NO-Hardhat', 'NO-Safety Vest', 'NO-Goggles', 'NO-Mask', 'NO-Gloves']);
+export function MonitoramentoPage() {
+  const [cameras] = useState(INITIAL_CAMERAS);
+  const [currentIndex, setCurrentIndex] = useState(1);
 
-const formatDetection = (d) => {
-  const icon = RISK_LABELS.has(d.label) ? '⚠' : '✓';
-  return `${icon} ${LABEL_PT[d.label] ?? d.label} — ${(d.confidence * 100).toFixed(0)}%`;
-};
+  const currentCamera = cameras[currentIndex];
+  const currentCameraId = currentCamera?.id;
+  const currentCameraEpis = currentCamera?.epis || [];
 
-export const MonitoramentoPage = () => {
-  const currentTheme = useUiStore((s) => s.theme);
-  const { alertaAtivo, limparAlertaAtivo, liveDetections } = useMonitoramentoStore();
+  const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
 
+  // 2. 🔥 ALTERAÇÃO AQUI: Adicionamos o 'shallow' no final do seletor.
+  // Isso avisa o Zustand: "Só force o re-render se os elementos de dentro do array mudarem!"
+  const activeEpisForVisuals = useCameraPresetsStore((state) => {
+    const data = state.presets[currentCameraId];
+    return Array.isArray(data) ? data : EMPTY_ARRAY;
+  }, shallow); // ← O segredo está aqui 🚀
+
+  // === Mantenha o resto do seu useEffect e funções exatamente iguais ===
   useEffect(() => {
-    if (!alertaAtivo) return;
-    const timer = setTimeout(limparAlertaAtivo, 10000);
-    return () => clearTimeout(timer);
-  }, [alertaAtivo, limparAlertaAtivo]);
+    if (!currentCameraId) return;
 
-  const buildMessage = () => {
-    if (alertaAtivo) {
-      return `⚠ ${LABEL_PT[alertaAtivo.label] ?? alertaAtivo.label} — confiança: ${(alertaAtivo.confidence * 100).toFixed(0)}%`;
-    }
-    if (liveDetections.length === 0) {
-      return 'Aguardando detecções...';
-    }
-    const linhas = liveDetections
-      .filter(d => LABEL_PT[d.label])
-      .map(formatDetection);
-    return linhas.length > 0 ? linhas.join('\n') : 'Nenhum EPI no frame.';
+    const novoEstadoDetections = {
+      colete: false, oculos: false, capacete: false, mascara: false, luvas: false,
+    };
+
+    activeEpisForVisuals.forEach((epi) => {
+      if (novoEstadoDetections[epi] !== undefined) {
+        novoEstadoDetections[epi] = true;
+      }
+    });
+
+    useMonitoramentoStore.setState({ detections: novoEstadoDetections });
+  }, [currentCameraId, activeEpisForVisuals]); 
+
+  const handleNext = () => setCurrentIndex((prev) => (prev + 1) % cameras.length);
+  const handlePrev = () => setCurrentIndex((prev) => (prev - 1 + cameras.length) % cameras.length);
+  const handleSelectCamera = (index) => setCurrentIndex(index);
+
+  const handleToggleEpi = (epiName) => {
+    toggleEpiForCamera(currentCameraId, epiName);
   };
 
-  const panelStatus = alertaAtivo
-    ? PANEL_STATUS.ALERTA
-    : liveDetections.length > 0
-      ? PANEL_STATUS.ATENCAO
-      : PANEL_STATUS.PRONTO;
-
-  const isDark = currentTheme === 'dark';
-
   return (
-    <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 bg-projeto-main text-theme-title ${isDark ? 'dark' : 'light'}`}>
-      <div className="mx-auto p-6 max-w-[1400px]">
-        <main className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8 items-start">
-          
-          {/* Feed de Monitoramento Central - ENVOLVIDO COM O SEU BASE PANEL */}
-          <BasePanelModal
-            title="Câmera ao Vivo"
-            allowFullScreen={true}
-            theme={currentTheme}
-            className="shadow-sm overflow-hidden"
-          >
-            {/* Usamos o padrão de função (Render Prop) que ajustamos para passar o 
-              estado 'isMaximized' direto para o visor da câmera se adaptar ao tamanho.
-            */}
-            {({ isMaximized }) => <CameraView isMaximized={isMaximized} />}
-          </BasePanelModal>
+    <div className="flex-1 flex flex-col p-6 space-y-6 overflow-y-auto max-w-[1600px] mx-auto w-full justify-between">
+      <CameraCarousel 
+        cameras={cameras}
+        currentIndex={currentIndex}
+        onNext={handleNext}
+        onPrev={handlePrev}
+        onSelectCamera={handleSelectCamera}
+        activeEpis={activeEpisForVisuals}
+      />
 
-          {/* Painel de Controle e Logs Lateral */}
-          <div className="flex flex-col gap-6 w-full p-6 rounded-xl bg-theme-section border border-theme-divider shadow-sm transition-colors duration-300">
-            <div className="flex flex-col gap-1">
-              <h2 
-                className="text-2xl font-bold tracking-wider font-mono uppercase text-neutral-400 light:text-neutral-500 panel-text-sub"
-                style={{ 
-                  fontFamily: "'Barlow Condensed', 'Barlow', sans-serif",
-                }}
-              >
-                DETECÇÃO DE EPIS
-              </h2>
-              <p className="text-xs font-mono tracking-wide text-neutral-400 light:text-neutral-500 panel-text-sub">
-                Selecione os equipamentos a monitorar em tempo real.
-              </p>
-            </div>
-
-            <div className="w-full">
-              <DetectionPanel options={DETECTION_CONFIG} theme={currentTheme} />
-            </div>
-            
-            <div className="h-px w-full border-b border-theme-divider" />
-            
-            <div className="w-full">
-              <AlertPanel message={buildMessage()} status={panelStatus} theme={currentTheme} />
-            </div>
-          </div>
-          
-        </main>
-      </div>
+      <EpiSelectorPanel 
+        epis={currentCameraEpis}
+        activeEpis={activeEpisForVisuals}
+        onToggleEpi={handleToggleEpi}
+      />
     </div>
   );
-};
+}
 
 export default MonitoramentoPage;
