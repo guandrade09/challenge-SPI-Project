@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/Card";
-import { Users, Building2, Calendar, Target } from "lucide-react";
+import { Users, Building2, Calendar, Target, GitBranchIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "../../../components/ui/Avatar";
+import { IconButtonModal } from "../../../components/shared/IconButtonModal";
 
 export function ProjectInfo({ data, theme = "light" }) {
   return (
@@ -8,14 +9,30 @@ export function ProjectInfo({ data, theme = "light" }) {
       {/* Informações do Projeto */}
       <Card className="panel-base backdrop-blur-sm">
         <CardHeader className="panel-header-base">
-          <div>
-            <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider text-theme-main">
-              <Building2 className="h-4 w-4 text-theme-accent" />
-              Informações do Projeto
-            </CardTitle>
-            <CardDescription className="text-xs font-mono text-theme-muted mt-0.5">
-              Detalhes do projeto de monitoramento
-            </CardDescription>
+          {/* ALTERAÇÃO AQUI: Adicionado flex, items-center e justify-between para empurrar o botão para o fim */}
+          <div className="flex items-center justify-between w-full">
+            
+            {/* Agrupamos o Título e a Descrição em um bloco para manter o alinhamento vertical esquerdo */}
+            <div className="space-y-0.5">
+              <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider text-theme-main">
+                <Building2 className="h-4 w-4 text-theme-accent" />
+                Informações do Projeto
+              </CardTitle>
+              <CardDescription className="text-xs font-mono text-theme-muted">
+                Detalhes do projeto de monitoramento
+              </CardDescription>
+            </div>
+
+            {/* O botão agora fica no final da div graças ao justify-between */}
+            <IconButtonModal
+              icon={GitBranchIcon}
+              label="Detalhes" // Mudei de "?" para "Detalhes" para ficar mais polido, mas sinta-se livre para voltar se preferir!
+              title="Ver detalhes do projeto"
+              onClick={() => window.open("https://github.com/guandrade09/challenge-SPI-Project", "_blank", "noopener,noreferrer")}
+              variant="panel-btn-toggle"
+              className="text-theme-accent hover:text-theme-accent-hover shrink-0"
+            />
+            
           </div>
         </CardHeader>
         <CardContent className="space-y-4 pt-4">
