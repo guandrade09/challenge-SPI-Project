@@ -62,7 +62,7 @@ export const CameraPage = () => {
   const isDark = currentTheme === 'dark';
 
   return (
-    <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 bg-projeto-main text-theme-title ${isDark ? 'dark' : 'light'}`}>
+    <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 text-theme-title ${isDark ? 'dark' : 'light'}`}>
       <div className="mx-auto p-6 max-w-[1400px]">
         <main className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8 items-start">
           

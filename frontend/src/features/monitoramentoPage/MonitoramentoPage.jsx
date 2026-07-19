@@ -2,22 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { CameraCarousel } from './components/CameraCarousel';
 import { EpiSelectorPanel } from './components/EpiSelectorPanel';
 
-// 1. Adicione a importação do shallow aqui em cima:
-import { shallow } from 'zustand/shallow'; 
+// 🚀 CORREÇÃO: Nova forma correta de importar o shallow para evitar o erro "getSnapshot"
+import { useShallow } from 'zustand/react/shallow'; 
 
-// Importando ambas as stores
 import { useCameraPresetsStore } from '../../store/useCameraPresetsStore';
 import { useMonitoramentoStore } from '../../store/useMonitoramentoStore';
 
 const INITIAL_CAMERAS = [
-  { id: 1, nome: "Câmera Triagem A", setor: "Industrial", ip: "192.168.1.50", epis: ["capacete", "oculos", "colete"] },
-  { id: 2, nome: "Câmera Almoxarifado", setor: "Logística", ip: "192.168.1.51", epis: ["mascara", "luvas"] },
-  { id: 3, nome: "Câmera Linha de Montagem 04", setor: "Produção", ip: "192.168.1.52", epis: ["capacete", "oculos", "luvas"] },
-  { id: 4, nome: "Câmera Entrada Principal", setor: "Portaria", ip: "192.168.1.53", epis: ["colete"] },
+  { id: 1, nome: "Câmera Triagem A", setor: "Industrial", ip: "192.168.1.50", epis: [{ id: "1", nome: "capacete" }, { id: "2", nome: "oculos" }, { id: "3", nome: "colete" }, { id: "4", nome: "mascara" }, { id: "5", nome: "luvas" }] },
+  { id: 2, nome: "Câmera Almoxarifado", setor: "Logística", ip: "192.168.1.51", epis: [{ id: "4", nome: "mascara" }, { id: "5", nome: "luvas" }] },
+  { id: 3, nome: "Câmera Linha de Montagem 04", setor: "Produção", ip: "192.168.1.52", epis: [{ id: "1", nome: "capacete" }, { id: "2", nome: "oculos" }, { id: "5", nome: "luvas" }, { id: "4", nome: "mascara" }, { id: "3", nome: "colete" }] },
+  { id: 4, nome: "Câmera Entrada Principal", setor: "Portaria", ip: "192.168.1.53", epis: [{ id: "3", nome: "colete" }] },
 ];
 
-// Criamos uma referência estável para o array vazio fora do componente
-// Isso impede o erro "The result of getSnapshot should be cached"
 const EMPTY_ARRAY = [];
 
 export function MonitoramentoPage() {
@@ -26,18 +23,20 @@ export function MonitoramentoPage() {
 
   const currentCamera = cameras[currentIndex];
   const currentCameraId = currentCamera?.id;
+  
+  // 🚀 CORREÇÃO: Pegamos os objetos completos de EPIs para tratar lá dentro do painel
   const currentCameraEpis = currentCamera?.epis || [];
 
   const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
 
-  // 2. 🔥 ALTERAÇÃO AQUI: Adicionamos o 'shallow' no final do seletor.
-  // Isso avisa o Zustand: "Só force o re-render se os elementos de dentro do array mudarem!"
-  const activeEpisForVisuals = useCameraPresetsStore((state) => {
-    const data = state.presets[currentCameraId];
-    return Array.isArray(data) ? data : EMPTY_ARRAY;
-  }, shallow); // ← O segredo está aqui 🚀
+  // 🚀 CORREÇÃO: Utilizando useShallow de forma nativa e segura
+  const activeEpisForVisuals = useCameraPresetsStore(
+    useShallow((state) => {
+      const data = state.presets[currentCameraId];
+      return Array.isArray(data) ? data : EMPTY_ARRAY;
+    })
+  );
 
-  // === Mantenha o resto do seu useEffect e funções exatamente iguais ===
   useEffect(() => {
     if (!currentCameraId) return;
 
@@ -63,19 +62,20 @@ export function MonitoramentoPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 space-y-6 overflow-y-auto max-w-[1600px] mx-auto w-full justify-between">
+    <div className="flex-1 flex flex-col p-6 space-y-6 overflow-y-auto max-w-[auto] mx-auto w-full justify-between">
       <CameraCarousel 
         cameras={cameras}
         currentIndex={currentIndex}
         onNext={handleNext}
         onPrev={handlePrev}
         onSelectCamera={handleSelectCamera}
-        activeEpis={activeEpisForVisuals}
+        // 🚀 CORREÇÃO: Alinhando o nome da prop com o que o Carousel espera internamente
+        activeEpi={activeEpisForVisuals.join(', ')} 
       />
 
       <EpiSelectorPanel 
-        epis={currentCameraEpis}
-        activeEpis={activeEpisForVisuals}
+        epis={currentCameraEpis} 
+        activeEpis={activeEpisForVisuals} 
         onToggleEpi={handleToggleEpi}
       />
     </div>

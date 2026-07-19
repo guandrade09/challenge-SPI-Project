@@ -2,7 +2,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, Cpu } from 'lucide-react';
 
-export function CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelectCamera, activeEpi }) {
+export function   CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelectCamera, activeEpi }) {
   
   const getCardStyle = (index) => {
     if (index === currentIndex) {
@@ -29,7 +29,7 @@ export function CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelect
       </button>
 
       {/* Container das Câmeras */}
-      <div className="flex items-center justify-center w-full max-w-7xl relative h-full">
+      <div className="flex items-center justify-center w-full max-w-7xl relative h-full font-sans">
         {cameras.map((cam, index) => {
           const styleClass = getCardStyle(index);
           const isCentral = index === currentIndex;
@@ -38,7 +38,7 @@ export function CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelect
             <div
               key={cam.id}
               onClick={() => !isCentral && onSelectCamera(index)}
-              className={`w-[360px] md:w-[640px] flex flex-col rounded-2xl border bg-neutral-900/80 backdrop-blur-md overflow-hidden transition-all duration-500 transform ${styleClass} ${!isCentral ? 'absolute' : ''}`}
+              className={`w-[720px] md:w-[1280px] flex flex-col rounded-2xl border bg-neutral-900/80 backdrop-blur-md overflow-hidden transition-all duration-500 transform ${styleClass} ${!isCentral ? 'absolute' : ''}`}
               style={{ borderColor: isCentral ? 'var(--p-accent)' : 'var(--p-border)' }}
             >
               {/* Header do Card */}

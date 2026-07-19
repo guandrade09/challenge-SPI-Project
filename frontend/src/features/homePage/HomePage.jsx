@@ -228,7 +228,7 @@ function HomePage() {
   ];
 
   return (
-    <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 bg-projeto-main`}>
+    <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300`}>
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         
         {/* Cabeçalho Dinâmico */}

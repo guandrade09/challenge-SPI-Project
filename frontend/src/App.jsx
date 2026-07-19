@@ -32,7 +32,7 @@ export function App() {
             <Route path="/camera" element={<CameraPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
             <Route path="/settings" element={
-              <div className="flex bg-projeto-main min-h-screen items-center justify-center">
+              <div className="flex min-h-screen items-center justify-center">
                 <h1 className='text-white font-bold text-3xl'>Configurações (Em breve)</h1>
               </div>
             } />
