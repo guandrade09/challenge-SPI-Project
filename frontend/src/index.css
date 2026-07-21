@@ -125,27 +125,30 @@ code {
        ======================================================== */
 
     .panel-theme-light {
-      --p-bg: #ffffff;
-      --p-border: #e5e5e5;
-      --p-header-bg: #f9fafb;
-      --p-text-title: #18181b;       /* Escuro para leitura sobre o painel claro */
-      --p-text: #18181b;             
+      --p-bg: #dddcdc;
+      --p-border: #000000;
+      --p-header-bg: #f2f2f2;
+      --p-box-logs: #c5c5c5;
+      --p-text-title: #ffffff;       /* Escuro para leitura sobre o painel claro */
+      --p-text: #000000;  
+      --p-text-logs: #000000;
+      --p-timestamp-logs: #000000;          
       --p-subtext: #059669;
       --p-graf-bg: #f9fafb;
-      --p-toggle-hover: #e4e4e7;
-      --p-toggle-text: #71717a;
+      --p-toggle-hover: #bbf9a544;
+      --p-toggle-text: #000000;
       --p-button-bg: #f4f4f5;       
       --p-button-text: #18181b;     
       --p-toggle-accent: #059669;
       --p-overlay: rgba(10, 10, 10, 0.4);
 
-      --chart-grid: #e5e5e5;
-      --chart-text: #71717a;
-      --chart-axis: #d4d4d8;
+      --chart-grid: #3c3333;
+      --chart-text: #000000;
+      --chart-axis: #000000;
       --chart-tooltip-bg: #ffffff;
       --chart-tooltip-border: #e5e5e5;
       --chart-alertas: #B59481;
-      --chart-proc: #71717a;
+      --chart-proc: #6363e7;
       --chart-normal-node: #B59481;
 
       --chart-radar-fill: rgba(34, 197, 94, 0.15);
@@ -157,8 +160,10 @@ code {
       --p-bg: #18181b;              
       --p-border: rgba(63, 63, 70, 0.6);
       --p-header-bg: rgba(10, 10, 10, 0.6);
+      --p-box-logs: rgba(10, 10, 10, 0.6);
       --p-text-title: #f4f4f5;       
       --p-text: #d4d4d8;
+      --p-text-logs: #d4d4d8;
       --p-subtext: #10b981;
       --p-graf-bg: rgba(10, 10, 10, 0.5);
       --p-toggle-hover: rgba(63, 63, 70, 0.6);
@@ -186,8 +191,10 @@ code {
       --p-bg: #18181b;
       --p-border: #3f3f46;
       --p-header-bg: #000000;
+      --p-box-logs: #000000;
       --p-text-title: #f4f4f5;
       --p-text: #f4f4f5;
+      --p-text-logs: #f4f4f5;
       --p-subtext: #a1a1aa;
       --p-graf-bg: #09090b;
       --p-toggle-hover: #27272a;

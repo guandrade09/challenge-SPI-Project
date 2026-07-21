@@ -28,7 +28,7 @@ export const RenderColumn = ({ config, componentMap, theme = "dynamic" }) => {
               allowFullScreen={!isLogPanel}
               headerAction={isLogPanel ? <LogSettingsButton /> : null}
               availableCharts={charts}
-              className="w-full h-full" // Garante o preenchimento total do box
+              className="w-full h-full text-[var(--p-text)]" // Garante o preenchimento total do box
             />
           </div>
         );

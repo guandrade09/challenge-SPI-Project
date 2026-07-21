@@ -131,7 +131,7 @@ export const BasePanelModal = ({
                 <CardTitle className="font-mono text-sm font-bold uppercase tracking-widest">
                   {displayTitle}
                 </CardTitle>
-                <CardDescription className="text-[10px] font-mono uppercase tracking-wider mt-0.5">
+                <CardDescription className="text-[var(--p-text)] font-mono uppercase tracking-wider mt-0.5">
                   {theme === 'dynamic' ? 'Modo de Performance Industrial' : 'Painel de Monitoramento Ampliado'}
                 </CardDescription>
               </div>
