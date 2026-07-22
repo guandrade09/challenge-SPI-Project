@@ -1,14 +1,20 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 
-const INACTIVITY_LIMIT_MS = 950000; // 15 minutes
+// 🚀 Definindo o tempo unificado de inatividade (ex: 15 minutos)
+const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; 
 
 export const useInactivityLogout = () => {
   const logout = useAuthStore((s) => s.logout);
+  const resetInactivityTimer = useAuthStore((s) => s.resetInactivityTimer);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const timeoutRef = useRef(null);
 
   const resetTimer = () => {
+    // 1. Atualiza o timestamp lastActivity no Zustand
+    resetInactivityTimer();
+
+    // 2. Reinicia o contador local do React
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       logout();
@@ -20,10 +26,10 @@ export const useInactivityLogout = () => {
 
     const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
 
-    // Attach listener to reset timer on each event
+    // Escuta eventos e reinicia o timer
     events.forEach((event) => document.addEventListener(event, resetTimer));
 
-    // Start the initial timer
+    // Inicializa o primeiro timer logo que entra na aplicação
     resetTimer();
 
     return () => {

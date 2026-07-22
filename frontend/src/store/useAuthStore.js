@@ -62,34 +62,6 @@ export const useAuthStore = create(
   )
 );
 
-// Global inactivity logout — only active when authenticated
-let globalTimeout = null;
-
-function scheduleInactivityLogout() {
-  if (globalTimeout) clearTimeout(globalTimeout);
-  const state = useAuthStore.getState();
-  if (!state.isAuthenticated) return;
-
-  globalTimeout = setTimeout(() => {
-    const current = useAuthStore.getState();
-    if (current.isAuthenticated && Date.now() - current.lastActivity >= INACTIVITY_LIMIT_MS) {
-      useAuthStore.getState().logout();
-    }
-  }, INACTIVITY_LIMIT_MS);
-}
-
-// Auto-start when store is hydrated and user is authenticated
-useAuthStore.subscribe(
-  (state, prev) => {
-    if (state.isAuthenticated && !prev.isAuthenticated) {
-      scheduleInactivityLogout();
-    } else if (!state.isAuthenticated && prev.isAuthenticated) {
-      if (globalTimeout) clearTimeout(globalTimeout);
-      globalTimeout = null;
-    }
-  }
-);
-
 // Interceptador de resposta: limpa token e faz logout ao receber 401
 api.interceptors.response.use(
   (response) => response,
