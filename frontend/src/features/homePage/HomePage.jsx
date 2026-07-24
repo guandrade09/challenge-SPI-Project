@@ -60,7 +60,7 @@ function HomePage() {
       // 🚀 OTIMIZAÇÃO DE EXIBIÇÃO:
       // O banco SQLite retorna do mais antigo para o mais recente. 
       // Pegamos apenas os últimos 35 registros para o gráfico ficar limpo e legível na tela.
-      const limitedData = formattedData.slice(-35);
+      const limitedData = formattedData.slice(35 * -1); // Últimos 35 registros
 
       setPerformanceData(limitedData);
     } catch (err) {

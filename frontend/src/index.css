@@ -1,5 +1,6 @@
 /* src/index.css */
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap');
 
 @theme {
   --color-panel-bg: #D9D9D9;
@@ -133,7 +134,7 @@ code {
       --p-text: #000000;  
       --p-text-logs: #000000;
       --p-timestamp-logs: #000000;          
-      --p-subtext: #059669;
+      --p-subtext: #0008ff;
       --p-graf-bg: #f9fafb;
       --p-toggle-hover: #bbf9a544;
       --p-toggle-text: #000000;
@@ -314,12 +315,53 @@ code {
     /* ========================================================
        MAPEAMENTO SEMÂNTICO DO PAINEL
        ======================================================== */
-    .text-theme-title { color: var(--p-text-title); font-weight: 600; }
-    .text-theme-main { color: var(--p-text); }
-    .text-theme-muted { color: var(--p-text); opacity: 0.6; }
-    .text-theme-accent { color: var(--p-subtext); }
-    .border-theme-divider { border-color: var(--p-border); }
-    
+   /* Font Families */
+    .font-theme-title { 
+      font-family: 'Sora', sans-serif; 
+    }
+
+    .font-theme-body { 
+      font-family: 'Inter', sans-serif; 
+    }
+
+    /* Tipografia Semântica */
+    .text-theme-title { 
+      font-family: 'Sora', sans-serif;
+      color: var(--p-text); 
+      font-weight: 600; 
+    }
+
+    .text-theme-main { 
+      font-family: 'Inter', sans-serif;
+      color: var(--p-text); 
+    }
+
+    .text-theme-muted { 
+      font-family: 'Inter', sans-serif;
+      color: var(--p-text); 
+      opacity: 0.65; 
+    }
+
+    .text-theme-accent { 
+      color: var(--p-subtext); 
+    }
+
+    /* Dados industriais, datas e cabeçalhos de tabela */
+    .text-theme-head {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--p-text);
+      opacity: 0.8;
+    }
+
+    /* Outras utilidades de container */
+    .border-theme-divider { 
+      border-color: var(--p-border); 
+    }
+
     .panel-subcard {
       background-color: var(--p-header-bg);
       border: 1px solid var(--p-border);
@@ -329,6 +371,7 @@ code {
     }
 
     .badge-theme-industrial {
+      font-family: 'Inter', sans-serif;
       background-color: var(--p-header-bg);
       border: 1px solid var(--p-border);
       color: var(--p-text);
