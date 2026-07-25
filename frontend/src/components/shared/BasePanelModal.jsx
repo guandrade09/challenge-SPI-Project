@@ -63,7 +63,7 @@ export const BasePanelModal = ({
     return (
       <div className="w-full h-full min-h-0 flex flex-col relative" onClick={(e) => e.stopPropagation()}>
         {isGraf ? (
-          <div className="panel-graf-base flex-1 w-full h-full min-h-0 relative">
+          <div className="panel-graf-base flex-1 w-full h-full min-h-0 relative hover:border-[var(--p-subtext)]">
             {availableCharts.length > 1 && (
               <>
                 <IconButtonModal 
@@ -100,7 +100,7 @@ export const BasePanelModal = ({
     <div className={`${activeThemeClass} h-full w-full flex flex-col`}>
       <Card className={`h-full w-full flex flex-col min-h-0 ${className}`}>
         <CardHeader className="relative pr-24">
-          <CardTitle className="font-mono text-xs font-bold uppercase tracking-wider">
+          <CardTitle className="text-theme-title text-[13px] uppercase tracking-wider">
             {displayTitle}
           </CardTitle>
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -128,10 +128,10 @@ export const BasePanelModal = ({
           >
             <CardHeader className="py-4 px-6 md:px-8 flex-row items-center justify-between shrink-0 border-b border-theme-divider">
               <div className="flex flex-col">
-                <CardTitle className="font-mono text-sm font-bold uppercase tracking-widest">
+                <CardTitle className="text-theme-title text-[13px] uppercase tracking-wider">
                   {displayTitle}
                 </CardTitle>
-                <CardDescription className="text-[var(--p-text)] font-mono uppercase tracking-wider mt-0.5">
+                <CardDescription className="text-[var(--p-text)] text-theme-muted uppercase tracking-wider mt-0.5">
                   {theme === 'dynamic' ? 'Modo de Performance Industrial' : 'Painel de Monitoramento Ampliado'}
                 </CardDescription>
               </div>

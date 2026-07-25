@@ -76,10 +76,10 @@ export const cameras = [
 
 
 export const teamMembers = [
-  { id: 1, name: "Gabriel Lacerda", role: "Desenvolvedor Front-end", initials: "GL" },
-  { id: 2, name: "Lucas Rodrigues", role: "Desenvolvedor Back-end", initials: "LR" },
-  { id: 3, name: "Mayene G. Doria", role: "Tech Lead de Machine Learning", initials: "MGD" },
-  { id: 4, name: "Gustavo Andrade", role: "Analista de Machine Learning", initials: "GA" },
-  { id: 5, name: "Thais Helena", role: "Analista de Machine Learning", initials: "TH" },
-  { id: 6, name: "Geovana Carvalho", role: "Analista de Machine Learn", initials: "RS" }
+  { id: 1, name: "Gabriel Lacerda", role: "Desenvolvedor Front-end", initials: "GL", githubUrl:"https://github.com/lacerdex", linkedinUrl:"https://www.linkedin.com/in/gabriellcarimatea/" },
+  { id: 2, name: "Lucas Rodrigues", role: "Desenvolvedor Back-end", initials: "LR", githubUrl:"https://github.com/lusca04", linkedinUrl:"https://www.linkedin.com/in/lucas-santos-rodrigues-3a0132243/" },
+  { id: 3, name: "Mayene G. Doria", role: "Tech Lead de Machine Learning", initials: "MG", githubUrl:"https://github.com/MayeneD", linkedinUrl:"https://linkedIn.com/in/maygdoria" },
+  { id: 4, name: "Gustavo Andrade", role: "Analista de Machine Learning", initials: "GA", githubUrl:"https://github.com/guandrade09", linkedinUrl:"https://linkedin.com/in/gustavo-andrade-de-sousa" },
+  { id: 5, name: "Thais Helena", role: "Analista de Machine Learning", initials: "TH", githubUrl:"//github.com/thiiss", linkedinUrl:"//br.linkedin.com/in/thais-helena-vieira" },
+  { id: 6, name: "Geovana Carvalho", role: "Analista de Machine Learning", initials: "GC", githubUrl:"https://github.com/GeovanaPederneschi", linkedinUrl:"https://linkedin.com/in/geovana-pederneschi-09a99a298" }
 ];

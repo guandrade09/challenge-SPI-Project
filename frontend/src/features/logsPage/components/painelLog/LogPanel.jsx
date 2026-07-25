@@ -42,10 +42,10 @@ export const LogPanel = ({ logs = [], loading = false }) => {
           logs.map((log, index) => (
             <div 
               key={`${log.timestamp}-${index}`} 
-              className="p-3 rounded-xl border-l-4 text-[var(--p-box-logs)] shadow-sm transition-all duration-200"
+              className="p-3 rounded-xl border-l-4 text-[var(--p-box-logs)] text-theme-main shadow-sm transition-all duration-200"
               style={{ backgroundColor: 'var(--p-box-logs)' }}
             >
-              <p className="text-[var(--p-text-logs)] font-mono text-[11px] leading-tight">
+              <p className="text-[var(--p-text-logs)] text-theme-title uppercase text-[11px] leading-tight">
                 <span className="var(--p-timestamp-logs)">{log.timestamp}</span>
                 <span className="var(--p-text-logs) mx-1">|</span> 
                 {log.message}

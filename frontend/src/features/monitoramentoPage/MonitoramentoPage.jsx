@@ -7,17 +7,18 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { useCameraPresetsStore } from '../../store/useCameraPresetsStore';
 import { useMonitoramentoStore } from '../../store/useMonitoramentoStore';
+import { useUiStore } from '../../store/useUiStore';
 
 const INITIAL_CAMERAS = [
-  { id: 1, nome: "Câmera Triagem A", setor: "Industrial", ip: "192.168.1.50", epis: [{ id: "1", nome: "capacete" }, { id: "2", nome: "oculos" }, { id: "3", nome: "colete" }, { id: "4", nome: "mascara" }, { id: "5", nome: "luvas" }] },
-  { id: 2, nome: "Câmera Almoxarifado", setor: "Logística", ip: "192.168.1.51", epis: [{ id: "4", nome: "mascara" }, { id: "5", nome: "luvas" }] },
-  { id: 3, nome: "Câmera Linha de Montagem 04", setor: "Produção", ip: "192.168.1.52", epis: [{ id: "1", nome: "capacete" }, { id: "2", nome: "oculos" }, { id: "5", nome: "luvas" }, { id: "4", nome: "mascara" }, { id: "3", nome: "colete" }] },
-  { id: 4, nome: "Câmera Entrada Principal", setor: "Portaria", ip: "192.168.1.53", epis: [{ id: "3", nome: "colete" }] },
+  { id: 1, nome: "Triagem A", setor: "Industrial", ip: "192.168.1.50", epis: [{ id: "1", nome: "capacete" }, { id: "2", nome: "oculos" }, { id: "3", nome: "colete" }, { id: "4", nome: "mascara" }, { id: "5", nome: "luvas" }] },
+  { id: 2, nome: "Almoxarifado", setor: "Logística", ip: "192.168.1.51", epis: [{ id: "4", nome: "mascara" }, { id: "5", nome: "luvas" }] },
+  { id: 4, nome: "Entrada Principal", setor: "Portaria", ip: "192.168.1.53", epis: [{ id: "3", nome: "colete" }] },
 ];
 
 const EMPTY_ARRAY = [];
 
 export function MonitoramentoPage() {
+  const currentTheme = useUiStore((s) => s.theme);
   const [cameras] = useState(INITIAL_CAMERAS);
   const [currentIndex, setCurrentIndex] = useState(1);
 
@@ -71,12 +72,14 @@ export function MonitoramentoPage() {
         onSelectCamera={handleSelectCamera}
         // 🚀 CORREÇÃO: Alinhando o nome da prop com o que o Carousel espera internamente
         activeEpi={activeEpisForVisuals.join(', ')} 
+        theme={currentTheme}
       />
 
       <EpiSelectorPanel 
         epis={currentCameraEpis} 
         activeEpis={activeEpisForVisuals} 
         onToggleEpi={handleToggleEpi}
+        theme={currentTheme}
       />
     </div>
   );
