@@ -1,8 +1,9 @@
 // src/features/monitoramentoPage/components/CameraCarousel.jsx
 import React from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, Cpu } from 'lucide-react';
+import { ButtonAddCam } from './ButtonAddCam';
 
-export function CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelectCamera, activeEpi, theme = 'dynamic' }) {
+export function CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelectCamera, activeEpi, theme = 'dynamic', onAddCamera }) {
   
   const getCardStyle = (index) => {
     if (index === currentIndex) {
@@ -43,10 +44,16 @@ export function CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelect
             >
               {/* Header do Card */}
               <div className="p-4 panel-header-base flex items-center justify-between border-b border-theme-divider">
-                <span className="text-theme-title text-sm tracking-wider uppercase truncate max-w-[80%]">
-                  {`Câmera: ${cam.nome}`}
-                </span>
-                <span className="text-theme-head animate-pulse text-[11px] px-2.5 py-1 rounded-md badge-theme-industrial">
+                <div className="flex items-center gap-2 max-w-[80%]">
+                  <span className="text-theme-title text-sm tracking-wider uppercase truncate">
+                    {`Câmera: ${cam.nome}`}
+                  </span>
+
+                  {/* Botão de Adicionar Câmera acoplado ao lado do nome (somente na câmera central) */}
+                  {isCentral && <ButtonAddCam theme={theme} onAddCamera={onAddCamera} />}
+                </div>
+
+                <span className="text-theme-head animate-pulse text-[11px] px-2.5 py-1 rounded-md badge-theme-industrial shrink-0">
                   {`Setor: ${cam.setor}`}
                 </span>
               </div>
