@@ -1,92 +1,101 @@
 import { create } from 'zustand';
-
-const INITIAL_CAMERAS = [
-  { 
-    id: 1, 
-    nome: "Triagem A", 
-    setor: "Industrial", 
-    ip: "192.168.1.50", 
-    // A URL que o player de vídeo (HTML5/WebRTC/HLS) realmente vai consumir
-    streamUrl: "rtsp://admin:12345@192.168.1.50:554/h264", 
-    status: "online", // 'online' | 'offline' | 'connecting'
-    epis: [{ id: "1", nome: "capacete" }, { id: "2", nome: "oculos" }, { id: "3", nome: "colete" }, { id: "4", nome: "mascara" }, { id: "5", nome: "luvas" }] 
-  },
-  { 
-    id: 2, 
-    nome: "Almoxarifado", 
-    setor: "Logística", 
-    ip: "192.168.1.51", 
-    streamUrl: "rtsp://admin:12345@192.168.1.51:554/h264", 
-    status: "online",
-    epis: [{ id: "4", nome: "mascara" }, { id: "5", nome: "luvas" }] 
-  },
-  { 
-    id: 4, 
-    nome: "Entrada Principal", 
-    setor: "Portaria", 
-    ip: "192.168.1.53", 
-    streamUrl: "rtsp://admin:12345@192.168.1.53:554/h264", 
-    status: "offline",
-    epis: [{ id: "3", nome: "colete" }] 
-  },
-];
+import cameraService from '../services/cameraService'; // Ajuste o caminho conforme sua estrutura
 
 export const useCameraStore = create((set, get) => ({
-  cameras: INITIAL_CAMERAS,
-  isLoading: false,
+  cameras: [],
+  isLoading: true,
   error: null,
 
-  // 1. Ação para buscar câmeras (Simulando chamada de API futura)
+  // 1. Busca câmeras reais no banco SQLite
   fetchCameras: async () => {
     set({ isLoading: true, error: null });
+
+    await new Promise((resolve) => setTimeout(resolve, 500)); // Simula atraso de 0.5s
     try {
-      // Futuro: const response = await api.get('/cameras');
-      // set({ cameras: response.data, isLoading: false });
-      
-      // Simulação por enquanto:
-      set({ isLoading: false });
+      const data = await cameraService.getCameras();
+      set({ cameras: data, isLoading: false });
     } catch (err) {
-      set({ error: 'Erro ao carregar câmeras', isLoading: false });
+      console.error('Erro ao buscar câmeras:', err);
+      set({ 
+        error: err.response?.data?.message || 'Erro ao carregar câmeras', 
+        isLoading: false 
+      });
     }
   },
 
-  // 2. Ação para Adicionar Câmera
+  // 2. Adiciona câmera enviando para o Backend
   addCamera: async (newCameraData) => {
-    set({ isLoading: true });
-
-    // Monta o objeto padronizado
-    const cameraFormatted = {
-      id: Date.now(), // No futuro, o ID virá do banco
-      status: 'connecting', // Nasce testando/conectando
-      streamUrl: `rtsp://${newCameraData.ip}:554/stream`, // URL construída a partir do IP/porta
-      ...newCameraData
-    };
+    set({ isLoading: true, error: null });
 
     try {
-      // Futuro: const res = await api.post('/cameras', cameraFormatted);
-      // const savedCam = res.data;
+      // Formatação básica antes de enviar para a API (se necessário)
+      const payload = {
+        status: 'connecting',
+        streamUrl: newCameraData.streamUrl || `rtsp://${newCameraData.ip}:554/stream`,
+        ...newCameraData
+      };
 
-      // Atualização otimista no estado do Frontend
+      // Dispara o POST no backend
+      const savedCamera = await cameraService.addCamera(payload);
+
+      // Atualiza o estado da store com o registro real retornado pelo SQLite
       set((state) => ({
-        cameras: [...state.cameras, cameraFormatted],
+        cameras: [...state.cameras, savedCamera],
         isLoading: false
       }));
 
-      // Retorna a nova câmera para que o componente saiba o ID/Índice se quiser selecioná-la
-      return cameraFormatted;
-
+      return savedCamera;
     } catch (err) {
-      set({ error: 'Erro ao salvar câmera no banco', isLoading: false });
+      console.error('Erro ao salvar câmera:', err);
+      set({ 
+        error: err.response?.data?.message || 'Erro ao salvar câmera no banco', 
+        isLoading: false 
+      });
       throw err;
     }
   },
 
-  // 3. Ação para atualizar status de conexão da câmera (Offline / Online)
-  updateCameraStatus: (cameraId, status) => {
+  // 3. Atualiza o status localmente e/ou no servidor
+  updateCameraStatus: async (cameraId, newStatus) => {
+    // Atualização otimista no Zustand para UI responder rápido
+    const previousCameras = get().cameras;
     set((state) => ({
       cameras: state.cameras.map((cam) =>
-        cam.id === cameraId ? { ...cam, status } : cam
+        cam.id === cameraId ? { ...cam, status: newStatus } : cam
       )
     }));
+
+    try {
+      const currentCamera = previousCameras.find(c => c.id === cameraId);
+      if (currentCamera) {
+        await cameraService.updateCamera(cameraId, {
+          ...currentCamera,
+          status: newStatus
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao persisitir status no banco:', err);
+      // Reverte o estado caso falhe no servidor
+      set({ cameras: previousCameras });
+    }
+  },
+
+  // 4. Deletar Câmera
+  deleteCamera: async (cameraId) => {
+    set({ isLoading: true, error: null });
+    try {
+      await cameraService.deleteCamera(cameraId);
+      set((state) => ({
+        cameras: state.cameras.filter((cam) => cam.id !== cameraId),
+        isLoading: false
+      }));
+    } catch (err) {
+      console.error('Erro ao deletar câmera:', err);
+      set({ 
+        error: err.response?.data?.message || 'Erro ao excluir câmera', 
+        isLoading: false 
+      });
+      throw err;
+    }
   }
 }));
