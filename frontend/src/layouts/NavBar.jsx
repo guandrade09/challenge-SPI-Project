@@ -7,12 +7,12 @@ import { ThemeToggleButton } from '../components/ui/ThemeToggleButton'; // Novo 
 import { useAuthStore } from '../store/useAuthStore';
 
 const navItems = [
-  { id: 'logs',    icon: LogsIcon,  label: 'Logs',           path: '/logs' },
   { id: 'home',    icon: Home,       label: 'Home',           path: '/' },
-  { id: 'camera',  icon: Camera,    label: 'Camera',    path: '/camera' },
-  { id: 'settings', icon: Settings,   label: 'Configurações',   path: '/settings' },
-  { id: 'logout',  icon: LogOut,    label: 'Logout',           path: '/logout' },
+  { id: 'logs',    icon: LogsIcon,  label: 'Logs',           path: '/logs' },
+//  { id: 'camera',  icon: Camera,    label: 'Camera',    path: '/camera' },
+// { id: 'settings', icon: Settings,   label: 'Configurações',   path: '/settings' },
   { id: 'monitoramento', icon: CctvIcon,    label: 'Monitoramentos',    path: '/monitoramento' },
+  { id: 'logout',  icon: LogOut,    label: 'Logout',           path: '/logout' },
 ];
 
 export const NavBar = () => {

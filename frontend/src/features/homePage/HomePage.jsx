@@ -234,10 +234,10 @@ function HomePage() {
         {/* Cabeçalho Dinâmico */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold font-mono uppercase tracking-wider text-theme-title ">
+            <h2 className="text-2xl sm:text-3xl text-(var[--p-text]) uppercase tracking-wider ">
               Visão geral do sistema de detecção de EPI's
             </h2>
-            <p className="text-xs font-mono text-theme-title flex items-center gap-2 mt-1">
+            <p className="text-xs text-(var[--p-text]) flex items-center gap-2 mt-1">
               {isLoading && <RefreshCw size={12} className="animate-spin text-emerald-500" />}
               {timeSinceUpdate}
             </p>
