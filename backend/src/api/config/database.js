@@ -71,6 +71,34 @@ export async function initDatabase() {
       process_loaded INTEGER
     );
   `);
+
+  // Tabela para armazenar câmeras
+  // id: identificador único
+  // nome: nome da câmera
+  // setor: setor da câmera
+  // ip: endereço IP da câmera
+  // streamUrl: URL do stream da câmera
+  // status: status da câmera (online/offline)
+  // epis: lista de EPIs associados à câmera (armazenado como JSON
+  //  para tipagem OU futuramente deixar separado.)
+  // createdAt: data e hora da criação do registro
+  // updatedAt: data e hora da última atualização do registro
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS cameras (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      setor TEXT NOT NULL,
+      ip TEXT NOT NULL,
+      streamUrl TEXT NOT NULL,
+      status TEXT NOT NULL,
+      epis TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
+
+  `);
   
   // await db.run("INSERT INTO onedrives (client_id, tenant_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?, ?)", [
   //   ONEDRIVE_CLIENT_ID,
