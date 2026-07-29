@@ -17,15 +17,18 @@ const EMPTY_ARRAY = [];
 export function MonitoramentoPage() {
   const currentTheme = useUiStore((s) => s.theme);
   
-  // 🚀 Câmeras e Status do Zustand
+  // 🚀 Resgatando ações e estados da useCameraStore (incluindo deleteCamera)
   const cameras = useCameraStore((state) => state.cameras);
   const isLoading = useCameraStore((state) => state.isLoading);
   const fetchCameras = useCameraStore((state) => state.fetchCameras);
   const addCamera = useCameraStore((state) => state.addCamera);
+  const deleteCamera = useCameraStore((state) => state.deleteCamera);
+
+  const removePresetForCamera = useCameraPresetsStore((state) => state.removePresetForCamera);
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // 1. Busca as câmeras no banco ao carregar a página
+  // Busca as câmeras no banco ao carregar a página
   useEffect(() => {
     fetchCameras();
   }, [fetchCameras]);
@@ -97,21 +100,47 @@ export function MonitoramentoPage() {
     }
   };
 
-  // 🚀 Se estiver carregando pela primeira vez, exibe o Skeleton
+  // 🚀 Deleção via Backend com Recalculo de Índice
+  const handleDeleteCamera = async (idToDelete) => {
+    try {
+      const deletedIndex = cameras.findIndex((cam) => cam.id === idToDelete);
+
+      // Dispara a requisição DELETE via API
+      await deleteCamera(idToDelete);
+
+      // Limpa as preferências dessa câmera no LocalStorage/Zustand
+      removePresetForCamera(idToDelete);
+
+      // Pega a lista de câmeras mais atual diretamente do Zustand pós-exclusão
+      const updatedCameras = useCameraStore.getState().cameras;
+      const remainingCount = updatedCameras.length;
+
+      if (remainingCount === 0) {
+        setCurrentIndex(0);
+      } else if (deletedIndex >= remainingCount) {
+        // Se era a última, aponta para o novo final
+        setCurrentIndex(remainingCount - 1);
+      } else {
+        // Mantém a posição visual (a câmera posterior assumirá esta posição)
+        setCurrentIndex(deletedIndex);
+      }
+    } catch (err) {
+      console.error("Falha ao deletar câmera:", err);
+    }
+  };
+
   if (isLoading && cameras.length === 0) {
     return <MonitoramentoSkeleton theme={currentTheme} />;
   }
 
-  // Se já carregou mas não tem câmeras cadastradas no banco
   if (!isLoading && cameras.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <h2 className="text-xl font-bold">Nenhuma câmera cadastrada</h2>
-        <p className="text-slate-400">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
+        <h2 className="text-xl text-theme-title trackest-wider">Nenhuma câmera cadastrada</h2>
+        <p className="text-theme-main trackest-wider ">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
         
-        {/* 🚀 Botão com sintaxe auto-fechável corrigida */}
-        <div className="pt-2">
-          <ButtonAddCam theme={currentTheme} onAddCamera={handleAddCamera} />
+        <div className=" panel-btn-toggle text-(var[--p-text])">
+          <ButtonAddCam theme={currentTheme} onAddCamera={handleAddCamera} showLabel={true} />
         </div>
       </div>
     );
@@ -128,6 +157,7 @@ export function MonitoramentoPage() {
         activeEpi={activeEpisForVisuals.join(', ')} 
         theme={currentTheme}
         onAddCamera={handleAddCamera}
+        onDeleteCamera={handleDeleteCamera}
       />
 
       <EpiSelectorPanel 

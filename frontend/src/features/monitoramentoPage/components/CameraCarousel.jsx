@@ -2,8 +2,19 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, Cpu } from 'lucide-react';
 import { ButtonAddCam } from './ButtonAddCam';
+import { ButtonDeleteCam } from './ButtonDeleteCam';
 
-export function CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelectCamera, activeEpi, theme = 'dynamic', onAddCamera }) {
+export function CameraCarousel({ 
+  cameras, 
+  currentIndex, 
+  onNext, 
+  onPrev, 
+  onSelectCamera, 
+  activeEpi, 
+  theme = 'dynamic', 
+  onAddCamera,
+  onDeleteCamera
+}) {
   
   const getCardStyle = (index) => {
     if (index === currentIndex) {
@@ -49,8 +60,13 @@ export function CameraCarousel({ cameras, currentIndex, onNext, onPrev, onSelect
                     {`Câmera: ${cam.nome}`}
                   </span>
 
-                  {/* Botão de Adicionar Câmera acoplado ao lado do nome (somente na câmera central) */}
-                  {isCentral && <ButtonAddCam theme={theme} onAddCamera={onAddCamera} />}
+                  {/* Botões de Ação acoplados ao lado do nome (somente na câmera central) */}
+                  {isCentral && (
+                    <div className="flex items-center gap-1.5 ml-2">
+                      <ButtonAddCam theme={theme} onAddCamera={onAddCamera} />
+                      <ButtonDeleteCam theme={theme} camera={cam} onDeleteCamera={onDeleteCamera} />
+                    </div>
+                  )}
                 </div>
 
                 <span className="text-theme-head animate-pulse text-[11px] px-2.5 py-1 rounded-md badge-theme-industrial shrink-0">

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import { PopupModal } from '../../../components/shared/PopupModal';
 
-export function ButtonAddCam({ theme = "dynamic", onAddCamera }) {
+export function ButtonAddCam({ theme = "dynamic", onAddCamera, showLabel = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [nome, setNome] = useState('');
   const [setor, setSetor] = useState('');
@@ -19,7 +19,7 @@ export function ButtonAddCam({ theme = "dynamic", onAddCamera }) {
   };
 
   const handleOpen = (e) => {
-    if (e) e.stopPropagation(); // Evita interferência com eventos de clique pai (ex: carrossel)
+    if (e) e.stopPropagation();
     setIsOpen(true);
   };
 
@@ -29,8 +29,6 @@ export function ButtonAddCam({ theme = "dynamic", onAddCamera }) {
 
     setIsSubmitting(true);
 
-    // 🚀 Payload limpo enviado ao Backend
-    // O id, createdAt, updatedAt e createdBy serão gerenciados pelo Backend/Database
     const newCamData = {
       nome: nome.trim(),
       setor: setor.trim(),
@@ -62,9 +60,14 @@ export function ButtonAddCam({ theme = "dynamic", onAddCamera }) {
       <button
         onClick={handleOpen}
         title="Adicionar nova câmera"
-        className="p-1.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 flex items-center justify-center shrink-0"
+        className={
+          showLabel
+            ? "px-4 py-2.5 rounded-xl badge-theme-industrial text-[var(--p-text-title)] text-xs font-semibold tracking-wider uppercase transition-transform active:scale-95 flex items-center justify-center gap-2 shrink-0 shadow-lg hover:brightness-110"
+            : "p-1.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 flex items-center justify-center shrink-0"
+        }
       >
-        <Plus size={16} />
+        <Plus size={showLabel ? 18 : 16} />
+        {showLabel && <span>ADICIONAR CÂMERA</span>}
       </button>
 
       <PopupModal
