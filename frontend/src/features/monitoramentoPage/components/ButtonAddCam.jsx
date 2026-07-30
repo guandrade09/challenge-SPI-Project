@@ -3,7 +3,14 @@ import React, { useState } from 'react';
 import { Plus, Loader2, X } from 'lucide-react';
 import { PopupModal, IconButtonModal } from '../../../components/shared';
 
-export function ButtonAddCam({ theme = "dynamic", onAddCamera, showLabel = false }) {
+export function ButtonAddCam({ 
+  theme = "dynamic", 
+  onAddCamera, 
+  variant = "toggle",         // No carrossel ele atua como botão de painel/ícone
+  colorVariant = "default",  // Cor padrão do sistema
+  label = "Adicionar",       // Rótulo dinâmico
+  className = "" 
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [nome, setNome] = useState('');
   const [setor, setSetor] = useState('');
@@ -57,15 +64,17 @@ export function ButtonAddCam({ theme = "dynamic", onAddCamera, showLabel = false
 
   return (
     <>
-          <IconButtonModal
-          tipo='button'
-          icon={Plus}
-          title={"Adicionar nova câmera"}
-          label={"Adicionar"}
-          onClick={handleOpen}
-          variant='full'
-          >
-        </IconButtonModal>
+      {/* Aqui o IconButtonModal recebe exatamente o estilo e variante configurados */}
+      <IconButtonModal
+        tipo="button"
+        icon={Plus}
+        title="Adicionar nova câmera"
+        label={label}
+        onClick={handleOpen}
+        variant={"full"}
+        colorVariant={colorVariant}
+        className={className}
+      />
 
       <PopupModal
         isOpen={isOpen}
@@ -74,6 +83,7 @@ export function ButtonAddCam({ theme = "dynamic", onAddCamera, showLabel = false
         icon={Plus}
         maxWidth="max-w-lg"
         theme={theme}
+        className="text-(var[--p-text])"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -116,21 +126,20 @@ export function ButtonAddCam({ theme = "dynamic", onAddCamera, showLabel = false
 
           <div className="flex justify-end gap-2 pt-4 border-t border-theme-divider">
             <IconButtonModal
-            tipo='button'
-            icon={X}
-            onClick={handleClose}
-            label={"Cancelar"}
-            colorVariant={'cancel'}
-            variant='full'
-            ></IconButtonModal>
+              tipo="button"
+              icon={X}
+              onClick={handleClose}
+              label="Cancelar"
+              colorVariant="cancel"
+              variant="full"
+            />
             <IconButtonModal
               tipo="submit"
               icon={isSubmitting ? Loader2 : Plus}
               label={isSubmitting ? "Salvando..." : "Adicionar Câmera"}
-              colorVariant='success'
-              variant={"full"}
-              onClick={handleSubmit}
-              ></IconButtonModal>
+              colorVariant="success"
+              variant="full"
+            />
           </div>
         </form>
       </PopupModal>

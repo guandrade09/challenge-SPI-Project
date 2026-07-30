@@ -136,11 +136,19 @@ export function MonitoramentoPage() {
   if (!isLoading && cameras.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <h2 className="text-xl text-theme-title trackest-wider">Nenhuma câmera cadastrada</h2>
-        <p className="text-theme-main trackest-wider ">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
+        <h2 className="text-xl text-theme-title tracking-wider">Nenhuma câmera cadastrada</h2>
+        <p className="text-theme-main tracking-wider">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
         
-        <div className=" panel-btn-toggle text-(var[--p-text])">
-          <ButtonAddCam theme={currentTheme} onAddCamera={handleAddCamera} showLabel={true} />
+        <div className='p-30'>
+        {/* Chama o componente agindo exatamente como um IconButtonModal variant="full" colorVariant="default" */}
+        <ButtonAddCam 
+          theme={currentTheme} 
+          onAddCamera={handleAddCamera} 
+          variant="full"
+          colorVariant="default"
+          label="Adicionar Câmera"
+          className='icon-btn-success max-w-[300px] gap-2'
+        />
         </div>
       </div>
     );
