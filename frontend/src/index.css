@@ -138,6 +138,7 @@ code {
       --p-graf-bg: #f9fafb;
       --p-pattern-dor: #d1d5db;
       --p-toggle-hover: #bbf9a544;
+      --p-toggle-hover-cancel: RED;
       --p-toggle-text: #000000;
       --p-button-bg: #f4f4f5;       
       --p-button-text: #18181b;     
@@ -171,6 +172,7 @@ code {
       --p-graf-bg: rgba(10, 10, 10, 0.5);
       --p-pattern-dot: rgba(255, 255, 255, 0.08)
       --p-toggle-hover: rgba(63, 63, 70, 0.6);
+      --p-toggle-hover-cancel: RED;
       --p-toggle-text: #a1a1aa;
       --p-button-bg: #27272a;       
       --p-button-text: #ffffff;     
@@ -203,6 +205,7 @@ code {
       --p-graf-bg: #09090b;
       --p-pattern-dot: #27272a;
       --p-toggle-hover: #27272a;
+      --p-toggle-hover-cancel: RED;
       --p-toggle-text: #a1a1aa;
       --p-button-bg: #565656;       
       --p-button-text: #000000;     
@@ -273,25 +276,101 @@ code {
     /* ========================================================
        BOTÕES ADAPTATIVOS 
        ======================================================== */
-    .icon-btn-full {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      padding: 0.75rem 1rem;
-      background-color: var(--p-button-bg);
-      color: var(--p-button-text) !important;
-      border: 1px solid var(--p-border);
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.2s ease-in-out;
-    }
 
-    .icon-btn-full:hover {
+    .icon-btn-full {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: var(--p-button-bg);
+    color: var(--p-text) !important;
+    border: 1px solid var(--p-border);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    opacity: 0.8;
+    transition: all 0.2s ease-in-out;
+  }
+
+
+  .icon-btn-full:hover {
+    transform: scale(1.01);
+    background-color: var(--p-toggle-hover);
+    color: var(--p-toggle-accent) !important;
+  }
+
+  /* Estilo específico para Perigo / Excluir */
+  .icon-btn-danger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background-color: #ef4444;
+    color: #ffffff !important;
+    border: 1px solid #dc2626;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .icon-btn-danger:hover {
+    background-color: #dc2626;
+  }
+
+  
+.icon-btn-cancel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background-color: var(--p-button-bg);
+    color: var(--p-text);
+    border: 1px solid var(--p-border);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    opacity: 0.8;
+    transition: all 0.2s ease-in-out;
+  }
+
+  /* Estado de foco/hover alinhado ao design dos seus painéis */
+  .icon-btn-cancel:hover {
+    opacity: 1;
+    background-color: rgba(239, 68, 68, 0.08); /* Vermelho muito suave no fundo */
+    border-color: rgba(239, 68, 68, 0.4);      /* Borda sutil em tom de alerta */
+    color: #ef4444 !important;                 /* Texto vermelho suave */
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.1);/* Glow minimalista */
+  }
+
+  .icon-btn-cancel:active {
+    transform: scale(0.97);
+  }
+
+
+    .icon-btn-success {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10b981 !important;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+  }
+
+    .icon-btn-success:hover {
       transform: scale(1.01);
-      background-color: var(--p-toggle-hover);
-      color: var(--p-toggle-accent) !important;
+      background-color: #10b981;
+      color: #ffffff !important;
+      border-color: #059669;
     }
 
     .icon-btn-ghost, .chart-control-btn, .modal-close-btn {

@@ -62,9 +62,9 @@ export function CameraCarousel({
 
                   {/* Botões de Ação acoplados ao lado do nome (somente na câmera central) */}
                   {isCentral && (
-                    <div className="flex items-center gap-1.5 ml-2">
-                      <ButtonAddCam theme={theme} onAddCamera={onAddCamera} />
-                      <ButtonDeleteCam theme={theme} camera={cam} onDeleteCamera={onDeleteCamera} />
+                    <div className="grid grid-cols-2 gap-1.5 ml-2 w-56 shrink-0">
+                      <ButtonAddCam theme={theme} onAddCamera={onAddCamera} className="w-full justify-center" />
+                      <ButtonDeleteCam theme={theme} camera={cam} onDeleteCamera={onDeleteCamera} className="w-full justify-center" />
                     </div>
                   )}
                 </div>

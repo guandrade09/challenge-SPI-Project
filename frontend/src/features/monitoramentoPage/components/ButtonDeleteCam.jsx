@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
-import { PopupModal } from '../../../components/shared/PopupModal';
+import { PopupModal, IconButtonModal } from '../../../components/shared';
 
 export function ButtonDeleteCam({ camera, theme = "dynamic", onDeleteCamera }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,13 +34,14 @@ export function ButtonDeleteCam({ camera, theme = "dynamic", onDeleteCamera }) {
 
   return (
     <>
-      <button
-        onClick={handleOpen}
-        title="Excluir câmera"
-        className="p-1.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-rose-400 hover:text-rose-300 hover:border-rose-500/50 transition-all active:scale-95 flex items-center justify-center shrink-0"
-      >
-        <Trash2 size={16} />
-      </button>
+    <IconButtonModal
+      title={"Excluir câmera"}
+      label={"Excluir"}
+      icon={Trash2}
+      onClick={handleOpen}
+      variant='full'
+      colorVariant='cancel'
+    ></IconButtonModal>
 
       <PopupModal
         isOpen={isOpen}
@@ -60,29 +61,21 @@ export function ButtonDeleteCam({ camera, theme = "dynamic", onDeleteCamera }) {
           </p>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-theme-divider">
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={handleClose}
-              className="px-3 py-1.5 rounded-md text-xs font-medium text-theme-muted hover:text-theme-main disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={handleDelete}
-              className="px-4 py-1.5 rounded-md text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50"
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Excluindo...
-                </>
-              ) : (
-                'Confirmar Exclusão'
-              )}
-            </button>
+            <IconButtonModal
+            type="button"
+            onClick={handleDelete}
+            label={"Deletar"}
+            icon={isDeleting ? Loader2 : Trash2}
+            colorVariant='danger'
+            variant='full'
+            ></IconButtonModal>
+            <IconButtonModal
+            type="button"
+            onClick={handleClose}
+            label={"Cancelar"}
+            colorVariant='default'
+            variant='full'
+            ></IconButtonModal>
           </div>
         </div>
       </PopupModal>

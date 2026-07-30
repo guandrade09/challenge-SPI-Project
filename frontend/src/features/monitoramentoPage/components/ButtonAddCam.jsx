@@ -1,7 +1,7 @@
 // src/features/monitoramentoPage/components/ButtonAddCam.jsx
 import React, { useState } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
-import { PopupModal } from '../../../components/shared/PopupModal';
+import { Plus, Loader2, X } from 'lucide-react';
+import { PopupModal, IconButtonModal } from '../../../components/shared';
 
 export function ButtonAddCam({ theme = "dynamic", onAddCamera, showLabel = false }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,18 +57,15 @@ export function ButtonAddCam({ theme = "dynamic", onAddCamera, showLabel = false
 
   return (
     <>
-      <button
-        onClick={handleOpen}
-        title="Adicionar nova câmera"
-        className={
-          showLabel
-            ? "px-4 py-2.5 rounded-xl badge-theme-industrial text-[var(--p-text-title)] text-xs font-semibold tracking-wider uppercase transition-transform active:scale-95 flex items-center justify-center gap-2 shrink-0 shadow-lg hover:brightness-110"
-            : "p-1.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 flex items-center justify-center shrink-0"
-        }
-      >
-        <Plus size={showLabel ? 18 : 16} />
-        {showLabel && <span>ADICIONAR CÂMERA</span>}
-      </button>
+          <IconButtonModal
+          tipo='button'
+          icon={Plus}
+          title={"Adicionar nova câmera"}
+          label={"Adicionar"}
+          onClick={handleOpen}
+          variant='full'
+          >
+        </IconButtonModal>
 
       <PopupModal
         isOpen={isOpen}
@@ -118,28 +115,22 @@ export function ButtonAddCam({ theme = "dynamic", onAddCamera, showLabel = false
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-theme-divider">
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleClose}
-              className="px-3 py-1.5 rounded-md text-xs font-medium text-theme-muted hover:text-theme-main disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-1.5 rounded-md text-xs font-semibold badge-theme-industrial text-[var(--p-text-title)] active:scale-95 transition-transform flex items-center gap-1.5 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Adicionar Câmera'
-              )}
-            </button>
+            <IconButtonModal
+            tipo='button'
+            icon={X}
+            onClick={handleClose}
+            label={"Cancelar"}
+            colorVariant={'cancel'}
+            variant='full'
+            ></IconButtonModal>
+            <IconButtonModal
+              tipo="submit"
+              icon={isSubmitting ? Loader2 : Plus}
+              label={isSubmitting ? "Salvando..." : "Adicionar Câmera"}
+              colorVariant='success'
+              variant={"full"}
+              onClick={handleSubmit}
+              ></IconButtonModal>
           </div>
         </form>
       </PopupModal>
