@@ -13,7 +13,7 @@ export default class Camera {
 }
 
 export const CAMERA_STATUS = Object.freeze({
-    INATIVA: 'inativa',
-    ATIVA: 'ativa',
-    CADASTRADA: 'cadastrada'
+    INACTIVE: 'inactive',
+    ACTIVE: 'active',
+    REGISTERED: 'registered'
 });
