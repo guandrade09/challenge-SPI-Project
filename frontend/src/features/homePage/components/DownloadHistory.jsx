@@ -16,13 +16,13 @@ export function DownloadHistory({ data, theme = "light" }) {
 
   return (
     <div className={`panel-theme-${theme}`}>
-      <Card className="panel-base backdrop-blur-sm">
+      <Card className="panel-base backdrop-blur-sm transition-all duration-200 hover:border-[var(--p-subtext)]">
         <CardHeader className="panel-header-base">
           <div>
-            <CardTitle className="font-mono text-sm uppercase tracking-wider text-theme-main">
+            <CardTitle className="text-theme-title text-lg">
               Histórico de Downloads
             </CardTitle>
-            <CardDescription className="text-xs font-mono text-theme-onbg-white mt-0.5">
+            <CardDescription className="text-theme-muted text-xs mt-0.5">
               Relatórios e logs exportados recentemente
             </CardDescription>
           </div>
@@ -31,34 +31,34 @@ export function DownloadHistory({ data, theme = "light" }) {
           <Table>
             <TableHeader>
               <TableRow className="border-b border-theme-divider hover:bg-transparent">
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-theme-main">Arquivo</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-theme-main">Tipo</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-theme-main">Data</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-theme-main">Tamanho</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-right text-theme-main">Ações</TableHead>
+                <TableHead className="text-theme-head">Arquivo</TableHead>
+                <TableHead className="text-theme-head">Tipo</TableHead>
+                <TableHead className="text-theme-head">Data</TableHead>
+                <TableHead className="text-theme-head">Tamanho</TableHead>
+                <TableHead className="text-theme-head text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data?.map((download) => (
                 <TableRow key={download.id || download.fileName} className="border-b border-theme-divider row-theme-hover transition-colors duration-200">
-                  <TableCell className="font-medium text-theme-main py-3">
+                  <TableCell className="text-theme-main font-bold text-xs py-3">
                     <div className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5 opacity-60" />
                       <span className="truncate max-w-xs uppercase">{download.fileName}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="none" className="badge-theme-industrial font-mono text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md">
+                    <Badge variant="none" className="badge-theme-industrial font-bold text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md">
                       {download.type}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1 font-mono text-xs text-theme-main">
+                    <div className="flex items-center gap-1.5 text-theme-main text-xs font-medium">
                       <Calendar className="h-3 w-3 opacity-50" />
                       {new Date(download.date).toLocaleDateString('pt-BR')}
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-theme-muted">{download.size}</TableCell>
+                  <TableCell className="font-bold text-xs text-theme-muted">{download.size}</TableCell>
                   <TableCell className="text-right py-2">
                     <IconButtonModal
                       onClick={() => handleDownload(download.fileName)}

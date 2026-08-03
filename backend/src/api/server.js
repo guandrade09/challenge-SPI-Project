@@ -15,9 +15,8 @@ async function startWorker() {
       console.log(`Worker ${process.pid} rodando na porta ${PORT}`);
       threadMetricsService.startWorker();
     });
-
   } catch (err) {
-    console.error("Erro ao iniciar worker:", err);
+    console.error(`Erro ao iniciar worker ${process.pid}:`, err);
     process.exit(1);
   }
 }
@@ -27,7 +26,7 @@ if (cluster.isPrimary) {
     try {
       await initDatabase();
       console.log(`CPUs: ${numCPUs}`);
-      console.log("Banco de dados inicializado com sucesso");
+      console.log("Banco de dados inicializado no Primary com sucesso");
       console.log(`Iniciando serviço de detecções em tempo real`);
       console.log(`Iniciando monitoramento de métricas de threads`);
 
@@ -42,8 +41,7 @@ if (cluster.isPrimary) {
       });
 
       cluster.on("exit", (worker) => {
-        console.log(`Worker ${worker.process.pid} morreu`);
-        console.log("Criando outro...");
+        console.log(`Worker ${worker.process.pid} morreu. Recriando...`);
         cluster.fork();
       });
 
@@ -57,7 +55,6 @@ if (cluster.isPrimary) {
   }
 
   startPrimary();
-
 } else {
   startWorker();
 }

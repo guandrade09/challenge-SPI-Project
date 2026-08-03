@@ -1,115 +1,181 @@
-import React, { useEffect } from 'react';
-import { CameraView, DetectionPanel, AlertPanel } from './components';
-import { PANEL_STATUS } from '../../enums/enums';
+// src/features/monitoramentoPage/MonitoramentoPage.jsx
+import React, { useState, useEffect } from 'react';
+import { CameraCarousel } from './components/CameraCarousel';
+import { EpiSelectorPanel } from './components/EpiSelectorPanel';
+import { MonitoramentoSkeleton } from './components/MonitoramentoSkeleton';
+
+import { useShallow } from 'zustand/react/shallow'; 
+
+import { useCameraStore } from '../../store/useCameraStore';
+import { useCameraPresetsStore } from '../../store/useCameraPresetsStore';
 import { useMonitoramentoStore } from '../../store/useMonitoramentoStore';
 import { useUiStore } from '../../store/useUiStore';
-import { BasePanelModal } from '../../components/shared/BasePanelModal'; // Importado o painel base
+import ButtonAddCam from './components/ButtonAddCam';
 
-const DETECTION_CONFIG = [
-  { id: 'colete',   label: 'Detectar Colete'   },
-  { id: 'oculos',   label: 'Detectar Óculos'   },
-  { id: 'capacete', label: 'Detectar Capacete' },
-  { id: 'mascara',  label: 'Detectar Máscara'  },
-];
+const EMPTY_ARRAY = [];
 
-const LABEL_PT = {
-  'Hardhat':        'Capacete',
-  'Safety Vest':    'Colete',
-  'Goggles':        'Óculos',
-  'Mask':           'Máscara',
-  'NO-Hardhat':     'Sem Capacete',
-  'NO-Safety Vest': 'Sem Colete',
-  'NO-Goggles':     'Sem Óculos',
-  'NO-Mask':        'Sem Máscara',
-};
-
-const RISK_LABELS = new Set(['NO-Hardhat', 'NO-Safety Vest', 'NO-Goggles', 'NO-Mask', 'NO-Gloves']);
-
-const formatDetection = (d) => {
-  const icon = RISK_LABELS.has(d.label) ? '⚠' : '✓';
-  return `${icon} ${LABEL_PT[d.label] ?? d.label} — ${(d.confidence * 100).toFixed(0)}%`;
-};
-
-export const MonitoramentoPage = () => {
+export function MonitoramentoPage() {
   const currentTheme = useUiStore((s) => s.theme);
-  const { alertaAtivo, limparAlertaAtivo, liveDetections } = useMonitoramentoStore();
+  
+  // 🚀 Resgatando ações e estados da useCameraStore (incluindo deleteCamera)
+  const cameras = useCameraStore((state) => state.cameras);
+  const isLoading = useCameraStore((state) => state.isLoading);
+  const fetchCameras = useCameraStore((state) => state.fetchCameras);
+  const addCamera = useCameraStore((state) => state.addCamera);
+  const deleteCamera = useCameraStore((state) => state.deleteCamera);
+
+  const removePresetForCamera = useCameraPresetsStore((state) => state.removePresetForCamera);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Busca as câmeras no banco ao carregar a página
+  useEffect(() => {
+    fetchCameras();
+  }, [fetchCameras]);
+
+  const currentCamera = cameras[currentIndex] || cameras[0];
+  const currentCameraId = currentCamera?.id;
+  
+  const currentCameraEpis = currentCamera?.epis || [
+    { id: "1", nome: "capacete" },
+    { id: "2", nome: "oculos" },
+    { id: "3", nome: "colete" },
+    { id: "4", nome: "mascara" },
+    { id: "5", nome: "luvas" }
+  ];
+
+  const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
+
+  const activeEpisForVisuals = useCameraPresetsStore(
+    useShallow((state) => {
+      if (!currentCameraId) return EMPTY_ARRAY;
+      const data = state.presets[currentCameraId];
+      return Array.isArray(data) ? data : EMPTY_ARRAY;
+    })
+  );
 
   useEffect(() => {
-    if (!alertaAtivo) return;
-    const timer = setTimeout(limparAlertaAtivo, 10000);
-    return () => clearTimeout(timer);
-  }, [alertaAtivo, limparAlertaAtivo]);
+    if (!currentCameraId) return;
 
-  const buildMessage = () => {
-    if (alertaAtivo) {
-      return `⚠ ${LABEL_PT[alertaAtivo.label] ?? alertaAtivo.label} — confiança: ${(alertaAtivo.confidence * 100).toFixed(0)}%`;
-    }
-    if (liveDetections.length === 0) {
-      return 'Aguardando detecções...';
-    }
-    const linhas = liveDetections
-      .filter(d => LABEL_PT[d.label])
-      .map(formatDetection);
-    return linhas.length > 0 ? linhas.join('\n') : 'Nenhum EPI no frame.';
+    const novoEstadoDetections = {
+      colete: false, oculos: false, capacete: false, mascara: false, luvas: false,
+    };
+
+    activeEpisForVisuals.forEach((epi) => {
+      if (novoEstadoDetections[epi] !== undefined) {
+        novoEstadoDetections[epi] = true;
+      }
+    });
+
+    useMonitoramentoStore.setState({ detections: novoEstadoDetections });
+  }, [currentCameraId, activeEpisForVisuals]); 
+
+  // Navegação Segura
+  const handleNext = () => {
+    if (cameras.length === 0) return;
+    setCurrentIndex((prev) => (prev + 1) % cameras.length);
   };
 
-  const panelStatus = alertaAtivo
-    ? PANEL_STATUS.ALERTA
-    : liveDetections.length > 0
-      ? PANEL_STATUS.ATENCAO
-      : PANEL_STATUS.PRONTO;
+  const handlePrev = () => {
+    if (cameras.length === 0) return;
+    setCurrentIndex((prev) => (prev - 1 + cameras.length) % cameras.length);
+  };
 
-  const isDark = currentTheme === 'dark';
+  const handleSelectCamera = (index) => setCurrentIndex(index);
+
+  const handleToggleEpi = (epiName) => {
+    if (currentCameraId) {
+      toggleEpiForCamera(currentCameraId, epiName);
+    }
+  };
+
+  // Cadastra via store e redireciona o carrossel para a nova câmera
+  const handleAddCamera = async (newCamData) => {
+    try {
+      await addCamera(newCamData);
+      const updatedCameras = useCameraStore.getState().cameras;
+      setCurrentIndex(Math.max(0, updatedCameras.length - 1));
+    } catch (err) {
+      console.error("Falha ao salvar câmera:", err);
+    }
+  };
+
+  // 🚀 Deleção via Backend com Recalculo de Índice
+  const handleDeleteCamera = async (idToDelete) => {
+    try {
+      const deletedIndex = cameras.findIndex((cam) => cam.id === idToDelete);
+
+      // Dispara a requisição DELETE via API
+      await deleteCamera(idToDelete);
+
+      // Limpa as preferências dessa câmera no LocalStorage/Zustand
+      removePresetForCamera(idToDelete);
+
+      // Pega a lista de câmeras mais atual diretamente do Zustand pós-exclusão
+      const updatedCameras = useCameraStore.getState().cameras;
+      const remainingCount = updatedCameras.length;
+
+      if (remainingCount === 0) {
+        setCurrentIndex(0);
+      } else if (deletedIndex >= remainingCount) {
+        // Se era a última, aponta para o novo final
+        setCurrentIndex(remainingCount - 1);
+      } else {
+        // Mantém a posição visual (a câmera posterior assumirá esta posição)
+        setCurrentIndex(deletedIndex);
+      }
+    } catch (err) {
+      console.error("Falha ao deletar câmera:", err);
+    }
+  };
+
+  if (isLoading && cameras.length === 0) {
+    return <MonitoramentoSkeleton theme={currentTheme} />;
+  }
+
+  if (!isLoading && cameras.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <h2 className="text-xl text-theme-title tracking-wider">Nenhuma câmera cadastrada</h2>
+        <p className="text-theme-main tracking-wider">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
+        
+        <div className='p-30'>
+        {/* Chama o componente agindo exatamente como um IconButtonModal variant="full" colorVariant="default" */}
+        <ButtonAddCam 
+          theme={currentTheme} 
+          onAddCamera={handleAddCamera} 
+          variant="full"
+          colorVariant="default"
+          label="Adicionar Câmera"
+          className='icon-btn-success max-w-[300px] gap-2'
+        />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 bg-projeto-main text-theme-title ${isDark ? 'dark' : 'light'}`}>
-      <div className="mx-auto p-6 max-w-[1400px]">
-        <main className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8 items-start">
-          
-          {/* Feed de Monitoramento Central - ENVOLVIDO COM O SEU BASE PANEL */}
-          <BasePanelModal
-            title="Câmera ao Vivo"
-            allowFullScreen={true}
-            theme={currentTheme}
-            className="shadow-sm overflow-hidden"
-          >
-            {/* Usamos o padrão de função (Render Prop) que ajustamos para passar o 
-              estado 'isMaximized' direto para o visor da câmera se adaptar ao tamanho.
-            */}
-            {({ isMaximized }) => <CameraView isMaximized={isMaximized} />}
-          </BasePanelModal>
+    <div className="flex-1 flex flex-col p-6 space-y-6 overflow-y-auto max-w-[auto] mx-auto w-full justify-between">
+      <CameraCarousel 
+        cameras={cameras}
+        currentIndex={currentIndex}
+        onNext={handleNext}
+        onPrev={handlePrev}
+        onSelectCamera={handleSelectCamera}
+        activeEpi={activeEpisForVisuals.join(', ')} 
+        theme={currentTheme}
+        onAddCamera={handleAddCamera}
+        onDeleteCamera={handleDeleteCamera}
+      />
 
-          {/* Painel de Controle e Logs Lateral */}
-          <div className="flex flex-col gap-6 w-full p-6 rounded-xl bg-theme-section border border-theme-divider shadow-sm transition-colors duration-300">
-            <div className="flex flex-col gap-1">
-              <h2 
-                className="text-2xl font-bold tracking-wider font-mono uppercase text-neutral-400 light:text-neutral-500 panel-text-sub"
-                style={{ 
-                  fontFamily: "'Barlow Condensed', 'Barlow', sans-serif",
-                }}
-              >
-                DETECÇÃO DE EPIS
-              </h2>
-              <p className="text-xs font-mono tracking-wide text-neutral-400 light:text-neutral-500 panel-text-sub">
-                Selecione os equipamentos a monitorar em tempo real.
-              </p>
-            </div>
-
-            <div className="w-full">
-              <DetectionPanel options={DETECTION_CONFIG} theme={currentTheme} />
-            </div>
-            
-            <div className="h-px w-full border-b border-theme-divider" />
-            
-            <div className="w-full">
-              <AlertPanel message={buildMessage()} status={panelStatus} theme={currentTheme} />
-            </div>
-          </div>
-          
-        </main>
-      </div>
+      <EpiSelectorPanel 
+        epis={currentCameraEpis} 
+        activeEpis={activeEpisForVisuals} 
+        onToggleEpi={handleToggleEpi}
+        theme={currentTheme}
+      />
     </div>
   );
-};
+}
 
 export default MonitoramentoPage;
