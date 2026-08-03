@@ -11,3 +11,9 @@ export default class Camera {
         this.updatedAt = updatedAt;
     }
 }
+
+export const CAMERA_STATUS = Object.freeze({
+    INATIVA: 'inativa',
+    ATIVA: 'ativa',
+    CADASTRADA: 'cadastrada'
+});
