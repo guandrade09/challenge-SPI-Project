@@ -1,102 +1,125 @@
-// src/features/logsPage/LogsPage.jsx
-import React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../../store/useUiStore';
-import { AiChatSidebar } from '../../features/chatAi';
-import { ssmaReportMock } from '../../mocks/logsPageMocks/ssmaReportMock';
-
-// Importando o componente que você criou (ajustado o nome do arquivo/import)
-import { RenderColumn } from './RenderColumn'; 
-
-// Graficos
-import { 
-  AreaDetectionChart, 
+import { RenderColumn } from './RenderColumn';
+import {
+  AreaDetectionChart,
   AnomalyScatterChart,
   DashboardChart,
-  DetectionBarChart, 
+  DetectionBarChart,
   DetectionComposedChart,
-  DetectionLineChart, 
-  MLConfusionMatrix, 
+  DetectionLineChart,
+  MLConfusionMatrix,
   InferenceLatencyChart,
-  OperationalRadar, 
+  OperationalRadar,
   ConfidenceDistribution,
   ResourceMonitor,
-
-} from './components/graficos';
-
+} from '../../components/graficos';
 import { LogPanel, LogReportModal } from './components/painelLog';
-
-// Logs para test
-import { 
-  dummyLogs, 
-  colunasLogs, 
-  areaLogs, 
+import { logService } from '../../services/logService';
+import {
+  colunasLogs,
+  areaLogs,
   lineLogs,
   pizzaLogs,
-  composedLogs, 
-  confusionMatrixData, 
-  latencyLogs, 
-  anomalyData, 
-  reportSummaryMock,
+  composedLogs,
+  confusionMatrixData,
+  latencyLogs,
+  anomalyData,
   radarData,
   confidenceData,
   resourceData,
 } from '../../mocks/logsPageMocks/test';
 
-const COMPONENT_MAP = {
-  // Pagina de Logs
-  logs: { label: "Central de Logs", component: <LogPanel logs={dummyLogs} /> },
-
-  // Graficos
-
-  // ML
- // Coluna 2
- area: { label: "Análise Composta", component: <AreaDetectionChart data={areaLogs} /> },
- composed: { label: "Análise de Eventos", component: <DetectionComposedChart data={composedLogs} /> },
- radar: { label: "Eficiência Operacional", component: <OperationalRadar data={radarData}/> },
- latency: { label: "Latência MCU/CAM", component: <InferenceLatencyChart data={latencyLogs} /> },
- monitorcpu : { label: 'Temperatura CPUs', component: <ResourceMonitor data={resourceData} /> },
- 
- // Logs
- // Coluna 3
- pizza: { label: "Gráfico de detecções", component: <DashboardChart data={pizzaLogs} />},
- linha: { label: "Gráfico de alertas", component: <DetectionLineChart data={lineLogs} />},
- barra: { label: "Detecções por Categoria", component: <DetectionBarChart data={colunasLogs} /> },
- 
- matrix: { label: "Matriz de Confusão", component: <MLConfusionMatrix data={confusionMatrixData} /> },
- confidence: { label: 'Termômetro de Incerteza', component: <ConfidenceDistribution data={confidenceData} />},
- anomaly: { label: "Mapa de Anomalias", component: <AnomalyScatterChart data={anomalyData} /> },
-  
-};
-
 const DASHBOARD_CONFIG = {
   col1: [['logs']],
-  col2: [['area', 'composed',], ['radar', 'latency', 'monitorcpu', ]],
-  col3: [['pizza', 'linha', 'barra',], ['matrix', 'confidence', 'anomaly']]
+  col2: [['area', 'composed'], ['radar', 'latency', 'monitorcpu']],
+  col3: [['pizza', 'linha', 'barra'], ['matrix', 'confidence', 'anomaly']],
 };
 
 const LogsPage = () => {
-  const { 
-    isSidebarOpen, 
-    closeSidebar, 
-    isPopUpModalOpen, 
-    closePopUpModal 
-  } = useUiStore();
+  // Tema unificado para os gráficos e painéis da página ("light" | "dark" | "dynamic")
+  const currentTheme = useUiStore((s) => s.theme); // Obtém o tema atual do Zustand para garantir reatividade 
+
+  const isPopUpModalOpen = useUiStore((s) => s.isPopUpModalOpen);
+  const closePopUpModal  = useUiStore((s) => s.closePopUpModal);
+  const reportData       = useUiStore((s) => s.reportData);
+
+  const [logs, setLogs] = useState([]);
+  const [isLogLoading, setIsLogLoading] = useState(false);
+  const logsRef = useRef([]);
+
+  const areLogsEqual = (a, b) => {
+    if (a.length !== b.length) return false;
+    return a.every((item, index) => item.timestamp === b[index]?.timestamp && item.message === b[index]?.message);
+  };
+
+  const fetchLogs = async () => {
+    const showLoading = logsRef.current.length === 0;
+    if (showLoading) setIsLogLoading(true);
+
+    try {
+      const entries = await logService.listEntries();
+      const normalizedLogs = (entries || []).map((entry) => ({
+        timestamp: entry.timestamp,
+        message: entry.line ?? entry.message ?? entry.logs ?? "",
+      }));
+
+      if (!areLogsEqual(logsRef.current, normalizedLogs)) {
+        logsRef.current = normalizedLogs;
+        setLogs(normalizedLogs);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar logs em tempo real:", error);
+      if (logsRef.current.length === 0) {
+        setLogs([]);
+      }
+    } finally {
+      if (showLoading) setIsLogLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const COMPONENT_MAP = {
+    logs: { label: "Central de Logs", component: <LogPanel logs={logs} loading={isLogLoading} theme={currentTheme}/> },
+
+    // Coluna 2 — Análise e Monitoramento
+    area:     { label: "Análise Composta",        component: <AreaDetectionChart    data={areaLogs}  theme={currentTheme}    /> },
+    composed: { label: "Análise de Eventos",       component: <DetectionComposedChart data={composedLogs} theme={currentTheme} /> },
+    radar:    { label: "Eficiência Operacional",   component: <OperationalRadar       data={radarData}  theme={currentTheme}   /> },
+    latency:  { label: "Latência MCU/CAM",         component: <InferenceLatencyChart  data={latencyLogs} theme={currentTheme}  /> },
+    monitorcpu: { label: "Temperatura CPUs",       component: <ResourceMonitor        data={resourceData} theme={currentTheme}  /> },
+
+    // Coluna 3 — Detecções e ML
+    pizza:    { label: "Gráfico de detecções",      component: <DashboardChart        data={pizzaLogs} theme={currentTheme}     /> },
+    linha:    { label: "Gráfico de alertas",         component: <DetectionLineChart    data={lineLogs}  theme={currentTheme}    /> },
+    barra:    { label: "Detecções por Categoria",    component: <DetectionBarChart     data={colunasLogs} theme={currentTheme}  /> },
+    matrix:   { label: "Matriz de Confusão",          component: <MLConfusionMatrix     data={confusionMatrixData} theme={currentTheme}/> },
+    confidence: { label: "Termômetro de Incerteza",  component: <ConfidenceDistribution data={confidenceData} theme={currentTheme} /> },
+    anomaly:  { label: "Mapa de Anomalias",           component: <AnomalyScatterChart    data={anomalyData}  theme={currentTheme} /> },
+  };
 
   return (
-    <div className="bg-projeto-main relative h-screen flex overflow-hidden p-6">
+    // Alterado: Fixado h-screen e max-h-screen para evitar que o layout cresça ou quebre verticalmente
+    <div className={`panel-theme-${currentTheme} h-screen max-h-screen w-full relative flex overflow-hidden p-6 transition-colors duration-300`}>
       
-      {isSidebarOpen && (
-        <div className="absolute inset-0 bg-black/40 z-40 transition-opacity" onClick={closeSidebar} />
-      )}
-
-      <main className="w-full max-w-[auto] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch h-full min-h-0">
-        {/* Passamos o CONFIG e o MAP para o componente externo */}
-        <RenderColumn config={DASHBOARD_CONFIG.col1} componentMap={COMPONENT_MAP} />
-        <RenderColumn config={DASHBOARD_CONFIG.col2} componentMap={COMPONENT_MAP} />
-        <RenderColumn config={DASHBOARD_CONFIG.col3} componentMap={COMPONENT_MAP} />
+      {/* Grid das Colunas com items-stretch e h-full para alinhar perfeitamente o topo e a base de todas as colunas */}
+      <main className="w-full mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch h-full min-h-0">
+        <RenderColumn config={DASHBOARD_CONFIG.col1} componentMap={COMPONENT_MAP} theme={currentTheme} />
+        <RenderColumn config={DASHBOARD_CONFIG.col2} componentMap={COMPONENT_MAP} theme={currentTheme} />
+        <RenderColumn config={DASHBOARD_CONFIG.col3} componentMap={COMPONENT_MAP} theme={currentTheme} />
       </main>
 
-      <LogReportModal isOpen={isPopUpModalOpen} onClose={closePopUpModal} data={ssmaReportMock} />
+      <LogReportModal
+        isOpen={isPopUpModalOpen}
+        onClose={closePopUpModal}
+        data={reportData}
+        theme={currentTheme}
+      />
     </div>
   );
 };

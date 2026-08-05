@@ -24,6 +24,7 @@
   "homepage": "https://github.com/guandrade09/challenge-SPI-Project#readme",
   "dependencies": {
     "cors": "^2.8.6",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "jspdf": "^4.2.1",
     "sqlite": "^5.1.1",
