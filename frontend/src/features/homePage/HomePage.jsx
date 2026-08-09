@@ -6,10 +6,10 @@ import { DownloadHistory, ProjectInfo, CameraInfo } from "./components";
 import { DetectionBarChart, DetectionComposedChart, DetectionLineChart, OperationalRadar, ResourceMonitor } from '../../components/graficos';
 import { BasePanelModal } from "../../components/shared";
 import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
-import { colunasLogs, radarData, lineLogs, composedLogs } from '../../mocks/logsPageMocks/test'
+import { colunasLogs, radarData, lineLogs, composedLogs } from '../../mocks/logsPageMocks/test';
 import detectionService from "../../services/detectionService";
-import { mockDownloads, cameras, teamMembers } from "../../mocks/indexPageMocks/test";
-// 🚀 Correção do caminho do import do serviço (retirado erro de digitação do seu código original)
+import cameraService from "../../services/cameraService";
+import { teamMembers } from "../../mocks/indexPageMocks/test";
 import { reportPerformanceService } from "../../services/reportPerfomance"; 
 
 function HomePage() {
@@ -22,13 +22,31 @@ function HomePage() {
   const [detectionsLoaded, setDetectionsLoaded] = useState(false);
   const [monthlyAlertData, setMonthlyAlertData] = useState([]);
   const [monthlyAlertLoaded, setMonthlyAlertLoaded] = useState(false);
+  
+  const [dbCameras, setDbCameras] = useState([]);
+  const [camerasLoading, setCamerasLoading] = useState(false);
+
+  // 🚀 Busca de Câmeras
+  const fetchCameras = async () => {
+    try {
+      setCamerasLoading(true);
+      const response = await cameraService.getCameras();
+      
+      // Como o cameraService já trata response.data.data, 'response' aqui já é a lista
+      const camerasList = Array.isArray(response) ? response : (response?.data || []);
+
+      setDbCameras(camerasList);
+    } catch (err) {
+      console.error("Erro ao buscar câmeras do banco na HomePage:", err);
+      setDbCameras([]);
+    } finally {
+      setCamerasLoading(false);
+    }
+  };
 
   const fetchPerformanceMetrics = async () => {
     try {
       const response = await reportPerformanceService.listMetrics();
-      
-      // 🚀 CORREÇÃO: Como seu backend agora retorna { count, data }, buscamos a chave 'data'
-      // Adicionamos fallbacks caso a estrutura varie
       const rawData = response?.data?.data || response?.data || response || [];
 
       if (!Array.isArray(rawData)) {
@@ -36,13 +54,10 @@ function HomePage() {
         return;
       }
 
-      // 🚀 TRATAMENTO E LIMPEZA VISUAL DOS DADOS:
       const formattedData = rawData.map((item) => {
         let formattedTime = "00:00";
-        
         if (item.timestamp) {
           const dateObj = new Date(item.timestamp);
-          // Formata para o padrão brasileiro de horas e minutos (HH:MM)
           formattedTime = dateObj.toLocaleTimeString('pt-BR', { 
             hour: '2-digit', 
             minute: '2-digit' 
@@ -51,17 +66,12 @@ function HomePage() {
 
         return {
           time: formattedTime,
-          // Garante que o valor seja numérico e limita a 2 casas decimais para o tooltip não ficar gigante
           memoria: item.quantity_of_cpu_ind_percentage ? parseFloat(item.quantity_of_cpu_ind_percentage.toFixed(2)) : 0,
           paginas: item.process_loaded ?? 0
         };
       });
 
-      // 🚀 OTIMIZAÇÃO DE EXIBIÇÃO:
-      // O banco SQLite retorna do mais antigo para o mais recente. 
-      // Pegamos apenas os últimos 35 registros para o gráfico ficar limpo e legível na tela.
-      const limitedData = formattedData.slice(35 * -1); // Últimos 35 registros
-
+      const limitedData = formattedData.slice(35 * -1);
       setPerformanceData(limitedData);
     } catch (err) {
       console.error("Erro ao buscar métricas de performance na API:", err);
@@ -77,14 +87,12 @@ function HomePage() {
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
 
-      // Filtra pelas detecções do mês atual
       const filtered = items.filter((it) => {
         if (!it.timestamp) return false;
         const d = new Date(it.timestamp);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       });
 
-      // Agrupa por label e conta ocorrências, classificando por confiança
       const map = {};
       filtered.forEach((it) => {
         const label = it.label || 'Desconhecido';
@@ -104,7 +112,6 @@ function HomePage() {
         naoDetectado: map[label].naoDetectado,
       }));
 
-      // Agrupa os alertas do dia atual com confiança acima de 0.8 por hora
       const alertMap = {};
       const today = new Date();
       const todayDay = today.getDate();
@@ -147,25 +154,24 @@ function HomePage() {
     }
   };
 
-  // Fetch inicial de dados gerais e dos gráficos
   useEffect(() => {
     fetchReport();
     fetchReportFiles();
     fetchPerformanceMetrics();
     fetchDetectionsForCurrentMonth();
+    fetchCameras();
   }, [fetchReport, fetchReportFiles]);
 
-  // Atualização automática apenas dos dados de gráfico a cada 15 segundos
   useEffect(() => {
     const chartInterval = setInterval(() => {
       fetchPerformanceMetrics();
       fetchDetectionsForCurrentMonth();
+      fetchCameras();
     }, 15000);
 
     return () => clearInterval(chartInterval);
   }, []);
 
-  // Atualização do contador visual de tempo
   useEffect(() => {
     if (!lastUpdated) return;
 
@@ -191,25 +197,15 @@ function HomePage() {
   const precisao = reportData?.accuracy ? `${(reportData.accuracy.acertos / (reportData.accuracy.acertos + reportData.accuracy.erros) * 100).toFixed(1)}%` : "---";
   const piorEpi = reportData?.prediction ? `${reportData.prediction}` : "Analisando...";
   const alertasPendentes = reportData?.accuracy?.erros ?? "---";
-  
-  const nomeArquivo = reportFiles?.length > 0 ? reportFiles[0].nome : "Nenhum arquivo encontrado";
-  const tipoArquivo = reportFiles?.length > 0 ? reportFiles[0].tipo : "N/A";
-  const dataGeracao = reportFiles?.length > 0 ? new Date(reportFiles[0].dataGeracao).toLocaleString() : "N/A";
-  const tamanhoArquivo = reportFiles?.length > 0 ? `${(reportFiles[0].tamanho / (1024 * 1024)).toFixed(2)} MB` : "N/A";
 
-  // 🚀 ASSINATURA DAS LINHAS DA HOMEPAGE:
-  // Definimos de forma declarativa o comportamento do nosso gráfico reutilizável para esta tela
   const homeMetricsConfig = [
     { key: 'memoria', name: 'Uso Heap JS', stroke: '#10b981', yAxisId: 'left', unit: '%' },
     { key: 'paginas', name: 'Páginas Carregadas', stroke: '#3b82f6', yAxisId: 'right', unit: ' pág' }
   ];
 
-  // Configuração dos itens do Carrossel
   const chartsForCarousel = [
     { label: "Detecções por Categoria", component: <DetectionBarChart data={detectionsLoaded ? detectionsByCategory : colunasLogs} theme={currentTheme}/> },
     { label: "Eficiencia Operacional", component: <OperationalRadar data={radarData} theme={currentTheme}/> },
-    
-    // 🚀 APLICAÇÃO DINÂMICA: Passamos as configurações específicas via props
     { 
       label: "Monitoramento de Recursos do Front", 
       component: (
@@ -217,12 +213,11 @@ function HomePage() {
           data={performanceData} 
           theme={currentTheme}
           linesConfig={homeMetricsConfig}
-          yAxisLeftDomain={[0, 'auto']} // Escala limpa para percentual
-          showRightAxis={true}          // Ativa o eixo Y secundário para contagem de páginas
+          yAxisLeftDomain={[0, 'auto']}
+          showRightAxis={true}
         />
       ) 
     },
-    
     { label: "Analise de eventos simultaneos", component: <DetectionComposedChart data={composedLogs} theme={currentTheme}/> },
     { label: "Alertas Mensais", component: <DetectionLineChart data={monthlyAlertLoaded ? monthlyAlertData : lineLogs} theme={currentTheme} /> }
   ];
@@ -231,7 +226,7 @@ function HomePage() {
     <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300`}>
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         
-        {/* Cabeçalho Dinâmico */}
+        {/* Cabeçalho */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-2xl sm:text-3xl text-(var[--p-text]) uppercase tracking-wider ">
@@ -243,11 +238,11 @@ function HomePage() {
             </p>
           </div>
           <button 
-            onClick={() => { fetchReport(); fetchPerformanceMetrics(); fetchDetectionsForCurrentMonth(); }}
-            disabled={isLoading}
+            onClick={() => { fetchReport(); fetchPerformanceMetrics(); fetchDetectionsForCurrentMonth(); fetchCameras(); }}
+            disabled={isLoading || camerasLoading}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition-all duration-200 panel-btn-toggle border border-theme-divider disabled:opacity-50 self-start sm:self-auto"
           >
-            <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+            <RefreshCw size={14} className={isLoading || camerasLoading ? "animate-spin" : ""} />
             Forçar Atualização
           </button>
         </div>
@@ -282,9 +277,9 @@ function HomePage() {
             <DownloadHistory theme={currentTheme} data={reportFiles} />
         </section>
 
-        {/* SEÇÃO 5: Camera Info */}
+        {/* SEÇÃO 5: Câmeras registradas */}
         <section className="w-full">
-            <CameraInfo theme={currentTheme} data={cameras}/>
+            <CameraInfo theme={currentTheme} data={dbCameras} />
         </section>
       </main>
     </div>
