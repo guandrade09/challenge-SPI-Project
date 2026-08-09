@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../../store/useUiStore';
+import { useResourceMetrics } from '../../hooks/useResourceMetrics';
 import { RenderColumn } from './RenderColumn';
 import {
   AreaDetectionChart,
@@ -27,7 +28,6 @@ import {
   anomalyData,
   radarData,
   confidenceData,
-  resourceData,
 } from '../../mocks/logsPageMocks/test';
 
 const DASHBOARD_CONFIG = {
@@ -37,8 +37,7 @@ const DASHBOARD_CONFIG = {
 };
 
 const LogsPage = () => {
-  // Tema unificado para os gráficos e painéis da página ("light" | "dark" | "dynamic")
-  const currentTheme = useUiStore((s) => s.theme); // Obtém o tema atual do Zustand para garantir reatividade 
+  const currentTheme = useUiStore((s) => s.theme); 
 
   const isPopUpModalOpen = useUiStore((s) => s.isPopUpModalOpen);
   const closePopUpModal  = useUiStore((s) => s.closePopUpModal);
@@ -47,6 +46,9 @@ const LogsPage = () => {
   const [logs, setLogs] = useState([]);
   const [isLogLoading, setIsLogLoading] = useState(false);
   const logsRef = useRef([]);
+
+  // 🚀 Hook ajustado corretamente sem violar argumentos
+  const { data: realTimeResourceData, refetch: refetchResourceMetrics } = useResourceMetrics("renderFrontend_pages", 30);
 
   const areLogsEqual = (a, b) => {
     if (a.length !== b.length) return false;
@@ -84,30 +86,37 @@ const LogsPage = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetchResourceMetrics();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [refetchResourceMetrics]);
+
   const COMPONENT_MAP = {
     logs: { label: "Central de Logs", component: <LogPanel logs={logs} loading={isLogLoading} theme={currentTheme}/> },
 
     // Coluna 2 — Análise e Monitoramento
-    area:     { label: "Análise Composta",        component: <AreaDetectionChart    data={areaLogs}  theme={currentTheme}    /> },
-    composed: { label: "Análise de Eventos",       component: <DetectionComposedChart data={composedLogs} theme={currentTheme} /> },
-    radar:    { label: "Eficiência Operacional",   component: <OperationalRadar       data={radarData}  theme={currentTheme}   /> },
-    latency:  { label: "Latência MCU/CAM",         component: <InferenceLatencyChart  data={latencyLogs} theme={currentTheme}  /> },
-    monitorcpu: { label: "Temperatura CPUs",       component: <ResourceMonitor        data={resourceData} theme={currentTheme}  /> },
+    area:       { label: "Análise Composta",        component: <AreaDetectionChart    data={areaLogs}  theme={currentTheme}    /> },
+    composed:   { label: "Análise de Eventos",       component: <DetectionComposedChart data={composedLogs} theme={currentTheme} /> },
+    radar:      { label: "Eficiência Operacional",   component: <OperationalRadar       data={radarData}  theme={currentTheme}   /> },
+    latency:    { label: "Latência MCU/CAM",         component: <InferenceLatencyChart  data={latencyLogs} theme={currentTheme}  /> },
+    monitorcpu: { 
+      label: "Temperatura CPUs / Recursos", 
+      component: <ResourceMonitor data={realTimeResourceData} theme={currentTheme} /> 
+    },
 
     // Coluna 3 — Detecções e ML
-    pizza:    { label: "Gráfico de detecções",      component: <DashboardChart        data={pizzaLogs} theme={currentTheme}     /> },
-    linha:    { label: "Gráfico de alertas",         component: <DetectionLineChart    data={lineLogs}  theme={currentTheme}    /> },
-    barra:    { label: "Detecções por Categoria",    component: <DetectionBarChart     data={colunasLogs} theme={currentTheme}  /> },
-    matrix:   { label: "Matriz de Confusão",          component: <MLConfusionMatrix     data={confusionMatrixData} theme={currentTheme}/> },
+    pizza:      { label: "Gráfico de detecções",      component: <DashboardChart        data={pizzaLogs} theme={currentTheme}     /> },
+    linha:      { label: "Gráfico de alertas",         component: <DetectionLineChart    data={lineLogs}  theme={currentTheme}    /> },
+    barra:      { label: "Detecções por Categoria",    component: <DetectionBarChart     data={colunasLogs} theme={currentTheme}  /> },
+    matrix:     { label: "Matriz de Confusão",          component: <MLConfusionMatrix     data={confusionMatrixData} theme={currentTheme}/> },
     confidence: { label: "Termômetro de Incerteza",  component: <ConfidenceDistribution data={confidenceData} theme={currentTheme} /> },
-    anomaly:  { label: "Mapa de Anomalias",           component: <AnomalyScatterChart    data={anomalyData}  theme={currentTheme} /> },
+    anomaly:    { label: "Mapa de Anomalias",           component: <AnomalyScatterChart    data={anomalyData}  theme={currentTheme} /> },
   };
 
   return (
-    // Alterado: Fixado h-screen e max-h-screen para evitar que o layout cresça ou quebre verticalmente
     <div className={`panel-theme-${currentTheme} h-screen max-h-screen w-full relative flex overflow-hidden p-6 transition-colors duration-300`}>
-      
-      {/* Grid das Colunas com items-stretch e h-full para alinhar perfeitamente o topo e a base de todas as colunas */}
       <main className="w-full mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch h-full min-h-0">
         <RenderColumn config={DASHBOARD_CONFIG.col1} componentMap={COMPONENT_MAP} theme={currentTheme} />
         <RenderColumn config={DASHBOARD_CONFIG.col2} componentMap={COMPONENT_MAP} theme={currentTheme} />
