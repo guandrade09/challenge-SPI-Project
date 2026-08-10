@@ -20,6 +20,11 @@ export const BasePanelModal = ({
   const activeThemeClass = `panel-theme-${theme}`;
   const displayTitle = availableCharts.length > 0 ? availableCharts[currentIndex].label : title;
 
+  // 🚀 Extrai a ação do cabeçalho do gráfico atualmente selecionado (ou usa a padrão/fallback)
+  const activeHeaderAction = availableCharts.length > 0 
+    ? (availableCharts[currentIndex]?.headerAction || headerAction)
+    : headerAction;
+
   const toggleMaximize = useCallback(() => setIsMaximized((p) => !p), []);
   
   const nextChart = useCallback((e) => {
@@ -56,7 +61,6 @@ export const BasePanelModal = ({
     };
   }, [isMaximized, availableCharts.length, nextChart, prevChart]);
 
-  // AJUSTE AQUI: renderContent agora aceita receber a propriedade vinda de fora se necessário
   const renderContent = () => {
     const resolvedChildren = typeof children === 'function' ? children({ isMaximized }) : children;
 
@@ -104,7 +108,8 @@ export const BasePanelModal = ({
             {displayTitle}
           </CardTitle>
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            {headerAction && <div>{headerAction}</div>}
+            {/* 🚀 Renderiza o botão dinâmico correspondente ao gráfico atual */}
+            {activeHeaderAction && <div>{activeHeaderAction}</div>}
             {allowFullScreen && (
               <ExpandButton isMaximized={isMaximized} onClick={toggleMaximize} />
             )}
@@ -135,14 +140,17 @@ export const BasePanelModal = ({
                   {theme === 'dynamic' ? 'Modo de Performance Industrial' : 'Painel de Monitoramento Ampliado'}
                 </CardDescription>
               </div>
-              <ExpandButton
-                isMaximized={isMaximized}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleMaximize();
-                }}
-              />
+              <div className="flex items-center gap-3">
+                {activeHeaderAction && <div>{activeHeaderAction}</div>}
+                <ExpandButton
+                  isMaximized={isMaximized}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleMaximize();
+                  }}
+                />
+              </div>
             </CardHeader>
             
             <CardContent className="flex-1 min-h-0 p-6 md:p-8">
