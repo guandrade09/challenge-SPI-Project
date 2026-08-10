@@ -59,7 +59,7 @@ const LogsPage = () => {
   };
 
   // 3. Hook alimentado pelo estado reativo da thread
-  const { data: realTimeResourceData, refetch: refetchResourceMetrics } = useResourceMetrics(currentThread, 30);
+  const { data: realTimeResourceData, refetch: refetchResourceMetrics } = useResourceMetrics(currentThread, 15);
 
   const areLogsEqual = (a, b) => {
     if (a.length !== b.length) return false;

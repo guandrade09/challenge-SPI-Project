@@ -12,7 +12,7 @@ import {
   ResourceMonitor,
 } from "../../components/graficos";
 import { BasePanelModal } from "../../components/shared";
-import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
+import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw, Cpu } from "lucide-react";
 import { colunasLogs, radarData, lineLogs, composedLogs } from "../../mocks/logsPageMocks/test";
 import detectionService from "../../services/detectionService";
 import cameraService from "../../services/cameraService";
@@ -31,8 +31,18 @@ function HomePage() {
   const [dbCameras, setDbCameras] = useState([]);
   const [camerasLoading, setCamerasLoading] = useState(false);
 
-  // 🚀 Hook Reutilizável: Passando null no 1º arg para ver o geral ou o nome exato da thread
-  const { data: performanceData, refetch: refetchMetrics } = useResourceMetrics("renderFrontend_pages", 30);
+  // 1. Estado para controlar qual thread está sendo exibida no card de recursos
+  const [currentThread, setCurrentThread] = useState("backend_processor");
+
+  // 2. Função para alternar entre "backend_processor" e "renderFrontend_pages"
+  const handleToggleThread = () => {
+    setCurrentThread((prev) =>
+      prev === "backend_processor" ? "renderFrontend_pages" : "backend_processor"
+    );
+  };
+
+  // 3. Hook alimentado dinamicamente pelo estado da thread selecionada
+  const { data: performanceData, refetch: refetchMetrics } = useResourceMetrics(currentThread, 30);
 
   const fetchCameras = async () => {
     try {
@@ -184,6 +194,18 @@ function HomePage() {
     },
   ];
 
+  // Componente visual do botão para trocar a origem dos dados
+  const ThreadToggleButton = (
+    <button
+      onClick={handleToggleThread}
+      title="Alternar origem das métricas de monitoramento"
+      className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-md border border-white/10 bg-neutral-800/80 hover:bg-neutral-700 text-emerald-400 hover:text-emerald-300 transition-all duration-200 shadow-sm active:scale-95 z-30"
+    >
+      <Cpu size={12} className="shrink-0" />
+      <span>{currentThread === "backend_processor" ? "Backend" : "Frontend"}</span>
+    </button>
+  );
+
   const chartsForCarousel = [
     {
       label: "Detecções por Categoria",
@@ -199,7 +221,8 @@ function HomePage() {
       component: <OperationalRadar data={radarData} theme={currentTheme} />,
     },
     {
-      label: "Monitoramento de Threads e Recursos",
+      label: `Monitoramento de Recursos (${currentThread === "backend_processor" ? "Backend" : "Frontend"})`,
+      headerAction: ThreadToggleButton, // 🚀 O botão aparece quando este card estiver ativo no carrossel
       component: (
         <ResourceMonitor
           data={performanceData}
