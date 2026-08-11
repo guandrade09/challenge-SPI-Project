@@ -3,16 +3,16 @@ import { Home, Camera, CctvIcon, LogsIcon, Settings, LogOut, Eye, EyeOff, Copy, 
 import { NavLink } from 'react-router-dom';
 import { cn } from "../utils/cn";
 import { AiToggleButton } from '../features/chatAi/AiToggleButton';
-import { ThemeToggleButton } from '../components/ui/ThemeToggleButton'; // Novo Import
+import { ThemeToggleButton } from '../components/ui/ThemeToggleButton';
 import { useAuthStore } from '../store/useAuthStore';
 
+// Removido o item de logout do array principal
 const navItems = [
-  { id: 'home',    icon: Home,       label: 'Home',           path: '/' },
-  { id: 'logs',    icon: LogsIcon,  label: 'Logs',           path: '/logs' },
-//  { id: 'camera',  icon: Camera,    label: 'Camera',    path: '/camera' },
-// { id: 'settings', icon: Settings,   label: 'Configurações',   path: '/settings' },
-  { id: 'monitoramento', icon: CctvIcon,    label: 'Monitoramentos',    path: '/monitoramento' },
-  { id: 'logout',  icon: LogOut,    label: 'Logout',           path: '/logout' },
+  { id: 'home',          icon: Home,     label: 'Home',           path: '/' },
+  { id: 'logs',          icon: LogsIcon, label: 'Logs',           path: '/logs' },
+  // { id: 'camera',     icon: Camera,   label: 'Camera',         path: '/camera' },
+  // { id: 'settings',   icon: Settings, label: 'Configurações', path: '/settings' },
+  { id: 'monitoramento', icon: CctvIcon, label: 'Monitoramentos', path: '/monitoramento' },
 ];
 
 export const NavBar = () => {
@@ -33,7 +33,8 @@ export const NavBar = () => {
   };
 
   return (
-    <nav className="w-full flex justify-center items-center py-3 bg-neutral-900/90 backdrop-blur-sm shadow-lg sticky top-0 z-50">
+    <nav className="w-full flex justify-center items-center py-3 px-6 bg-neutral-900/90 backdrop-blur-sm shadow-lg sticky top-0 z-50 relative">
+      {/* Bloco Central: Items Principais + Utilitários */}
       <div className="flex items-center gap-1">
         {navItems.map((item) => (
           <NavLink
@@ -101,6 +102,22 @@ export const NavBar = () => {
         <div className="mx-2 text-white animate-pulse">
           <AiToggleButton />
         </div>
+      </div>
+
+      {/* Ícone de Logout Fixado na Extrema Direita */}
+      <div className="absolute right-6 flex items-center">
+        <NavLink
+          to="/logout"
+          title="Logout"
+          className={({ isActive }) => cn(
+            "transition-all duration-300 p-2 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10",
+            isActive && "text-red-400 bg-red-500/10"
+          )}
+        >
+          {({ isActive }) => (
+            <LogOut size={22} strokeWidth={isActive ? 2 : 1.5} />
+          )}
+        </NavLink>
       </div>
     </nav>
   );
