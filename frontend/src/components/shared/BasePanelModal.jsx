@@ -20,6 +20,11 @@ export const BasePanelModal = ({
   const activeThemeClass = `panel-theme-${theme}`;
   const displayTitle = availableCharts.length > 0 ? availableCharts[currentIndex].label : title;
 
+  // Extrai a ação do cabeçalho do gráfico atualmente selecionado (ou usa a padrão/fallback)
+  const activeHeaderAction = availableCharts.length > 0 
+    ? (availableCharts[currentIndex]?.headerAction || headerAction)
+    : headerAction;
+
   const toggleMaximize = useCallback(() => setIsMaximized((p) => !p), []);
   
   const nextChart = useCallback((e) => {
@@ -56,12 +61,19 @@ export const BasePanelModal = ({
     };
   }, [isMaximized, availableCharts.length, nextChart, prevChart]);
 
-  // AJUSTE AQUI: renderContent agora aceita receber a propriedade vinda de fora se necessário
+  // Handler centralizado para interromper a propagação de cliques internos
+  const handleContentClick = (e) => {
+    e.stopPropagation();
+  };
+
   const renderContent = () => {
     const resolvedChildren = typeof children === 'function' ? children({ isMaximized }) : children;
 
     return (
-      <div className="w-full h-full min-h-0 flex flex-col relative" onClick={(e) => e.stopPropagation()}>
+      <div 
+        className="w-full h-full min-h-0 flex flex-col relative" 
+        onClick={handleContentClick}
+      >
         {isGraf ? (
           <div className="panel-graf-base flex-1 w-full h-full min-h-0 relative hover:border-[var(--p-subtext)]">
             {availableCharts.length > 1 && (
@@ -104,7 +116,7 @@ export const BasePanelModal = ({
             {displayTitle}
           </CardTitle>
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            {headerAction && <div>{headerAction}</div>}
+            {activeHeaderAction && <div>{activeHeaderAction}</div>}
             {allowFullScreen && (
               <ExpandButton isMaximized={isMaximized} onClick={toggleMaximize} />
             )}
@@ -120,13 +132,21 @@ export const BasePanelModal = ({
         <div 
           className="fixed inset-0 z-[9999] backdrop-blur-sm p-4 md:p-8 flex items-center justify-center animate-[fadeIn_0.2s_ease-out]" 
           style={{ backgroundColor: 'var(--p-overlay, rgba(0, 0, 0, 0.4))' }} 
-          onClick={toggleMaximize}
+          onClick={(e) => {
+            // 🚀 Garante que o fechamento só ocorra se o clique for EXATAMENTE no container escuro (overlay)
+            if (e.target === e.currentTarget) {
+              toggleMaximize();
+            }
+          }}
         >
           <Card 
             className="w-full h-full max-w-[1600px] flex flex-col min-h-0 overflow-hidden animate-[zoomIn_0.25s_ease-out]" 
-            onClick={(e) => e.stopPropagation()} 
+            onClick={handleContentClick} 
           >
-            <CardHeader className="py-4 px-6 md:px-8 flex-row items-center justify-between shrink-0 border-b border-theme-divider">
+            <CardHeader 
+              className="py-4 px-6 md:px-8 flex-row items-center justify-between shrink-0 border-b border-theme-divider"
+              onClick={handleContentClick}
+            >
               <div className="flex flex-col">
                 <CardTitle className="text-theme-title text-[13px] uppercase tracking-wider">
                   {displayTitle}
@@ -135,17 +155,23 @@ export const BasePanelModal = ({
                   {theme === 'dynamic' ? 'Modo de Performance Industrial' : 'Painel de Monitoramento Ampliado'}
                 </CardDescription>
               </div>
-              <ExpandButton
-                isMaximized={isMaximized}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleMaximize();
-                }}
-              />
+              <div className="flex items-center gap-3" onClick={handleContentClick}>
+                {activeHeaderAction && <div>{activeHeaderAction}</div>}
+                <ExpandButton
+                  isMaximized={isMaximized}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleMaximize();
+                  }}
+                />
+              </div>
             </CardHeader>
             
-            <CardContent className="flex-1 min-h-0 p-6 md:p-8">
+            <CardContent 
+              className="flex-1 min-h-0 p-6 md:p-8"
+              onClick={handleContentClick}
+            >
               {renderContent()}
             </CardContent>
           </Card>

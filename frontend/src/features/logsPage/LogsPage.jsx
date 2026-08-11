@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../../store/useUiStore';
 import { useResourceMetrics } from '../../hooks/useResourceMetrics';
 import { RenderColumn } from './RenderColumn';
+import { Cpu } from 'lucide-react'; // Ícone para enriquecer o botão
 import {
   AreaDetectionChart,
   AnomalyScatterChart,
@@ -47,8 +48,18 @@ const LogsPage = () => {
   const [isLogLoading, setIsLogLoading] = useState(false);
   const logsRef = useRef([]);
 
-  // 🚀 Hook ajustado corretamente sem violar argumentos
-  const { data: realTimeResourceData, refetch: refetchResourceMetrics } = useResourceMetrics("renderFrontend_pages", 30);
+  // 1. Estado para controlar qual thread está sendo exibida no card de recursos
+  const [currentThread, setCurrentThread] = useState("backend_processor");
+
+  // 2. Função de toggle para alternar o valor da thread
+  const handleToggleThread = () => {
+    setCurrentThread((prev) => 
+      prev === "backend_processor" ? "renderFrontend_pages" : "backend_processor"
+    );
+  };
+
+  // 3. Hook alimentado pelo estado reativo da thread
+  const { data: realTimeResourceData, refetch: refetchResourceMetrics } = useResourceMetrics(currentThread, 15);
 
   const areLogsEqual = (a, b) => {
     if (a.length !== b.length) return false;
@@ -93,6 +104,18 @@ const LogsPage = () => {
     return () => clearInterval(interval);
   }, [refetchResourceMetrics]);
 
+  // Componente de botão estilizado para o Header do Card
+  const ThreadToggleButton = (
+    <button
+      onClick={handleToggleThread}
+      title="Alternar origem das métricas de monitoramento"
+      className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-md border border-white/10 bg-neutral-800/80 hover:bg-neutral-700 text-emerald-400 hover:text-emerald-300 transition-all duration-200 shadow-sm active:scale-95"
+    >
+      <Cpu size={12} className="shrink-0" />
+      <span>{currentThread === "backend_processor" ? "Backend" : "Frontend"}</span>
+    </button>
+  );
+
   const COMPONENT_MAP = {
     logs: { label: "Central de Logs", component: <LogPanel logs={logs} loading={isLogLoading} theme={currentTheme}/> },
 
@@ -102,7 +125,8 @@ const LogsPage = () => {
     radar:      { label: "Eficiência Operacional",   component: <OperationalRadar       data={radarData}  theme={currentTheme}   /> },
     latency:    { label: "Latência MCU/CAM",         component: <InferenceLatencyChart  data={latencyLogs} theme={currentTheme}  /> },
     monitorcpu: { 
-      label: "Temperatura CPUs / Recursos", 
+      label: `Recursos (${currentThread === "backend_processor" ? "Backend" : "Frontend"})`, 
+      headerAction: ThreadToggleButton, // Injeta o botão no header do BasePanelModal via RenderColumn
       component: <ResourceMonitor data={realTimeResourceData} theme={currentTheme} /> 
     },
 
