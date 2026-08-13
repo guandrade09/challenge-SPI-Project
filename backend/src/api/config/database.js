@@ -71,6 +71,20 @@ export async function initDatabase() {
       process_loaded INTEGER
     );
   `);
+
+
+  await db.exec(`
+    DROP TABLE IF EXISTS chat_messages;
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT NOT NULL,
+      user_id INTEGER,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      model TEXT NOT NULL,
+      metadata TEXT
+    );
+  `);
   
   // await db.run("INSERT INTO onedrives (client_id, tenant_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?, ?)", [
   //   ONEDRIVE_CLIENT_ID,
