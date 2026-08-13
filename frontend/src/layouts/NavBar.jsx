@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Camera, LogsIcon, Settings, LogOut, Eye, EyeOff, Copy, Check } from 'lucide-react';
+import { Home, Camera, CctvIcon, LogsIcon, Settings, LogOut, Eye, EyeOff, Copy, Check } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from "../utils/cn";
 import { AiToggleButton } from '../features/chatAi/AiToggleButton';
@@ -7,10 +7,11 @@ import { ThemeToggleButton } from '../components/ui/ThemeToggleButton'; // Novo 
 import { useAuthStore } from '../store/useAuthStore';
 
 const navItems = [
-  { id: 'logs',    icon: LogsIcon,  label: 'Logs',           path: '/logs' },
   { id: 'home',    icon: Home,       label: 'Home',           path: '/' },
-  { id: 'camera',  icon: Camera,    label: 'Monitoramento',    path: '/monitoramento' },
-  { id: 'settings', icon: Settings,   label: 'Configurações',   path: '/settings' },
+  { id: 'logs',    icon: LogsIcon,  label: 'Logs',           path: '/logs' },
+//  { id: 'camera',  icon: Camera,    label: 'Camera',    path: '/camera' },
+// { id: 'settings', icon: Settings,   label: 'Configurações',   path: '/settings' },
+  { id: 'monitoramento', icon: CctvIcon,    label: 'Monitoramentos',    path: '/monitoramento' },
   { id: 'logout',  icon: LogOut,    label: 'Logout',           path: '/logout' },
 ];
 

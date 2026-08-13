@@ -105,7 +105,7 @@ const LogsPage = () => {
 
   return (
     // Alterado: Fixado h-screen e max-h-screen para evitar que o layout cresça ou quebre verticalmente
-    <div className={`panel-theme-${currentTheme} h-screen max-h-screen w-full relative flex overflow-hidden p-6 transition-colors duration-300 bg-projeto-main`}>
+    <div className={`panel-theme-${currentTheme} h-screen max-h-screen w-full relative flex overflow-hidden p-6 transition-colors duration-300`}>
       
       {/* Grid das Colunas com items-stretch e h-full para alinhar perfeitamente o topo e a base de todas as colunas */}
       <main className="w-full mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch h-full min-h-0">

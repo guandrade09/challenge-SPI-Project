@@ -5,7 +5,12 @@ import authRoutes from "./routes/auth.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import threadRoutes from "./routes/thread.routes.js";
 import logRoutes from "./routes/log.routes.js";
+<<<<<<< HEAD
 import chatRoutes from "./routes/chat.routes.js";
+=======
+import cameraRoutes from "./routes/camera.routes.js";
+
+>>>>>>> b0983b9301d09378ef9c9884ccd0756f53730516
 import { ErrorHandler } from "./utils/appError.js";
 
 const app = express();
@@ -22,7 +27,12 @@ app.use("/api", authRoutes);
 app.use("/api", reportRoutes);
 app.use("/api", threadRoutes);
 app.use("/api", logRoutes);
+<<<<<<< HEAD
 app.use("/api", chatRoutes);
+=======
+app.use("/api", cameraRoutes);
+
+>>>>>>> b0983b9301d09378ef9c9884ccd0756f53730516
 
 app.use((err, req, res, next) => {
   if (err && (err instanceof SyntaxError || err.type === "entity.parse.failed")) {

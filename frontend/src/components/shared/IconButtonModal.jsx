@@ -1,30 +1,40 @@
 import React from 'react';
 
 export const IconButtonModal = ({
+  tipo = "button",
   icon: Icon,
   label,
   onClick,
   className = "",
-  variant = "full",
+  variant = "full", // "full" | "toggle" | etc.
+  colorVariant = "default", // "default" | "cancel" | "danger" | "success"
   title,
 }) => {
-  // Vincula dinamicamente a variante com as classes globais do seu index.css
-  const variantClass = variant === 'full' ? 'icon-btn-full' : 'panel-btn-toggle';
+  // Mapeamento dinâmico de cores mantendo retrocompatibilidade
+  const colorClasses = {
+    default: "icon-btn-full",
+    cancel: "icon-btn-cancel",
+    danger: "icon-btn-danger",
+    success: "icon-btn-success"
+  };
+
+  const selectedColorClass = colorClasses[colorVariant] || colorClasses.default;
+  const variantClass = variant === 'full' ? selectedColorClass : 'panel-btn-toggle';
 
   return (
     <button
+      type={tipo}
       onClick={onClick}
       title={title || label}
-      className={`group p-1.5 rounded-lg transition-all active:scale-95 flex items-center gap-2 ${variantClass} ${className}`}
+      className={`group p-1.5 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${variantClass} ${className}`}
     >
-      {/* O ícone herda a cor do texto principal do tema ativo */}
-      <div className={`transition-transform group-hover:scale-110 ${variant === 'full' ? 'text-main-theme' : 'text-muted-theme group-hover:text-main-theme'}`}>
-        <Icon size={variant === 'full' ? 20 : 15} />
+      {/* O ícone herda a cor adequada do estado */}
+      <div className={`transition-transform group-hover:scale-110 ${variant === 'full' ? 'text-main-title' : 'text-muted-theme group-hover:text-main-theme'}`}>
+        {Icon && <Icon size={variant === 'full' ? 18 : 15} />}
       </div>
 
-      {/* Label corrigido para usar text-main-theme em vez de zinc-700 */}
       {label && variant === 'full' && (
-        <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-main-theme">
+        <span className="text-[11px] uppercase tracking-widest font-semibold">
           {label}
         </span>
       )}

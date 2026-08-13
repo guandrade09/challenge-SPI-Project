@@ -11,7 +11,7 @@ export function PerformanceObserver() {
   // Escuta cada mudança de página/rota com segurança
   useEffect(() => {
     incrementPagesLoaded();
-  }, [location.pathname]); 
+  }, [location.pathname, incrementPagesLoaded]); // Adicionado hook estável nas dependências
 
   // Envia os dados acumulados a cada 5 minutos
   useEffect(() => {
@@ -20,9 +20,9 @@ export function PerformanceObserver() {
     }, 300000); 
 
     return () => clearInterval(interval);
-  }, [syncPerformanceData]);
+  }, [syncPerformanceData]); // Agora está seguro porque sincroniza corretamente com o estado estável do Zustand
 
-  // Envia se o usuário fechar a aba
+  // Envia se o usuário fechar a aba ou mudar de aba (background)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {

@@ -1,4 +1,5 @@
 /* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -125,43 +126,53 @@ code {
        ======================================================== */
 
     .panel-theme-light {
-      --p-bg: #ffffff;
-      --p-border: #e5e5e5;
-      --p-header-bg: #f9fafb;
-      --p-text-title: #18181b;       /* Escuro para leitura sobre o painel claro */
-      --p-text: #18181b;             
-      --p-subtext: #059669;
+      --p-bg: #dddcdc;
+      --p-border: #000000;
+      --p-header-bg: #f2f2f2;
+      --p-box-logs: #c5c5c5;
+      --p-text-title: #ffffff;       /* Escuro para leitura sobre o painel claro */
+      --p-text: #000000;  
+      --p-text-logs: #000000;
+      --p-timestamp-logs: #000000;          
+      --p-subtext: #0008ff;
       --p-graf-bg: #f9fafb;
-      --p-toggle-hover: #e4e4e7;
-      --p-toggle-text: #71717a;
+      --p-pattern-dor: #d1d5db;
+      --p-toggle-hover: #bbf9a544;
+      --p-toggle-hover-cancel: RED;
+      --p-toggle-text: #000000;
       --p-button-bg: #f4f4f5;       
       --p-button-text: #18181b;     
       --p-toggle-accent: #059669;
       --p-overlay: rgba(10, 10, 10, 0.4);
 
-      --chart-grid: #e5e5e5;
-      --chart-text: #71717a;
-      --chart-axis: #d4d4d8;
+      --chart-grid: #3c3333;
+      --chart-text: #000000;
+      --chart-axis: #000000;
       --chart-tooltip-bg: #ffffff;
       --chart-tooltip-border: #e5e5e5;
       --chart-alertas: #B59481;
-      --chart-proc: #71717a;
+      --chart-proc: #6363e7;
       --chart-normal-node: #B59481;
 
       --chart-radar-fill: rgba(34, 197, 94, 0.15);
       --chart-radar-stroke: #22c55e;
       --chart-core-ml: #6366f1;
+
     }
 
     .panel-theme-dark {
       --p-bg: #18181b;              
       --p-border: rgba(63, 63, 70, 0.6);
       --p-header-bg: rgba(10, 10, 10, 0.6);
+      --p-box-logs: rgba(10, 10, 10, 0.6);
       --p-text-title: #f4f4f5;       
       --p-text: #d4d4d8;
+      --p-text-logs: #d4d4d8;
       --p-subtext: #10b981;
       --p-graf-bg: rgba(10, 10, 10, 0.5);
+      --p-pattern-dot: rgba(255, 255, 255, 0.08)
       --p-toggle-hover: rgba(63, 63, 70, 0.6);
+      --p-toggle-hover-cancel: RED;
       --p-toggle-text: #a1a1aa;
       --p-button-bg: #27272a;       
       --p-button-text: #ffffff;     
@@ -186,11 +197,15 @@ code {
       --p-bg: #18181b;
       --p-border: #3f3f46;
       --p-header-bg: #000000;
+      --p-box-logs: #000000;
       --p-text-title: #f4f4f5;
       --p-text: #f4f4f5;
+      --p-text-logs: #f4f4f5;
       --p-subtext: #a1a1aa;
       --p-graf-bg: #09090b;
+      --p-pattern-dot: #27272a;
       --p-toggle-hover: #27272a;
+      --p-toggle-hover-cancel: RED;
       --p-toggle-text: #a1a1aa;
       --p-button-bg: #565656;       
       --p-button-text: #000000;     
@@ -239,6 +254,12 @@ code {
       position: relative;
     }
 
+    .panel-body-cam{
+      background-image: radial-gradient(var(--p-pattern-dot, #262626) 1px,transparent 1px);
+      background-size: 16px 16px;
+      background-color: var(--p-graf-bg);
+    }
+
     .panel-graf-base {
       width: 100%;
       height: 100%;
@@ -255,25 +276,101 @@ code {
     /* ========================================================
        BOTÕES ADAPTATIVOS 
        ======================================================== */
-    .icon-btn-full {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      padding: 0.75rem 1rem;
-      background-color: var(--p-button-bg);
-      color: var(--p-button-text) !important;
-      border: 1px solid var(--p-border);
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.2s ease-in-out;
-    }
 
-    .icon-btn-full:hover {
+    .icon-btn-full {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: var(--p-button-bg);
+    color: var(--p-text) !important;
+    border: 1px solid var(--p-border);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    opacity: 0.8;
+    transition: all 0.2s ease-in-out;
+  }
+
+
+  .icon-btn-full:hover {
+    transform: scale(1.01);
+    background-color: var(--p-toggle-hover);
+    color: var(--p-toggle-accent) !important;
+  }
+
+  /* Estilo específico para Perigo / Excluir */
+  .icon-btn-danger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background-color: #ef4444;
+    color: #ffffff !important;
+    border: 1px solid #dc2626;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .icon-btn-danger:hover {
+    background-color: #dc2626;
+  }
+
+  
+.icon-btn-cancel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background-color: var(--p-button-bg);
+    color: var(--p-text);
+    border: 1px solid var(--p-border);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    opacity: 0.8;
+    transition: all 0.2s ease-in-out;
+  }
+
+  /* Estado de foco/hover alinhado ao design dos seus painéis */
+  .icon-btn-cancel:hover {
+    opacity: 1;
+    background-color: rgba(239, 68, 68, 0.08); /* Vermelho muito suave no fundo */
+    border-color: rgba(239, 68, 68, 0.4);      /* Borda sutil em tom de alerta */
+    color: #ef4444 !important;                 /* Texto vermelho suave */
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.1);/* Glow minimalista */
+  }
+
+  .icon-btn-cancel:active {
+    transform: scale(0.97);
+  }
+
+
+    .icon-btn-success {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10b981 !important;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+  }
+
+    .icon-btn-success:hover {
       transform: scale(1.01);
-      background-color: var(--p-toggle-hover);
-      color: var(--p-toggle-accent) !important;
+      background-color: #10b981;
+      color: #ffffff !important;
+      border-color: #059669;
     }
 
     .icon-btn-ghost, .chart-control-btn, .modal-close-btn {
@@ -307,12 +404,53 @@ code {
     /* ========================================================
        MAPEAMENTO SEMÂNTICO DO PAINEL
        ======================================================== */
-    .text-theme-title { color: var(--p-text-title); font-weight: 600; }
-    .text-theme-main { color: var(--p-text); }
-    .text-theme-muted { color: var(--p-text); opacity: 0.6; }
-    .text-theme-accent { color: var(--p-subtext); }
-    .border-theme-divider { border-color: var(--p-border); }
-    
+   /* Font Families */
+    .font-theme-title { 
+      font-family: 'Sora', sans-serif; 
+    }
+
+    .font-theme-body { 
+      font-family: 'Inter', sans-serif; 
+    }
+
+    /* Tipografia Semântica */
+    .text-theme-title { 
+      font-family: 'Sora', sans-serif;
+      color: var(--p-text); 
+      font-weight: 600; 
+    }
+
+    .text-theme-main { 
+      font-family: 'Inter', sans-serif;
+      color: var(--p-text); 
+    }
+
+    .text-theme-muted { 
+      font-family: 'Inter', sans-serif;
+      color: var(--p-text); 
+      opacity: 0.65; 
+    }
+
+    .text-theme-accent { 
+      color: var(--p-subtext); 
+    }
+
+    /* Dados industriais, datas e cabeçalhos de tabela */
+    .text-theme-head {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--p-text);
+      opacity: 0.8;
+    }
+
+    /* Outras utilidades de container */
+    .border-theme-divider { 
+      border-color: var(--p-border); 
+    }
+
     .panel-subcard {
       background-color: var(--p-header-bg);
       border: 1px solid var(--p-border);
@@ -322,6 +460,7 @@ code {
     }
 
     .badge-theme-industrial {
+      font-family: 'Inter', sans-serif;
       background-color: var(--p-header-bg);
       border: 1px solid var(--p-border);
       color: var(--p-text);
@@ -425,6 +564,8 @@ code {
     
     /* RESTAURADO: Mantém o gradiente escuro industrial padrão do app */
     .bg-projeto-main { @apply w-full min-h-screen bg-gradient-to-tr from-neutral-500 to-neutral-950; }
+    .bg-projeto-main2 { @apply w-full min-h-screen bg-gradient-to-b from-[#0b0f19] to-[#05070b]; }
+    .bg-projeto-main3 { @apply w-full min-h-screen bg-gradient-to-br from-[#09151d] via-[#070d12] to-[#020406];}
     
     .auth-card { @apply bg-white rounded-2xl shadow-xl border border-neutral-800/10; }
     .form-input-icon { @apply w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500; }

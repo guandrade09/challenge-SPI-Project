@@ -26,27 +26,45 @@ function HomePage() {
   const fetchPerformanceMetrics = async () => {
     try {
       const response = await reportPerformanceService.listMetrics();
-      const rawData = response?.data || response || [];
+      
+      // 🚀 CORREÇÃO: Como seu backend agora retorna { count, data }, buscamos a chave 'data'
+      // Adicionamos fallbacks caso a estrutura varie
+      const rawData = response?.data?.data || response?.data || response || [];
 
-      // 🚀 MODELAGEM DOS DADOS SIMPLIFICADA:
+      if (!Array.isArray(rawData)) {
+        console.warn("Formato de dados recebido não é um array válido:", response);
+        return;
+      }
+
+      // 🚀 TRATAMENTO E LIMPEZA VISUAL DOS DADOS:
       const formattedData = rawData.map((item) => {
         let formattedTime = "00:00";
+        
         if (item.timestamp) {
           const dateObj = new Date(item.timestamp);
-          formattedTime = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          // Formata para o padrão brasileiro de horas e minutos (HH:MM)
+          formattedTime = dateObj.toLocaleTimeString('pt-BR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
         }
 
         return {
           time: formattedTime,
-          memoria: item.quantity_of_cpu_ind_percentage ?? 0, // Vai para a linha de memória
-          paginas: item.process_loaded ?? 0                  // Pega direto da coluna de páginas
+          // Garante que o valor seja numérico e limita a 2 casas decimais para o tooltip não ficar gigante
+          memoria: item.quantity_of_cpu_ind_percentage ? parseFloat(item.quantity_of_cpu_ind_percentage.toFixed(2)) : 0,
+          paginas: item.process_loaded ?? 0
         };
       });
 
-      // Pega os últimos 10 registros em ordem cronológica
-      setPerformanceData(formattedData.reverse().slice(-10));
+      // 🚀 OTIMIZAÇÃO DE EXIBIÇÃO:
+      // O banco SQLite retorna do mais antigo para o mais recente. 
+      // Pegamos apenas os últimos 35 registros para o gráfico ficar limpo e legível na tela.
+      const limitedData = formattedData.slice(35 * -1); // Últimos 35 registros
+
+      setPerformanceData(limitedData);
     } catch (err) {
-      console.error("Erro ao buscar métricas de performance:", err);
+      console.error("Erro ao buscar métricas de performance na API:", err);
     }
   };
 
@@ -210,16 +228,16 @@ function HomePage() {
   ];
 
   return (
-    <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 bg-projeto-main`}>
+    <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300`}>
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         
         {/* Cabeçalho Dinâmico */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold font-mono uppercase tracking-wider text-theme-title ">
+            <h2 className="text-2xl sm:text-3xl text-(var[--p-text]) uppercase tracking-wider ">
               Visão geral do sistema de detecção de EPI's
             </h2>
-            <p className="text-xs font-mono text-theme-title flex items-center gap-2 mt-1">
+            <p className="text-xs text-(var[--p-text]) flex items-center gap-2 mt-1">
               {isLoading && <RefreshCw size={12} className="animate-spin text-emerald-500" />}
               {timeSinceUpdate}
             </p>

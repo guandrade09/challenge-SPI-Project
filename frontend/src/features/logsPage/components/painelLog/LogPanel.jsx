@@ -42,12 +42,12 @@ export const LogPanel = ({ logs = [], loading = false }) => {
           logs.map((log, index) => (
             <div 
               key={`${log.timestamp}-${index}`} 
-              className="p-3 rounded-xl border-l-4 border-theme-divider shadow-sm transition-all duration-200"
-              style={{ backgroundColor: 'var(--p-header-bg)' }}
+              className="p-3 rounded-xl border-l-4 text-[var(--p-box-logs)] text-theme-main shadow-sm transition-all duration-200"
+              style={{ backgroundColor: 'var(--p-box-logs)' }}
             >
-              <p className="text-main-theme font-mono text-[11px] leading-tight">
-                <span className="text-muted-theme opacity-60">{log.timestamp}</span>
-                <span className="text-theme-accent mx-1">|</span> 
+              <p className="text-[var(--p-text-logs)] text-theme-title uppercase text-[11px] leading-tight">
+                <span className="var(--p-timestamp-logs)">{log.timestamp}</span>
+                <span className="var(--p-text-logs) mx-1">|</span> 
                 {log.message}
               </p>
             </div>
@@ -60,8 +60,8 @@ export const LogPanel = ({ logs = [], loading = false }) => {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full">
-            <span className="text-sm font-bold text-theme-title">Nenhum log disponível no momento.</span>
-            <span className="mt-2 text-[10px] font-mono text-muted-theme uppercase tracking-widest">
+            <span className="text-sm font-bold text-[var(--p-text)]">Nenhum log disponível no momento.</span>
+            <span className="mt-2 text-[10px] font-mono text-[var(--p-text)] uppercase tracking-widest">
               Verifique se o serviço de logs está ativo e atualize a página.
             </span>
           </div>
