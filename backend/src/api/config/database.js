@@ -74,7 +74,6 @@ export async function initDatabase() {
 
 
   await db.exec(`
-    DROP TABLE IF EXISTS chat_messages;
     CREATE TABLE IF NOT EXISTS chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       timestamp TEXT NOT NULL,
