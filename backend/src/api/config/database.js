@@ -72,8 +72,6 @@ export async function initDatabase() {
     );
   `);
 
-<<<<<<< HEAD
-
   await db.exec(`
     CREATE TABLE IF NOT EXISTS chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,7 +82,8 @@ export async function initDatabase() {
       model TEXT NOT NULL,
       metadata TEXT
     );
-=======
+    `);
+
   // Tabela para armazenar câmeras
   // id: identificador único
   // nome: nome da câmera
@@ -96,7 +95,6 @@ export async function initDatabase() {
   //  para tipagem OU futuramente deixar separado.)
   // createdAt: data e hora da criação do registro
   // updatedAt: data e hora da última atualização do registro
-
   await db.exec(`
     CREATE TABLE IF NOT EXISTS cameras (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,9 +107,6 @@ export async function initDatabase() {
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
-
-
->>>>>>> b0983b9301d09378ef9c9884ccd0756f53730516
   `);
   
   // await db.run("INSERT INTO onedrives (client_id, tenant_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?, ?)", [
