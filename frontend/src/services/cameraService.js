@@ -1,3 +1,4 @@
+//src/services/cameraService.js  //Service responsável por fazer as requisições HTTP para o backend relacionadas às câmeras
 import api from './api';
 
 const cameraService = {

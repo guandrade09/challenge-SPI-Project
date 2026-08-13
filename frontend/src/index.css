@@ -158,6 +158,12 @@ code {
       --chart-radar-stroke: #22c55e;
       --chart-core-ml: #6366f1;
 
+      --chart-line-1: #0000b3; /* Azul escuro */
+      --chart-line-2: #00b300; /* Verde escuro */
+      --chart-line-3: #5a00b3; /* Roxo escuro */
+      --chart-line-4: #b35900; /* Laranja escuro */
+      --chart-line-alert: #b30000; /* Vermelho escuro */
+
     }
 
     .panel-theme-dark {
@@ -191,6 +197,16 @@ code {
       --chart-radar-fill: rgba(101, 255, 209, 0.1);
       --chart-radar-stroke: #65ffd1;
       --chart-core-ml: #818cf8;
+
+      --chart-line-1: #ef4444; /* Vermelho */
+      --chart-line-2: #3b82f6; /* Azul */
+      --chart-line-3: #a855f7; /* Roxo */
+      --chart-line-4: #f97316; /* Laranja */
+      --chart-line-alert: #eab308; /* Amarelo */
+    }
+
+    .panel-theme-dark .recharts-line .recharts-curve {
+      filter: drop-shadow(0px 0px 4px currentColor);
     }
 
     .panel-theme-dynamic {
@@ -224,6 +240,12 @@ code {
       --chart-radar-fill: rgba(255, 255, 255, 0.15);
       --chart-radar-stroke: #ffffff;
       --chart-core-ml: #a1a1aa;
+
+      --chart-line-1: #ffffff; /* Branco */
+      --chart-line-2: #b3b3b3; /* Cinza 70/30 */
+      --chart-line-3: #808080; /* Cinza 50/50 */
+      --chart-line-4: #4d4d4d; /* Cinza 30/70 */
+      --chart-line-alert: #ef4444; /* Vermelho */
     }
 
     /* ========================================================
