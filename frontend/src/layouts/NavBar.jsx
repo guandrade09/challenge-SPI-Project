@@ -8,7 +8,7 @@ import { IconButtonModal } from '../components/shared/IconButtonModal';
 const navItems = [
   { id: 'home', icon: Home, label: 'Home', path: '/' },
   { id: 'logs', icon: LogsIcon, label: 'Logs', path: '/logs' },
-  { id: 'monitoramento', icon: CctvIcon, label: 'Monitoramento', path: '/monitoramento' },
+  { id: 'monitoramento', icon: CctvIcon, label: 'Monitoramento', path: '/camera' },
 ];
 
 export const NavBar = ({ theme = 'dark' }) => {
