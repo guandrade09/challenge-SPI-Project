@@ -1,40 +1,20 @@
-import { useState } from 'react';
-import { Home, Camera, CctvIcon, LogsIcon, Settings, LogOut, Eye, EyeOff, Copy, Check } from 'lucide-react';
+import React from 'react';
+import { Home, CctvIcon, LogsIcon, LogOut } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from "../utils/cn";
-import { AiToggleButton } from '../features/chatAi/AiToggleButton';
 import { ThemeToggleButton } from '../components/ui/ThemeToggleButton';
-import { useAuthStore } from '../store/useAuthStore';
+import { IconButtonModal } from '../components/shared/IconButtonModal';
 
-// Removido o item de logout do array principal
 const navItems = [
-  { id: 'home',          icon: Home,     label: 'Home',           path: '/' },
-  { id: 'logs',          icon: LogsIcon, label: 'Logs',           path: '/logs' },
-  // { id: 'camera',     icon: Camera,   label: 'Camera',         path: '/camera' },
-  // { id: 'settings',   icon: Settings, label: 'Configurações', path: '/settings' },
-  { id: 'monitoramento', icon: CctvIcon, label: 'Monitoramentos', path: '/monitoramento' },
+  { id: 'home', icon: Home, label: 'Home', path: '/' },
+  { id: 'logs', icon: LogsIcon, label: 'Logs', path: '/logs' },
+  { id: 'monitoramento', icon: CctvIcon, label: 'Monitoramento', path: '/monitoramento' },
 ];
 
-export const NavBar = () => {
-  const [showToken, setShowToken] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const token = useAuthStore((s) => s.token);
-
-  const copyToken = () => {
-    if (!token) return;
-    navigator.clipboard.writeText(token);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const toggleToken = () => {
-    setShowToken((p) => !p);
-    setCopied(false);
-  };
-
+export const NavBar = ({ theme = 'dark' }) => {
   return (
-    <nav className="w-full flex justify-center items-center py-3 px-6 bg-neutral-900/90 backdrop-blur-sm shadow-lg sticky top-0 z-50 relative">
-      {/* Bloco Central: Items Principais + Utilitários */}
+    <nav className={`panel-theme-${theme} w-full flex justify-center items-center py-2 px-6 bg-[var(--p-header-bg)] border-b border-[var(--p-border)] shadow-md sticky top-0 z-50 relative transition-colors duration-200`}>
+      {/* Bloco Central: Itens Principais + Troca de Tema */}
       <div className="flex items-center gap-1">
         {navItems.map((item) => (
           <NavLink
@@ -42,83 +22,43 @@ export const NavBar = () => {
             to={item.path}
             title={item.label}
             className={({ isActive }) => cn(
-              "transition-all duration-300 border-b-2 pb-1 mx-6 px-3 py-1.5 rounded-md",
+              "transition-all duration-200 border-b-2 pb-1 mx-2 sm:mx-4 px-3 py-1.5 rounded-t-md flex items-center gap-2",
               isActive
-                ? "text-white border-white opacity-100 animate-pulse"
-                : "text-zinc-300/70 border-transparent hover:text-white hover:opacity-100 hover:bg-white/5"
+                ? "text-[var(--p-toggle-accent,#34d399)] border-[var(--p-toggle-accent,#34d399)] bg-[var(--p-bg)] font-semibold"
+                : "text-theme-muted border-transparent hover:text-[var(--p-text)] hover:bg-[var(--p-bg)]"
             )}
           >
             {({ isActive }) => (
-              <item.icon size={24} strokeWidth={isActive ? 2 : 1.5} />
+              <>
+                <item.icon size={20} strokeWidth={isActive ? 2.2 : 1.7} />
+                <span className="hidden md:inline text-xs">{item.label}</span>
+              </>
             )}
           </NavLink>
         ))}
 
-        <div className="w-[1px] h-6 bg-white/10 mx-2" />
-
-        {/* Token debug toggle */}
-        {token && (
-          <div className="relative ml-2 flex items-center gap-1">
-            <button
-              onClick={toggleToken}
-              title={showToken ? 'Ocultar token' : 'Ver token'}
-              className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-
-            {showToken && (
-              <div className="absolute top-full right-0 mt-2 bg-neutral-800 border border-white/10 rounded-xl shadow-2xl p-4 w-80 z-[100] animate-in fade-in slide-in-from-top-2">
-                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Token da Sessão</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-[10px] font-mono text-green-400 bg-black/40 rounded px-2 py-1 break-all leading-tight">
-                    {token}
-                  </code>
-                  <button
-                    onClick={copyToken}
-                    title="Copiar token"
-                    className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
-                  >
-                    {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                  </button>
-                </div>
-                <p className="text-[8px] text-zinc-500 mt-2">Token expira em 1h. Copiar? Use com responsabilidade.</p>
-                <button
-                  onClick={toggleToken}
-                  className="mt-3 w-full py-1.5 text-[10px] font-bold text-zinc-400 bg-neutral-700 hover:bg-neutral-600 rounded-lg uppercase tracking-widest transition-colors"
-                >
-                  Fechar
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="w-[1px] h-5 bg-[var(--p-border)] mx-3" />
 
         {/* Botão de Controle de Tema do Sistema */}
-        <div className="ml-2 mr-4">
+        <div className="ml-1">
           <ThemeToggleButton />
-        </div>
-
-        <div className="mx-2 text-white animate-pulse">
-          <AiToggleButton />
         </div>
       </div>
 
       {/* Ícone de Logout Fixado na Extrema Direita */}
       <div className="absolute right-6 flex items-center">
-        <NavLink
-          to="/logout"
-          title="Logout"
-          className={({ isActive }) => cn(
-            "transition-all duration-300 p-2 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10",
-            isActive && "text-red-400 bg-red-500/10"
-          )}
-        >
-          {({ isActive }) => (
-            <LogOut size={22} strokeWidth={isActive ? 2 : 1.5} />
-          )}
+        <NavLink to="/logout" title="Sair do Sistema">
+          <IconButtonModal
+            icon={LogOut}
+            variant="ghost"
+            colorVariant="danger"
+            title="Sair do sistema"
+            className="!p-2"
+          />
         </NavLink>
       </div>
     </nav>
   );
 };
+
+export default NavBar;  

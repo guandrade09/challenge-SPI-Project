@@ -144,6 +144,7 @@ code {
       --p-button-text: #18181b;     
       --p-toggle-accent: #059669;
       --p-overlay: rgba(10, 10, 10, 0.4);
+      --p-chat-bg-user: #16b137;
 
       --chart-grid: #3c3333;
       --chart-text: #000000;
@@ -203,6 +204,8 @@ code {
       --chart-line-3: #a855f7; /* Roxo */
       --chart-line-4: #f97316; /* Laranja */
       --chart-line-alert: #eab308; /* Amarelo */
+
+      --p-chat-bg-user: #5196d6;
     }
 
     .panel-theme-dark .recharts-line .recharts-curve {
@@ -246,6 +249,8 @@ code {
       --chart-line-3: #808080; /* Cinza 50/50 */
       --chart-line-4: #4d4d4d; /* Cinza 30/70 */
       --chart-line-alert: #ef4444; /* Vermelho */
+
+      --p-chat-bg-user: #adadad;
     }
 
     /* ========================================================
