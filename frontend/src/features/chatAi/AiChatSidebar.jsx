@@ -18,6 +18,7 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
   const [expandedDays, setExpandedDays] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState(null);
+  const [downloadingUrls, setDownloadingUrls] = useState({});
   const listRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -242,6 +243,146 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
     setDeleteConfirmation(null);
   }
 
+  // Baixa o arquivo via fetch (blob) em vez de abrir em nova aba.
+  // Evita o "flicker" de abrir/fechar aba enquanto o backend gera o arquivo
+  // (perceptível principalmente no PDF, que demora mais que o Excel).
+  function guessFileName(url, fallback) {
+    try {
+      const { pathname } = new URL(url);
+      const last = pathname.split('/').filter(Boolean).pop();
+      if (last && last.includes('.')) return last;
+    } catch (err) {
+      // ignore
+    }
+    return fallback;
+  }
+
+  async function handleDownload(url, label) {
+    if (downloadingUrls[url]) return;
+
+    setDownloadingUrls((prev) => ({ ...prev, [url]: true }));
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Não foi possível baixar o arquivo');
+
+      const blob = await res.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = guessFileName(url, label || 'relatorio');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      alert(`Erro ao baixar arquivo: ${err.message}`);
+    } finally {
+      setDownloadingUrls((prev) => {
+        const next = { ...prev };
+        delete next[url];
+        return next;
+      });
+    }
+  }
+
+  // Detecta links markdown [texto](url) dentro do conteúdo da mensagem e
+  // os transforma em botões de download, mantendo o texto ao redor intacto.
+  // Ex: "Aqui está o link ... [Download do Relatório Excel](http://...)"
+  // vira: texto normal + botão "Download do Relatório Excel".
+  // Interpreta marcações simples de markdown dentro de um trecho de texto:
+  // **negrito** vira <strong>, sem deixar os asteriscos visíveis.
+  function parseInlineMarkdown(text, keyPrefix) {
+    const boldRegex = /\*\*([^*]+)\*\*/g;
+    const nodes = [];
+    let lastIndex = 0;
+    let match;
+    let i = 0;
+
+    while ((match = boldRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        nodes.push(text.slice(lastIndex, match.index));
+      }
+      nodes.push(<strong key={`${keyPrefix}-b-${i++}`}>{match[1]}</strong>);
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+      nodes.push(text.slice(lastIndex));
+    }
+
+    return nodes.length > 0 ? nodes : text;
+  }
+
+  function renderMessageContent(content) {
+    if (!content) return null;
+
+    // Aceita tanto o formato padrão markdown [texto](http://...) quanto
+    // variações que a IA às vezes retorna, como [texto](_url_: http://...).
+    // Captura tudo dentro dos parênteses e depois extrai a URL http(s) de lá.
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    let key = 0;
+
+    while ((match = linkRegex.exec(content)) !== null) {
+      const [fullMatch, linkText, rawInside] = match;
+      const urlMatch = rawInside.match(/https?:\/\/[^\s)]+/);
+
+      if (!urlMatch) {
+        // Não achou uma URL válida ali dentro, então trata como texto normal
+        // e não interrompe o parsing.
+        continue;
+      }
+
+      const linkUrl = urlMatch[0];
+
+      if (match.index > lastIndex) {
+        const textChunk = content.slice(lastIndex, match.index);
+        if (textChunk) {
+          parts.push(
+            <span key={`text-${key}`} className="whitespace-pre-wrap">
+              {parseInlineMarkdown(textChunk, `text-${key}`)}
+            </span>
+          );
+          key++;
+        }
+      }
+
+      parts.push(
+        <IconButtonModal
+          key={`link-${key++}`}
+          icon={Download}
+          label={downloadingUrls[linkUrl] ? 'Baixando...' : linkText}
+          disabled={!!downloadingUrls[linkUrl]}
+          onClick={() => handleDownload(linkUrl, linkText)}
+          variant="full"
+          colorVariant="default"
+          className="!py-1.5 !px-3 !text-[10px] !mt-1.5 !mb-1 self-start disabled:opacity-60"
+        />
+      );
+
+      lastIndex = match.index + fullMatch.length;
+    }
+
+    if (lastIndex < content.length) {
+      const textChunk = content.slice(lastIndex);
+      if (textChunk) {
+        parts.push(
+          <span key={`text-${key}`} className="whitespace-pre-wrap">
+            {parseInlineMarkdown(textChunk, `text-${key}`)}
+          </span>
+        );
+        key++;
+      }
+    }
+
+    return parts.length > 0 ? parts : <span className="whitespace-pre-wrap">{parseInlineMarkdown(content, 'text-0')}</span>;
+  }
+
   function renderMessage(msg, idx) {
     const isUser = msg.role === 'user';
     return (
@@ -253,18 +394,19 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
               : 'panel-subcard bg-[var(--p-chat-bg-ia)] border border-[var(--p-border)] text-[var(--p-text)] rounded-tl-none'
           }`}
         >
-          <div className="whitespace-pre-wrap">{msg.content}</div>
+          <div className="flex flex-col gap-1">{renderMessageContent(msg.content)}</div>
           {msg.metadata?.attachments && msg.metadata.attachments.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {msg.metadata.attachments.map((att, i) => (
                 <IconButtonModal
                   key={i}
                   icon={Download}
-                  label="Baixar relatório"
-                  onClick={() => window.open(att.url, '_blank')}
+                  label={downloadingUrls[att.url] ? 'Baixando...' : 'Baixar relatório'}
+                  disabled={!!downloadingUrls[att.url]}
+                  onClick={() => handleDownload(att.url, 'Baixar relatório')}
                   variant="full"
                   colorVariant="default"
-                  className="!py-1 !px-2.5 !text-[10px]"
+                  className="!py-1 !px-2.5 !text-[10px] disabled:opacity-60"
                 />
               ))}
             </div>
@@ -334,8 +476,8 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
 
           <div className="flex-1 overflow-hidden flex flex-col bg-[var(--p-bg)]">
             {activeTab === 'chat' && (
-              <div ref={listRef} className="flex-1 p-4 overflow-y-auto space-y-3 custom-scrollbar">
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--p-border)]">
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between gap-2 p-4 pb-2.5 border-b border-[var(--p-border)] shrink-0">
                   <div className="min-w-0 flex-1">
                     {isEditingTitle && selectedConversationId ? (
                       <div className="flex items-center gap-2">
@@ -384,14 +526,16 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
                   )}
                 </div>
 
-                {messages.length === 0 && !newConversationActive && (
-                  <div className="text-xs text-theme-muted text-center mt-10 p-4">
-                    Nenhuma mensagem selecionada. Digite uma dúvida abaixo ou selecione uma conversa no Histórico.
-                  </div>
-                )}
+                <div ref={listRef} className="flex-1 p-4 pt-3 overflow-y-auto space-y-3 custom-scrollbar">
+                  {messages.length === 0 && !newConversationActive && (
+                    <div className="text-xs text-theme-muted text-center mt-10 p-4">
+                      Nenhuma mensagem selecionada. Digite uma dúvida abaixo ou selecione uma conversa no Histórico.
+                    </div>
+                  )}
 
-                <div className="flex flex-col gap-3">
-                  {messages.map((m, idx) => renderMessage(m, idx))}
+                  <div className="flex flex-col gap-3">
+                    {messages.map((m, idx) => renderMessage(m, idx))}
+                  </div>
                 </div>
               </div>
             )}
@@ -440,7 +584,7 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
                       </button>
 
                       {expandedDays[dayGroup.day] && (
-                        <div className="px-2.5 pb-2.5 pt-0 flex flex-col gap-2 border-t border-[var(--p-border)]">
+                        <div className="px-2.5 pb-2.5 pt-2.5 flex flex-col gap-2 border-t border-[var(--p-border)]">
                           {dayGroup.conversations.map((conversation) => {
                             const conversationId = conversation.id ?? conversation.conversation_id;
                             const active = selectedConversationId === conversationId && !newConversationActive;
