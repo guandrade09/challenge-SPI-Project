@@ -1,37 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Menu, X, Camera, BarChart3, FileText, Home, 
-  User, Settings, LogOut, ShieldCheck, Bell 
+  Camera, FileText, Home, 
+  User, Settings, LogOut, ShieldCheck, Bell, Menu, X 
 } from 'lucide-react';
 import { ThemeToggleButton } from '../components/ui/ThemeToggleButton';
-import { useAuthStore } from '../store/useAuthStore'; // Puxa seu estado de Auth
+import { useAuthStore } from '../store/useAuthStore';
 import logoCodexis from '../assets/codexis/logo_codexis.svg';
 
 export const NavBar = ({ theme }) => {
-  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false); // Menu de Navegação (Mobile)
-  const [isConfigOpen, setIsConfigOpen] = useState(false);   // Menu do Usuário/Configs
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false); // Menu Navegação Mobile
+  const [isConfigOpen, setIsConfigOpen] = useState(false);   // Menu Usuário/Configs
   const location = useLocation();
   const configRef = useRef(null);
 
-  // Zustand Store de Autenticação (Puxa usuário e função de logout)
+  // Zustand Store de Autenticação
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
 
   const navItems = [
     { label: 'Início', path: '/', icon: Home },
     { label: 'Câmeras', path: '/camera', icon: Camera },
-    { label: 'Monitoramento', path: '/monitoramento', icon: BarChart3 },
     { label: 'Logs & Relatórios', path: '/logs', icon: FileText },
   ];
 
-  // Fecha menus ao mudar de página
+  // Fecha os menus ao mudar de página
   useEffect(() => {
     setIsNavMenuOpen(false);
     setIsConfigOpen(false);
   }, [location.pathname]);
 
-  // Fecha o dropdown de configurações se clicar fora dele
+  // Fecha o menu de usuário ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (configRef.current && !configRef.current.contains(event.target)) {
@@ -50,31 +49,31 @@ export const NavBar = ({ theme }) => {
   return (
     <nav className="w-full px-4 py-3 flex items-center justify-between relative bg-[#1a1b23] border-b border-white/5 z-50">
       
-      {/* 1. LADO ESQUERDO: Botão Hambúrguer de Configurações + Logo */}
+      {/* 1. LADO ESQUERDO: Botão de Logo (Atua como Avatar / Disparador do Menu de Usuário) */}
       <div className="flex items-center gap-3 relative" ref={configRef}>
         <button
           onClick={() => setIsConfigOpen((prev) => !prev)}
-          className={`p-2 rounded-lg transition-all focus:outline-none ${
+          className={`group flex items-center p-1.5 rounded-xl transition-all focus:outline-none ${
             isConfigOpen 
-              ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
+              ? 'bg-blue-600/20 ring-2 ring-blue-500/40' 
+              : 'hover:bg-white/5'
           }`}
           title="Menu do Usuário e Configurações"
-          aria-label="Abrir Configurações"
+          aria-label="Abrir Menu do Usuário"
         >
-          {isConfigOpen ? <X size={22} /> : <Menu size={22} />}
+          <img 
+            src={logoCodexis} 
+            alt="Codexis Logo" 
+            className="h-7 w-auto transition-transform group-hover:scale-105 active:scale-95" 
+          />
         </button>
-
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logoCodexis} alt="Codexis Logo" className="h-7 w-auto" />
-        </Link>
 
         {/* --- DROPDOWN DE CONFIGURAÇÕES DO USUÁRIO --- */}
         {isConfigOpen && (
           <div className="absolute top-12 left-0 w-72 bg-[#1c1d26] border border-white/10 rounded-xl shadow-2xl p-4 z-50 animate-[fadeIn_0.15s_ease-out]">
-            {/* Perfil Simplificado */}
+            {/* Perfil do Usuário */}
             <div className="flex items-center gap-3 pb-3 mb-3 border-b border-white/5">
-              <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-semibold">
+              <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-semibold shrink-0">
                 {user?.name ? user.name.charAt(0).toUpperCase() : <User size={20} />}
               </div>
               <div className="flex flex-col min-w-0">
@@ -128,7 +127,7 @@ export const NavBar = ({ theme }) => {
         )}
       </div>
 
-      {/* 2. MENU NAVEGAÇÃO DESKTOP (Início, Câmeras, etc.) */}
+      {/* 2. NAVEGAÇÃO DESKTOP */}
       <div className="hidden md:flex items-center gap-6">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -150,17 +149,17 @@ export const NavBar = ({ theme }) => {
         })}
       </div>
 
-      {/* 3. LADO DIREITO: Tema + Menu de Navegação para Mobile */}
+      {/* 3. LADO DIREITO: Tema + Navegação Mobile */}
       <div className="flex items-center gap-3">
         <ThemeToggleButton theme={theme} />
 
-        {/* Botão para abrir os Links de Navegação no Mobile */}
+        {/* Botão para os Links de Navegação Mobile */}
         <button
           onClick={() => setIsNavMenuOpen((prev) => !prev)}
           className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 md:hidden focus:outline-none"
           aria-label="Abrir Menu de Navegação"
         >
-          {isNavMenuOpen ? <X size={22} /> : <Camera size={22} />}
+          {isNavMenuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
