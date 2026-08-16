@@ -257,6 +257,21 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
     return fallback;
   }
 
+  // Detecta o tipo de arquivo pela URL (extensão ou palavras-chave no path)
+  // e monta sempre o rótulo "Baixar {tipo}", ignorando o texto que a IA
+  // escreveu no link markdown.
+  function getDownloadLabel(url) {
+    const lower = (url || '').toLowerCase();
+
+    if (lower.includes('.pdf') || lower.includes('pdf')) return 'Baixar PDF';
+    if (lower.includes('.xlsx') || lower.includes('.xls') || lower.includes('excel')) return 'Baixar Excel';
+    if (lower.includes('.csv') || lower.includes('csv')) return 'Baixar CSV';
+    if (lower.includes('.doc') || lower.includes('word')) return 'Baixar Word';
+    if (lower.includes('.zip') || lower.includes('zip')) return 'Baixar ZIP';
+
+    return 'Baixar arquivo';
+  }
+
   async function handleDownload(url, label) {
     if (downloadingUrls[url]) return;
 
@@ -319,10 +334,11 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
   function renderMessageContent(content) {
     if (!content) return null;
 
-    // Aceita tanto o formato padrão markdown [texto](http://...) quanto
-    // variações que a IA às vezes retorna, como [texto](_url_: http://...).
-    // Captura tudo dentro dos parênteses e depois extrai a URL http(s) de lá.
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    // Aceita variações que a IA às vezes retorna:
+    // - formato padrão markdown [texto](http://...)
+    // - espaço entre ] e ( → [texto] (http://...)
+    // - prefixo dentro dos parênteses → [texto](_url_: http://...)
+    const linkRegex = /\[([^\]]+)\]\s*\(([^)]+)\)/g;
     const parts = [];
     let lastIndex = 0;
     let match;
@@ -356,7 +372,7 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
         <IconButtonModal
           key={`link-${key++}`}
           icon={Download}
-          label={downloadingUrls[linkUrl] ? 'Baixando...' : linkText}
+          label={downloadingUrls[linkUrl] ? 'Baixando...' : getDownloadLabel(linkUrl)}
           disabled={!!downloadingUrls[linkUrl]}
           onClick={() => handleDownload(linkUrl, linkText)}
           variant="full"
@@ -401,9 +417,9 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
                 <IconButtonModal
                   key={i}
                   icon={Download}
-                  label={downloadingUrls[att.url] ? 'Baixando...' : 'Baixar relatório'}
+                  label={downloadingUrls[att.url] ? 'Baixando...' : getDownloadLabel(att.url)}
                   disabled={!!downloadingUrls[att.url]}
-                  onClick={() => handleDownload(att.url, 'Baixar relatório')}
+                  onClick={() => handleDownload(att.url, 'relatorio')}
                   variant="full"
                   colorVariant="default"
                   className="!py-1 !px-2.5 !text-[10px] disabled:opacity-60"
