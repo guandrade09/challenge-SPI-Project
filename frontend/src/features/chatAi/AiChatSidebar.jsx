@@ -55,7 +55,7 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
       setSelectedDay(day);
       setNewConversationActive(false);
       setMessages(json.data || []);
-      setActiveTab('chat'); // Muda para o chat ao selecionar um dia
+      setActiveTab('chat');
     } catch (err) {
       // ignore
     }
@@ -142,17 +142,17 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
 
   return (
     <>
-      {/* Overlay Backdrop */}
+      {/* Overlay Backdrop - Usando fixed + z-50 para travar na tela inteira */}
       <div
         onClick={closeAiSidebar}
-        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ease-in-out ${
+        className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ease-in-out ${
           isAiSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       />
 
-      {/* Painel Lateral */}
+      {/* Painel Lateral - Usando fixed top-0 right-0 h-screen + z-50 */}
       <aside
-        className={`panel-theme-${theme} fixed top-0 right-0 h-full w-full sm:w-[420px] z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out transform ${
+        className={`panel-theme-${theme} fixed top-0 right-0 h-screen w-full sm:w-[420px] z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out transform ${
           isAiSidebarOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -226,11 +226,9 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
               </div>
             )}
 
-            {/* Seção 2: Histórico de Dias com Botão "Nova Conversa" no início */}
+            {/* Seção 2: Histórico */}
             {activeTab === 'history' && (
               <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col gap-3">
-                
-                {/* Botão no topo do Histórico */}
                 <div className="pb-3 border-b border-[var(--p-border)]">
                   <IconButtonModal
                     icon={Plus}
@@ -274,13 +272,12 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
                     </button>
                   ))}
                 </div>
-
               </div>
             )}
 
           </div>
 
-          {/* Área de Input (Ativa apenas na aba de conversa) */}
+          {/* Área de Input */}
           {activeTab === 'chat' && (
             <div className="p-3 border-t border-[var(--p-border)] bg-[var(--p-header-bg)]">
               <form

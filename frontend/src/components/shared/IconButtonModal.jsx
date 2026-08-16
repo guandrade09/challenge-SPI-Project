@@ -10,7 +10,6 @@ export const IconButtonModal = ({
   colorVariant = "default", // "default" | "cancel" | "danger" | "success"
   title,
 }) => {
-  // Mapeamento dinâmico de cores mantendo retrocompatibilidade
   const colorClasses = {
     default: "icon-btn-full",
     cancel: "icon-btn-cancel",
@@ -26,15 +25,14 @@ export const IconButtonModal = ({
       type={tipo}
       onClick={onClick}
       title={title || label}
-      className={`group p-1.5 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${variantClass} ${className}`}
+      className={`group px-3 py-2 sm:p-1.5 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2 select-none ${variantClass} ${className}`}
     >
-      {/* O ícone herda a cor adequada do estado */}
-      <div className={`transition-transform group-hover:scale-110 ${variant === 'full' ? 'text-main-title' : 'text-muted-theme group-hover:text-main-theme'}`}>
+      <div className={`transition-transform group-hover:scale-110 shrink-0 ${variant === 'full' ? 'text-main-title' : 'text-muted-theme group-hover:text-main-theme'}`}>
         {Icon && <Icon size={variant === 'full' ? 18 : 15} />}
       </div>
 
       {label && variant === 'full' && (
-        <span className="text-[11px] uppercase tracking-widest font-semibold">
+        <span className="text-[10px] sm:text-[11px] uppercase tracking-wider sm:tracking-widest font-semibold whitespace-nowrap">
           {label}
         </span>
       )}
