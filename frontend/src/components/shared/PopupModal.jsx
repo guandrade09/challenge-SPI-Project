@@ -9,41 +9,42 @@ export const PopupModal = ({
   icon: Icon,
   children,
   maxWidth = "max-w-md",
-  actions = [], // Array de: { icon: Icon, onClick: fn, label: string }
-  theme = "dynamic" // Adicionado fallback seguro para o tema
+  actions = [],
+  theme = "dynamic",
+  className = ""
 }) => {
   if (!isOpen) return null;
 
   const activeThemeClass = `panel-theme-${theme}`;
 
   return (
-    // Injetamos o escopo do tema na raiz do portal/modal fixo
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${activeThemeClass}`}>
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 ${activeThemeClass}`}>
+      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
         onClick={onClose}
       />
 
-      {/* Ajustado background e bordas usando as variáveis nativas injetadas do tema ativo */}
+      {/* Modal Card */}
       <div 
-        className={`relative w-full ${maxWidth} rounded-xl shadow-2xl border border-theme-divider overflow-hidden animate-in zoom-in duration-300`}
+        className={`relative w-full ${maxWidth} max-h-[90vh] flex flex-col rounded-xl shadow-2xl border border-theme-divider overflow-hidden animate-in zoom-in-95 duration-200 ${className}`}
         style={{ backgroundColor: 'var(--p-bg)', borderColor: 'var(--p-border)' }}
       >
         
-        {/* Header: Usa a variável do background de cabeçalho do mapa css */}
+        {/* Header (Fixo no topo) */}
         <div 
-          className="p-4 flex justify-between items-center border-b"
+          className="p-3.5 sm:p-4 flex justify-between items-center border-b shrink-0"
           style={{ backgroundColor: 'var(--p-header-bg)', borderColor: 'var(--p-border)' }}
         >
-          <div className="flex items-center gap-2">
-            {Icon && <Icon size={18} className="text-main-theme" />}
-            <h3 className="font-mono text-xs font-bold uppercase tracking-widest text-main-theme">
+          <div className="flex items-center gap-2 min-w-0 pr-2">
+            {Icon && <Icon size={18} className="text-main-theme shrink-0" />}
+            <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-main-theme truncate">
               {title}
             </h3>
           </div>
 
           {/* Grupo de Ações */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             {actions.map((action, index) => (
               <IconButtonModal
                 key={index}
@@ -54,7 +55,6 @@ export const PopupModal = ({
               />
             ))}
             
-            {/* Divisor semântico baseado na borda do tema */}
             {actions.length > 0 && (
               <div className="w-[1px] h-4 mx-1" style={{ backgroundColor: 'var(--p-border)' }} />
             )}
@@ -68,8 +68,8 @@ export const PopupModal = ({
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-8">
+        {/* Body (Rola internamente caso o conteúdo ou teclado seja maior que a tela) */}
+        <div className="p-4 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar">
           {children}
         </div>
       </div>

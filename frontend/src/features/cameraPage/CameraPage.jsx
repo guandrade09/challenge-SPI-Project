@@ -52,10 +52,12 @@ export const CameraPage = () => {
   const deleteCamera = useCameraStore((state) => state.deleteCamera);
 
   const removePresetForCamera = useCameraPresetsStore((state) => state.removePresetForCamera);
+  const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
 
   const { alertaAtivo, limparAlertaAtivo, liveDetections } = useMonitoramentoStore();
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isEditingRiskArea, setIsEditingRiskArea] = useState(false);
 
   useEffect(() => {
     fetchCameras();
@@ -70,14 +72,17 @@ export const CameraPage = () => {
   const currentCamera = cameras[currentIndex] || cameras[0];
   const currentCameraId = currentCamera?.id;
 
+  // CORREÇÃO 1: Leitura adaptada para o objeto { selectedEpis: [...], riskArea: ... }
   const activeEpisForVisuals = useCameraPresetsStore(
     useShallow((state) => {
       if (!currentCameraId) return EMPTY_ARRAY;
       const data = state.presets[currentCameraId];
-      return Array.isArray(data) ? data : EMPTY_ARRAY;
+      if (Array.isArray(data)) return data; // Suporte a retrocompatibilidade
+      return data?.selectedEpis || EMPTY_ARRAY;
     })
   );
 
+  // Sincroniza os seletores da interface com os dados persistidos no LocalStorage para a câmera atual
   useEffect(() => {
     if (!currentCameraId) return;
 
@@ -94,20 +99,34 @@ export const CameraPage = () => {
     useMonitoramentoStore.setState({ detections: novoEstadoDetections });
   }, [currentCameraId, activeEpisForVisuals]);
 
-  // Handler para troca direta através do Mosaico
+  // CORREÇÃO 2: Handler usa a função nativa 'toggleEpiForCamera' da sua store de Presets
+  const handleToggleEpi = (epiId) => {
+    if (!currentCameraId) return;
+
+    // 1. Grava diretamente no LocalStorage via Persist do Zustand
+    toggleEpiForCamera(currentCameraId, epiId);
+
+    // 2. Atualiza a store em tempo real do Monitoramento
+    const toggleDetection = useMonitoramentoStore.getState().toggleDetection;
+    toggleDetection(epiId);
+  };
+
   const handleSelectCamera = (index) => {
     if (index >= 0 && index < cameras.length) {
+      setIsEditingRiskArea(false);
       setCurrentIndex(index);
     }
   };
 
   const handleNextCamera = () => {
     if (cameras.length === 0) return;
+    setIsEditingRiskArea(false);
     setCurrentIndex((prev) => (prev + 1) % cameras.length);
   };
 
   const handlePrevCamera = () => {
     if (cameras.length === 0) return;
+    setIsEditingRiskArea(false);
     setCurrentIndex((prev) => (prev - 1 + cameras.length) % cameras.length);
   };
 
@@ -174,12 +193,13 @@ export const CameraPage = () => {
 
   if (!isLoading && cameras.length === 0) {
     return (
-      <div className={`panel-theme-${currentTheme} min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-4 ${isDark ? 'dark' : 'light'}`}>
-        <h2 className="text-xl text-theme-title tracking-wider">Nenhuma câmera cadastrada</h2>
-        <p className="text-theme-main tracking-wider">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
+      <div className={`panel-theme-${currentTheme} min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-center space-y-4 ${isDark ? 'dark' : 'light'}`}>
+        <h2 className="text-lg sm:text-xl text-theme-title tracking-wider">Nenhuma câmera cadastrada</h2>
+        <p className="text-xs sm:text-sm text-theme-main tracking-wider">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
         
         <div className="pt-4">
           <ButtonAddCam 
+            titlePopup="Add"
             theme={currentTheme} 
             onAddCamera={handleAddCamera} 
             variant="full"
@@ -194,22 +214,21 @@ export const CameraPage = () => {
 
   return (
     <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300 text-theme-title ${isDark ? 'dark' : 'light'}`}>
-      <div className="mx-auto p-3 md:p-5 max-w-[1800px] w-full">
+      <div className="mx-auto p-2 sm:p-4 md:p-5 max-w-[1800px] w-full">
         
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 items-start">
           
-          {/* LADO ESQUERDO: CÂMERA PRINCIPAL (9 COLUNAS) + MOSAICO LOGO ABAIXO */}
-          <div className="lg:col-span-9 flex flex-col w-full gap-4">
+          {/* LADO ESQUERDO: CÂMERA PRINCIPAL & MOSAICO */}
+          <div className="lg:col-span-9 flex flex-col w-full gap-3 sm:gap-4">
             
-            {/* Player Central */}
-            <div className="relative w-full h-[calc(100vh-220px)] min-h-[520px] flex items-center justify-center">
+            <div className="relative w-full h-[45vh] min-h-[280px] lg:h-[calc(100vh-220px)] lg:min-h-[520px] flex items-center justify-center overflow-hidden rounded-xl">
               {cameras.length > 1 && (
                 <button 
                   onClick={handlePrevCamera}
-                  className="absolute left-4 z-40 p-3 rounded-xl bg-[var(--p-header-bg)] border border-theme-divider text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 backdrop-blur-md shadow-2xl"
+                  className="absolute left-2 sm:left-4 z-40 p-2 sm:p-3 rounded-xl bg-[var(--p-header-bg)] border border-theme-divider text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 backdrop-blur-md shadow-2xl"
                   title="Câmera Anterior"
                 >
-                  <ChevronLeft size={24} />
+                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               )}
 
@@ -219,15 +238,17 @@ export const CameraPage = () => {
                 theme={currentTheme}
                 onAddCamera={handleAddCamera}
                 onDeleteCamera={() => handleDeleteCamera(currentCameraId)}
+                isEditingRiskArea={isEditingRiskArea}
+                setIsEditingRiskArea={setIsEditingRiskArea}
               />
 
               {cameras.length > 1 && (
                 <button 
                   onClick={handleNextCamera}
-                  className="absolute right-4 z-40 p-3 rounded-xl bg-[var(--p-header-bg)] border border-theme-divider text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 backdrop-blur-md shadow-2xl"
+                  className="absolute right-2 sm:right-4 z-40 p-2 sm:p-3 rounded-xl bg-[var(--p-header-bg)] border border-theme-divider text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 backdrop-blur-md shadow-2xl"
                   title="Próxima Câmera"
                 >
-                  <ChevronRight size={24} />
+                  <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               )}
             </div>
@@ -241,27 +262,37 @@ export const CameraPage = () => {
 
           </div>
 
-          {/* LADO DIREITO: PAINEL DE MODELOS ML & ALERTAS (3 COLUNAS) */}
-          <div className="lg:col-span-3 flex flex-col gap-5 w-full p-5 rounded-2xl bg-theme-section border border-theme-divider shadow-md transition-colors duration-300 h-[calc(100vh-100px)] min-h-[640px] overflow-y-auto">
-            <div className="flex flex-col gap-1">
+          {/* LADO DIREITO: PAINEL DE MODELOS ML & ALERTAS */}
+          <div className="lg:col-span-3 flex flex-col gap-3 sm:gap-4 w-full p-3.5 sm:p-5 rounded-2xl bg-[var(--p-header-bg)] dark:bg-neutral-900 light:bg-neutral-50 border border-theme-divider shadow-xl transition-colors duration-300 h-auto lg:h-[calc(100vh-220px)] lg:min-h-[520px]">
+            <div className="flex flex-col gap-0.5 sm:gap-1 shrink-0">
               <h2 
-                className="text-xl font-bold tracking-wider font-mono uppercase text-neutral-400 light:text-neutral-500 panel-text-sub"
+                className="text-lg sm:text-xl font-bold tracking-wider font-mono uppercase text-theme-title"
                 style={{ fontFamily: "'Barlow Condensed', 'Barlow', sans-serif" }}
               >
                 DETECÇÃO DE EPIS
               </h2>
-              <p className="text-xs font-mono tracking-wide text-neutral-400 light:text-neutral-500 panel-text-sub">
+              <p className="text-[11px] sm:text-xs font-mono tracking-wide text-neutral-400 light:text-neutral-600">
                 Selecione os equipamentos a monitorar em tempo real.
               </p>
             </div>
 
-            <div className="w-full">
-              <DetectionPanel options={DETECTION_CONFIG} theme={currentTheme} />
+            <div className="flex-1 min-h-0 flex flex-col">
+              <DetectionPanel 
+                options={DETECTION_CONFIG} 
+                theme={currentTheme}
+                isEditingRiskArea={isEditingRiskArea}
+                setIsEditingRiskArea={setIsEditingRiskArea}
+                hasRiskArea={!!currentCamera?.riskArea}
+                onToggleEpi={handleToggleEpi}
+                onClearRiskArea={() => {
+                  window.dispatchEvent(new CustomEvent('clear_risk_area'));
+                }}
+              />
             </div>
             
-            <div className="h-px w-full border-b border-theme-divider" />
+            <div className="h-px w-full border-b border-theme-divider opacity-50 shrink-0 my-1 lg:my-0" />
             
-            <div className="w-full mt-auto">
+            <div className="w-full shrink-0">
               <AlertPanel message={buildMessage()} status={panelStatus} theme={currentTheme} />
             </div>
           </div>

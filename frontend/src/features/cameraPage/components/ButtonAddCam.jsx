@@ -6,10 +6,11 @@ import { PopupModal, IconButtonModal } from '../../../components/shared';
 export function ButtonAddCam({ 
   theme = "dynamic", 
   onAddCamera, 
-  variant = "toggle",         // No carrossel ele atua como botão de painel/ícone
+  variant = "toggle",        // No carrossel ele atua como botão de painel/ícone
   colorVariant = "default",  // Cor padrão do sistema
-  label = "Adicionar",       // Rótulo dinâmico
-  className = "" 
+  label = "Add",       // Rótulo dinâmico
+  className = "",
+  titlePopup="Add"
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [nome, setNome] = useState('');
@@ -64,7 +65,6 @@ export function ButtonAddCam({
 
   return (
     <>
-      {/* Aqui o IconButtonModal recebe exatamente o estilo e variante configurados */}
       <IconButtonModal
         tipo="button"
         icon={Plus}
@@ -79,13 +79,13 @@ export function ButtonAddCam({
       <PopupModal
         isOpen={isOpen}
         onClose={handleClose}
-        title="Adicionar Nova Câmera"
+        title={titlePopup}
         icon={Plus}
         maxWidth="max-w-lg"
         theme={theme}
-        className="text-(var[--p-text])"
+        className="text-(var[--p-text]) w-full max-w-[95vw] sm:max-w-lg"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 max-h-[75vh] sm:max-h-none overflow-y-auto pr-1">
           <div>
             <label className="text-theme-head text-xs block mb-1 font-medium">Nome da Câmera</label>
             <input
@@ -95,7 +95,7 @@ export function ButtonAddCam({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Pátio Externo"
-              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50"
+              className="w-full p-3 sm:p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-base sm:text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50 transition-colors"
             />
           </div>
 
@@ -108,7 +108,7 @@ export function ButtonAddCam({
               value={setor}
               onChange={(e) => setSetor(e.target.value)}
               placeholder="Ex: Logística"
-              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50"
+              className="w-full p-3 sm:p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-base sm:text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50 transition-colors"
             />
           </div>
 
@@ -120,11 +120,11 @@ export function ButtonAddCam({
               value={ip}
               onChange={(e) => setIp(e.target.value)}
               placeholder="192.168.1.100"
-              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50"
+              className="w-full p-3 sm:p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-base sm:text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50 transition-colors"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-theme-divider">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-theme-divider">
             <IconButtonModal
               tipo="button"
               icon={X}
@@ -132,6 +132,7 @@ export function ButtonAddCam({
               label="Cancelar"
               colorVariant="cancel"
               variant="full"
+              className="w-full sm:w-auto"
             />
             <IconButtonModal
               tipo="submit"
@@ -139,6 +140,7 @@ export function ButtonAddCam({
               label={isSubmitting ? "Salvando..." : "Adicionar Câmera"}
               colorVariant="success"
               variant="full"
+              className="w-full sm:w-auto"
             />
           </div>
         </form>
