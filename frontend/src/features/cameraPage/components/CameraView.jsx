@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Maximize2, Cpu } from 'lucide-react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
-import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore'; // 1. IMPORTAR A STORE DE PRESETS
-import { ButtonAddCam } from '../../../features/monitoramentoPage/components/ButtonAddCam';
-import { ButtonDeleteCam } from '../../../features/monitoramentoPage/components/ButtonDeleteCam';
+import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
 
 const WS_URL = 'ws://localhost:8765';
@@ -20,27 +18,25 @@ const CORNER_CLASSES = [
 export function CameraView({ 
   camera, 
   activeEpi, 
-  theme = 'dynamic', 
-  onAddCamera, 
-  onDeleteCamera, 
   onToggleMaximize,
-  isEditingRiskArea,
-  setIsEditingRiskArea
+  isEditingRiskArea
 }) {
   const imgRef = useRef(null);
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
 
   const [connected, setConnected] = useState(false);
-  const [uptime, setUptime] = useState(0);
   const [useMockStream, setUseMockStream] = useState(false);
 
-  // 2. BUSCAR Métodos da Store de Presets
+  // ESTADO PARA O RELÓGIO EM TEMPO REAL
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
+
+  // Store de Presets
   const setRiskAreaForCamera = useCameraPresetsStore((s) => s.setRiskAreaForCamera);
   const clearRiskAreaForCamera = useCameraPresetsStore((s) => s.clearRiskAreaForCamera);
   const getRiskAreaForCamera = useCameraPresetsStore((s) => s.getRiskAreaForCamera);
 
-  // 3. Inicializa a área de risco buscando primeiro dos presets persistidos, depois da prop camera
+  // Inicializa a área de risco
   const [riskBox, setRiskBox] = useState(() => {
     return getRiskAreaForCamera(camera?.id) || camera?.riskArea || null;
   });
@@ -48,7 +44,16 @@ export function CameraView({
   const addAlerta = useMonitoramentoStore((s) => s.addAlerta);
   const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
 
-  // Sincroniza quando a câmera selecionada mudar
+  // RELÓGIO EM TEMPO REAL (Atualiza a cada 1 segundo)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('pt-BR'));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Sincroniza quando a câmera mudar
   useEffect(() => {
     if (camera?.id) {
       const savedRiskArea = getRiskAreaForCamera(camera.id) || camera.riskArea || null;
@@ -69,7 +74,6 @@ export function CameraView({
     }
   };
 
-  // 4. Salva no estado local E grava na Store Persistida
   const handleSaveRiskBox = (newBox) => {
     setRiskBox(newBox);
     
@@ -86,7 +90,6 @@ export function CameraView({
     }
   };
 
-  // 5. Deleta no estado local E remove da Store Persistida
   const handleDeleteRiskBox = () => {
     setRiskBox(null);
 
@@ -152,25 +155,6 @@ export function CameraView({
     };
   }, [addAlerta, setLiveDetections, camera?.id]);
 
-  useEffect(() => {
-    if (!connected && !useMockStream) {
-      setUptime(0);
-      return;
-    }
-    const id = setInterval(() => {
-      setUptime((prev) => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(id);
-  }, [connected, useMockStream]);
-
-  const formatUptime = (totalSeconds) => {
-    const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-    const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
-    const s = String(totalSeconds % 60).padStart(2, '0');
-    return `${h}:${m}:${s}`;
-  };
-
   const isStreamActive = connected || useMockStream;
 
   return (
@@ -178,30 +162,6 @@ export function CameraView({
       className="w-full flex flex-col rounded-2xl border panel-base backdrop-blur-md overflow-hidden transition-all duration-300 shadow-2xl h-full"
       style={{ borderColor: 'var(--p-subtext)' }}
     >
-      {/* Header */}
-      <div className="p-2.5 sm:p-4 panel-header-base flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-theme-divider shrink-0">
-        <div className="flex items-center justify-between w-full sm:w-auto gap-2">
-          <span className="text-theme-title text-xs sm:text-sm font-bold tracking-wider uppercase truncate max-w-[200px] sm:max-w-xs">
-            {`Câmera: ${camera?.nome || 'N/A'}`}
-          </span>
-
-          <span className="text-theme-head sm:hidden text-[9px] px-2 py-0.5 rounded-md badge-theme-industrial shrink-0 font-mono">
-            {camera?.setor || 'Geral'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-          <div className="grid grid-cols-2 gap-1.5 w-full sm:w-48 shrink-0">
-            <ButtonAddCam theme={theme} onAddCamera={onAddCamera} className="w-full justify-center text-xs py-1" />
-            <ButtonDeleteCam theme={theme} camera={camera} onDeleteCamera={onDeleteCamera} className="w-full justify-center text-xs py-1" />
-          </div>
-
-          <span className="hidden sm:inline-block text-theme-head animate-pulse text-[11px] px-2.5 py-1 rounded-md badge-theme-industrial shrink-0 font-mono">
-            {`Setor: ${camera?.setor || 'Geral'}`}
-          </span>
-        </div>
-      </div>
-
       {/* Screen */}
       <div className="flex-1 relative flex items-center justify-center bg-[var(--p-graf-bg)] overflow-hidden group min-h-[220px] sm:min-h-[380px]">
         {CORNER_CLASSES.map((classes, i) => (
@@ -274,19 +234,13 @@ export function CameraView({
         </button>
       </div>
 
-      {/* Footer */}
+      {/* Footer com Hora em Tempo Real */}
       <div className="flex items-center justify-between p-2.5 sm:p-3.5 font-mono text-[10px] sm:text-xs shrink-0 border-t border-[var(--p-border)] bg-[var(--p-header-bg)] transition-colors duration-300">
-        <span className="font-medium text-[var(--p-text)]">
-          {isStreamActive ? (
-            <span className="text-[var(--p-subtext)] font-bold">
-              {formatUptime(uptime)}{' '}
-              <span className="font-normal opacity-60 text-[var(--p-text)] hidden sm:inline">
-                · {connected ? 'servidor ws' : 'simulado'}
-              </span>
-            </span>
-          ) : (
-            <span className="opacity-60 text-[var(--p-text)]">--:--:--</span>
-          )}
+        <span className="font-bold text-[var(--p-subtext)] tracking-wider">
+          {currentTime}{' '}
+          <span className="font-normal opacity-60 text-[var(--p-text)] hidden sm:inline">
+            · {connected ? 'servidor ws' : useMockStream ? 'simulado' : 'offline'}
+          </span>
         </span>
 
         <div className="flex items-center gap-1.5 sm:gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wide select-none">

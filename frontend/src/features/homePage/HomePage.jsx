@@ -179,20 +179,37 @@ function HomePage() {
   const piorEpi = reportData?.prediction ? `${reportData.prediction}` : "Analisando...";
   const alertasPendentes = reportData?.accuracy?.erros ?? "---";
 
-  const homeMetricsConfig = [
-    {
-      key: "cpu",
-      name: "Consumo CPU (%)",
-      stroke: "var(--chart-line-1)",
-      yAxisId: "left",
-    },
-    {
-      key: "paginas",
-      name: "Carga de Processos / Páginas",
-      stroke: "var(--chart-line-2)",
-      yAxisId: "right",
-    },
-  ];
+// Configuração dinâmica das linhas e eixos do gráfico baseada na thread ativa
+  const homeMetricsConfig =
+    currentThread === "renderFrontend_pages"
+      ? [
+          {
+            key: "cpu",
+            name: "% HeapJS",
+            stroke: "var(--chart-line-1)",
+            yAxisId: "left",
+          },
+          {
+            key: "paginas",
+            name: "Páginas Carregadas",
+            stroke: "var(--chart-line-2)",
+            yAxisId: "right",
+          },
+        ]
+      : [
+          {
+            key: "cpu",
+            name: "% CPU",
+            stroke: "var(--chart-line-1)",
+            yAxisId: "left",
+          },
+          {
+            key: "paginas",
+            name: "Quantidade de Processos",
+            stroke: "var(--chart-line-2)",
+            yAxisId: "right",
+          },
+        ];
 
   // Componente visual do botão para trocar a origem dos dados
   const ThreadToggleButton = (

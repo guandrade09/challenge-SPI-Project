@@ -45,9 +45,6 @@ export function CameraMosaicGrid({ cameras, currentIndex, onSelectCamera }) {
         <span className="text-[10px] sm:text-xs font-mono font-semibold uppercase tracking-wider text-theme-head">
           MOSAICO DE CÂMERAS ({cameras.length})
         </span>
-        <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-widest hidden sm:inline">
-          ← Arrasta para navegar →
-        </span>
       </div>
 
       {/* Container "Segura e Arrasta" com Scrollbar Oculta */}

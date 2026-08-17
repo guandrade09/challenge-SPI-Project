@@ -45,14 +45,17 @@ const formatDetection = (d) => {
 export const CameraPage = () => {
   const currentTheme = useUiStore((s) => s.theme);
   
+  // Stores de Câmeras
   const cameras = useCameraStore((state) => state.cameras);
   const isLoading = useCameraStore((state) => state.isLoading);
   const fetchCameras = useCameraStore((state) => state.fetchCameras);
   const addCamera = useCameraStore((state) => state.addCamera);
   const deleteCamera = useCameraStore((state) => state.deleteCamera);
 
+  // Stores de Presets & Zonas de Risco
   const removePresetForCamera = useCameraPresetsStore((state) => state.removePresetForCamera);
   const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
+  const getRiskAreaForCamera = useCameraPresetsStore((state) => state.getRiskAreaForCamera);
 
   const { alertaAtivo, limparAlertaAtivo, liveDetections } = useMonitoramentoStore();
 
@@ -72,17 +75,23 @@ export const CameraPage = () => {
   const currentCamera = cameras[currentIndex] || cameras[0];
   const currentCameraId = currentCamera?.id;
 
-  // CORREÇÃO 1: Leitura adaptada para o objeto { selectedEpis: [...], riskArea: ... }
+  // VERIFICA SE A CÂMERA ATUAL TEM ÁREA DE RISCO SALVA
+  const currentRiskArea = useCameraPresetsStore(
+    useShallow((s) => {
+      if (!currentCameraId) return null;
+      return s.getRiskAreaForCamera(currentCameraId) || currentCamera?.riskArea || null;
+    })
+  );
+
   const activeEpisForVisuals = useCameraPresetsStore(
     useShallow((state) => {
       if (!currentCameraId) return EMPTY_ARRAY;
       const data = state.presets[currentCameraId];
-      if (Array.isArray(data)) return data; // Suporte a retrocompatibilidade
+      if (Array.isArray(data)) return data;
       return data?.selectedEpis || EMPTY_ARRAY;
     })
   );
 
-  // Sincroniza os seletores da interface com os dados persistidos no LocalStorage para a câmera atual
   useEffect(() => {
     if (!currentCameraId) return;
 
@@ -99,23 +108,29 @@ export const CameraPage = () => {
     useMonitoramentoStore.setState({ detections: novoEstadoDetections });
   }, [currentCameraId, activeEpisForVisuals]);
 
-  // CORREÇÃO 2: Handler usa a função nativa 'toggleEpiForCamera' da sua store de Presets
   const handleToggleEpi = (epiId) => {
     if (!currentCameraId) return;
-
-    // 1. Grava diretamente no LocalStorage via Persist do Zustand
     toggleEpiForCamera(currentCameraId, epiId);
-
-    // 2. Atualiza a store em tempo real do Monitoramento
     const toggleDetection = useMonitoramentoStore.getState().toggleDetection;
     toggleDetection(epiId);
   };
 
-  const handleSelectCamera = (index) => {
-    if (index >= 0 && index < cameras.length) {
+  const handleSelectCamera = (target) => {
       setIsEditingRiskArea(false);
-      setCurrentIndex(index);
-    }
+
+      if (!target) return;
+
+      // Se passou direto o objeto da câmera ou a string do ID
+      const targetId = typeof target === 'object' ? target.id : target;
+      
+      // Procura o índice correto no array original
+      const foundIndex = cameras.findIndex((cam) => cam.id === targetId);
+
+      if (foundIndex !== -1) {
+          setCurrentIndex(foundIndex);
+      } else if (typeof target === 'number' && target >= 0 && target < cameras.length) {
+          setCurrentIndex(target);
+      }
   };
 
   const handleNextCamera = () => {
@@ -160,6 +175,12 @@ export const CameraPage = () => {
     } catch (err) {
       console.error("Falha ao deletar câmera:", err);
     }
+  };
+
+  // LIMPEZA DE ÁREA DE RISCO
+  const handleClearRiskArea = () => {
+    window.dispatchEvent(new CustomEvent('clear_risk_area'));
+    setIsEditingRiskArea(false);
   };
 
   const buildMessage = () => {
@@ -221,7 +242,8 @@ export const CameraPage = () => {
           {/* LADO ESQUERDO: CÂMERA PRINCIPAL & MOSAICO */}
           <div className="lg:col-span-9 flex flex-col w-full gap-3 sm:gap-4">
             
-            <div className="relative w-full h-[45vh] min-h-[280px] lg:h-[calc(100vh-220px)] lg:min-h-[520px] flex items-center justify-center overflow-hidden rounded-xl">
+            {/* CONTAINER PRINCIPAL DO PLAYER */}
+            <div className="relative w-full h-[50vh] min-h-[320px] lg:h-[calc(100vh-210px)] lg:min-h-[520px] flex items-center justify-center overflow-hidden rounded-2xl bg-neutral-950 border border-theme-divider shadow-2xl">
               {cameras.length > 1 && (
                 <button 
                   onClick={handlePrevCamera}
@@ -235,11 +257,7 @@ export const CameraPage = () => {
               <CameraView 
                 camera={currentCamera}
                 activeEpi={activeEpiName}
-                theme={currentTheme}
-                onAddCamera={handleAddCamera}
-                onDeleteCamera={() => handleDeleteCamera(currentCameraId)}
                 isEditingRiskArea={isEditingRiskArea}
-                setIsEditingRiskArea={setIsEditingRiskArea}
               />
 
               {cameras.length > 1 && (
@@ -262,31 +280,24 @@ export const CameraPage = () => {
 
           </div>
 
-          {/* LADO DIREITO: PAINEL DE MODELOS ML & ALERTAS */}
-          <div className="lg:col-span-3 flex flex-col gap-3 sm:gap-4 w-full p-3.5 sm:p-5 rounded-2xl bg-[var(--p-header-bg)] dark:bg-neutral-900 light:bg-neutral-50 border border-theme-divider shadow-xl transition-colors duration-300 h-auto lg:h-[calc(100vh-220px)] lg:min-h-[520px]">
-            <div className="flex flex-col gap-0.5 sm:gap-1 shrink-0">
-              <h2 
-                className="text-lg sm:text-xl font-bold tracking-wider font-mono uppercase text-theme-title"
-                style={{ fontFamily: "'Barlow Condensed', 'Barlow', sans-serif" }}
-              >
-                DETECÇÃO DE EPIS
-              </h2>
-              <p className="text-[11px] sm:text-xs font-mono tracking-wide text-neutral-400 light:text-neutral-600">
-                Selecione os equipamentos a monitorar em tempo real.
-              </p>
-            </div>
-
+          {/* LADO DIREITO: PAINEL LATERAL DUAL (EPIs E GESTÃO) & ALERTAS */}
+          <div className="lg:col-span-3 flex flex-col gap-3 sm:gap-4 w-full p-3.5 sm:p-5 rounded-2xl bg-[var(--p-header-bg)] dark:bg-neutral-900 light:bg-neutral-50 border border-theme-divider shadow-xl transition-colors duration-300 h-auto lg:h-[calc(100vh-140px)] lg:min-h-[580px]">
+            
             <div className="flex-1 min-h-0 flex flex-col">
               <DetectionPanel 
                 options={DETECTION_CONFIG} 
                 theme={currentTheme}
+                cameras={cameras}
+                currentCamera={currentCamera}
+                currentIndex={currentIndex}
+                onSelectCamera={handleSelectCamera}
                 isEditingRiskArea={isEditingRiskArea}
                 setIsEditingRiskArea={setIsEditingRiskArea}
-                hasRiskArea={!!currentCamera?.riskArea}
+                hasRiskArea={!!currentRiskArea}
                 onToggleEpi={handleToggleEpi}
-                onClearRiskArea={() => {
-                  window.dispatchEvent(new CustomEvent('clear_risk_area'));
-                }}
+                onAddCamera={handleAddCamera}
+                onDeleteCamera={handleDeleteCamera}
+                onClearRiskArea={handleClearRiskArea}
               />
             </div>
             

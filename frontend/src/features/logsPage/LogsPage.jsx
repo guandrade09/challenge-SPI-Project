@@ -116,6 +116,37 @@ const LogsPage = () => {
     </button>
   );
 
+  const logsMetricsConfig =
+  currentThread === "renderFrontend_pages"
+    ? [
+        {
+          key: "cpu",
+          name: "% HeapJS",
+          stroke: "var(--chart-line-1)",
+          yAxisId: "left",
+        },
+        {
+          key: "paginas",
+          name: "Páginas Carregadas",
+          stroke: "var(--chart-line-2)",
+          yAxisId: "right",
+        },
+      ]
+    : [
+        {
+          key: "cpu",
+          name: "% CPU Consumo",
+          stroke: "var(--chart-line-1)",
+          yAxisId: "left",
+        },
+        {
+          key: "paginas",
+          name: "Quantidade de Processos",
+          stroke: "var(--chart-line-2)",
+          yAxisId: "right",
+        },
+      ];
+
   const COMPONENT_MAP = {
     logs: { label: "Central de Logs", component: <LogPanel logs={logs} loading={isLogLoading} theme={currentTheme}/> },
 
@@ -127,7 +158,7 @@ const LogsPage = () => {
     monitorcpu: { 
       label: `Recursos (${currentThread === "backend_processor" ? "Backend" : "Frontend"})`, 
       headerAction: ThreadToggleButton, // Injeta o botão no header do BasePanelModal via RenderColumn
-      component: <ResourceMonitor data={realTimeResourceData} theme={currentTheme} /> 
+      component: <ResourceMonitor data={realTimeResourceData} theme={currentTheme} linesConfig={logsMetricsConfig}/> 
     },
 
     // Coluna 3 — Detecções e ML

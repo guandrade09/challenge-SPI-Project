@@ -8,9 +8,9 @@ export function ButtonAddCam({
   onAddCamera, 
   variant = "toggle",        // No carrossel ele atua como botão de painel/ícone
   colorVariant = "default",  // Cor padrão do sistema
-  label = "Add",       // Rótulo dinâmico
+  label = "Adicionar Câmera",       // Rótulo dinâmico
   className = "",
-  titlePopup="Add"
+  titlePopup="Adicionar Nova Câmera"
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [nome, setNome] = useState('');
@@ -71,7 +71,7 @@ export function ButtonAddCam({
         title="Adicionar nova câmera"
         label={label}
         onClick={handleOpen}
-        variant={"full"}
+        variant={"panel-btn-toggle"}
         colorVariant={colorVariant}
         className={className}
       />

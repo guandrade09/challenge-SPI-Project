@@ -40,7 +40,7 @@ export function ButtonDeleteCam({ camera, theme = "dynamic", onDeleteCamera }) {
         label={"Excluir"}
         icon={Trash2}
         onClick={handleOpen}
-        variant='full'
+        variant='panel-btn-toggle'
         colorVariant='cancel'
       />
 
