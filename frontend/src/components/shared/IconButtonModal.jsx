@@ -25,7 +25,7 @@ export const IconButtonModal = ({
       type={tipo}
       onClick={onClick}
       title={title || label}
-      className={`group px-3 py-2 sm:p-1.5 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2 select-none ${variantClass} ${className}`}
+      className={`shadow-md group px-3 py-2 sm:p-1.5 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2 select-none tracking-wider text-[var(--text-theme-main)] ${variantClass} ${className}`}
     >
       <div className={`transition-transform group-hover:scale-110 shrink-0 ${variant === 'full' ? 'text-main-title' : 'text-muted-theme group-hover:text-main-theme'}`}>
         {Icon && <Icon size={variant === 'full' ? 18 : 15} />}
