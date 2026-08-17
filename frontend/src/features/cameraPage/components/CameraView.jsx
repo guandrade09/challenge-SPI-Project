@@ -225,14 +225,14 @@ export function CameraView({
 
         <div className="absolute top-2 sm:top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-max max-w-[90%]">
           {activeEpi ? (
-            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-theme-title shadow-lg truncate">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate">
               <Cpu size={12} className="animate-spin [animation-duration:3s] text-[var(--p-subtext)] shrink-0 sm:w-3.5 sm:h-3.5" />
               <span className="truncate">ML: DETECTANDO {activeEpi}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/40 border border-theme-divider text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-theme-head">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-              <span>AGUARDANDO IA</span>
+              <span className="truncate">AGUARDANDO SELEÇÃO DE EPI</span>
             </div>
           )}
         </div>
