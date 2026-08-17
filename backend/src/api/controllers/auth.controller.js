@@ -38,11 +38,12 @@ export async function login(req, res)
             });
     }
 
-    const token = await loginUser({ email, password });
+    const result = await loginUser({ email, password });
 
     return res.status(200).json({
             message: "Login realizado com sucesso",
-            token,
+            token: result.token,
+            user: result.user
         });
     } 
     catch (error) 

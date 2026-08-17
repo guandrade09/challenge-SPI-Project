@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Maximize2, Cpu } from 'lucide-react';
+import { Maximize2, Minimize2, Cpu, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
@@ -19,14 +19,19 @@ export function CameraView({
   camera, 
   activeEpi, 
   onToggleMaximize,
-  isEditingRiskArea
+  isEditingRiskArea,
+  onNextCamera,      // NOVO: Navegação
+  onPrevCamera,      // NOVO: Navegação
+  totalCameras = 0   // NOVO: Contador
 }) {
+  const containerRef = useRef(null);
   const imgRef = useRef(null);
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
 
   const [connected, setConnected] = useState(false);
   const [useMockStream, setUseMockStream] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // ESTADO PARA O RELÓGIO EM TEMPO REAL
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
@@ -44,7 +49,38 @@ export function CameraView({
   const addAlerta = useMonitoramentoStore((s) => s.addAlerta);
   const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
 
-  // RELÓGIO EM TEMPO REAL (Atualiza a cada 1 segundo)
+  // GERENCIADOR DE TELA CHEIA (Fullscreen API)
+  const handleToggleFullscreen = async () => {
+    if (onToggleMaximize) {
+      onToggleMaximize();
+    }
+
+    try {
+      if (!document.fullscreenElement) {
+        if (containerRef.current?.requestFullscreen) {
+          await containerRef.current.requestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao alternar modo tela cheia:", err);
+    }
+  };
+
+  // Monitora mudanças no estado de Tela Cheia do Navegador
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // RELÓGIO EM TEMPO REAL
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date().toLocaleTimeString('pt-BR'));
@@ -159,7 +195,10 @@ export function CameraView({
 
   return (
     <div 
-      className="w-full flex flex-col rounded-2xl border panel-base backdrop-blur-md overflow-hidden transition-all duration-300 shadow-2xl h-full"
+      ref={containerRef}
+      className={`w-full flex flex-col rounded-2xl border panel-base backdrop-blur-md overflow-hidden transition-all duration-300 shadow-2xl h-full ${
+        isFullscreen ? 'bg-black p-0 border-none rounded-none' : ''
+      }`}
       style={{ borderColor: 'var(--p-subtext)' }}
     >
       {/* Screen */}
@@ -177,6 +216,13 @@ export function CameraView({
           <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--p-subtext)] to-transparent z-20 pointer-events-none animate-[scanline_4s_linear_infinite]" />
         )}
 
+        {/* NOME DA CÂMERA EM FULLSCREEN */}
+        {isFullscreen && (
+          <div className="absolute top-4 left-4 z-30 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 font-mono text-xs text-white uppercase tracking-wider">
+            {camera?.nome || 'CÂMERA'}
+          </div>
+        )}
+
         <div className="absolute top-2 sm:top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-max max-w-[90%]">
           {activeEpi ? (
             <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-theme-title shadow-lg truncate">
@@ -191,9 +237,33 @@ export function CameraView({
           )}
         </div>
 
+        {/* CONTROLES DE TROCA DE CÂMERA (FLUTUANTES) */}
+        {totalCameras > 1 && (
+          <div className={`absolute inset-y-0 left-0 right-0 flex items-center justify-between px-3 sm:px-5 pointer-events-none z-30 transition-opacity duration-300 ${
+            isFullscreen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}>
+            <button
+              type="button"
+              onClick={onPrevCamera}
+              className="pointer-events-auto p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white shadow-xl backdrop-blur-md transition-all active:scale-90 cursor-pointer"
+              title="Câmera Anterior"
+            >
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onNextCamera}
+              className="pointer-events-auto p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white shadow-xl backdrop-blur-md transition-all active:scale-90 cursor-pointer"
+              title="Próxima Câmera"
+            >
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+          </div>
+        )}
+
         <img
           ref={imgRef}
-          alt={`Câmera - ${camera?.nome}`}
           className={`w-full h-full object-cover select-none transition-opacity duration-300 ${
             isStreamActive ? 'opacity-100 block' : 'opacity-0 hidden'
           }`}
@@ -225,12 +295,17 @@ export function CameraView({
           </div>
         )}
 
+        {/* Botão de Fullscreen */}
         <button 
-          onClick={onToggleMaximize}
-          className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-30 p-2 sm:p-2.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main hover:border-[var(--p-subtext)] opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-lg active:scale-95"
-          title="Expandir Visualização"
+          onClick={handleToggleFullscreen}
+          className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-30 p-2 sm:p-2.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main hover:border-[var(--p-subtext)] opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-lg active:scale-95 cursor-pointer"
+          title={isFullscreen ? "Sair da Tela Cheia" : "Expandir Visualização"}
         >
-          <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          {isFullscreen ? (
+            <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+          ) : (
+            <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          )}
         </button>
       </div>
 

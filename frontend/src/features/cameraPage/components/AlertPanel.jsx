@@ -5,17 +5,17 @@ import { Badge } from '../../../components/ui/Badge';
 const STATUS_CONFIG = {
   [PANEL_STATUS.PRONTO]: {
     badgeVariant: 'secondary',
-    dotClass: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse',
+    dotClass: 'bg-[var(--chart-line-ok,#10b981)] shadow-[0_0_8px_var(--chart-line-ok,#10b981)] animate-pulse',
     label: 'PRONTO',
   },
   [PANEL_STATUS.ATENCAO]: {
     badgeVariant: 'warning',
-    dotClass: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.4)] animate-pulse',
+    dotClass: 'bg-[var(--p-subtext)] shadow-[0_0_8px_var(--p-subtext)] animate-pulse',
     label: 'ATENÇÃO',
   },
   [PANEL_STATUS.ALERTA]: {
     badgeVariant: 'destructive',
-    dotClass: 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)] animate-[ping_1.5s_infinite]',
+    dotClass: 'bg-[var(--chart-line-alert,#ef4444)] shadow-[0_0_8px_var(--chart-line-alert,#ef4444)] animate-[ping_1.5s_infinite]',
     label: 'ALERTA',
   },
 };
@@ -32,12 +32,8 @@ export const AlertPanel = ({ message, status }) => {
         </Badge>
       </div>
 
-      {/* Corpo da Mensagem de Log / Alerta usando classe de texto dinâmico */}
       <div className="min-w-0">
-        <p
-          className="text-[12px] leading-relaxed tracking-wide m-0 text-theme-main font-mono whitespace-pre-wrap"
-          style={{ fontFamily: "'Barlow', sans-serif" }}
-        >
+        <p className="text-xs leading-relaxed tracking-wide m-0 text-theme-main font-mono whitespace-pre-wrap">
           {message || 'Nenhum evento registrado no log.'}
         </p>
       </div>

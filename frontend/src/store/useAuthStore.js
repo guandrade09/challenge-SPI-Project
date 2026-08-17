@@ -2,7 +2,22 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '../services/api';
 
-const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+// Função utilitária para extrair os dados do JWT sem bibliotecas extras
+const parseJwt = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+};
 
 export const useAuthStore = create(
   persist(
@@ -31,9 +46,21 @@ export const useAuthStore = create(
         set({ loading: true });
         try {
           const { data } = await api.post('/user/login', { email, password });
+          
+          // Trata se o token vem encapsulado { token: "..." } ou direto "..."
           const tokenFinal = data.token?.token ?? data.token;
+          
+          // Decodifica o JWT para extrair name e email inseridos pelo backend
+          const decoded = parseJwt(tokenFinal);
+
+          const userData = data.user || {
+            name: decoded?.name || null,
+            email: decoded?.email || email,
+            id: decoded?.id || null,
+          };
+
           set({
-            user: { email },
+            user: userData,
             token: tokenFinal,
             isAuthenticated: true,
             loading: false,
@@ -60,15 +87,4 @@ export const useAuthStore = create(
       }),
     }
   )
-);
-
-// Interceptador de resposta: limpa token e faz logout ao receber 401
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-    }
-    return Promise.reject(error);
-  }
 );

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 
 // Componentes
@@ -55,7 +54,6 @@ export const CameraPage = () => {
   // Stores de Presets & Zonas de Risco
   const removePresetForCamera = useCameraPresetsStore((state) => state.removePresetForCamera);
   const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
-  const getRiskAreaForCamera = useCameraPresetsStore((state) => state.getRiskAreaForCamera);
 
   const { alertaAtivo, limparAlertaAtivo, liveDetections } = useMonitoramentoStore();
 
@@ -116,21 +114,18 @@ export const CameraPage = () => {
   };
 
   const handleSelectCamera = (target) => {
-      setIsEditingRiskArea(false);
+    setIsEditingRiskArea(false);
 
-      if (!target) return;
+    if (!target) return;
 
-      // Se passou direto o objeto da câmera ou a string do ID
-      const targetId = typeof target === 'object' ? target.id : target;
-      
-      // Procura o índice correto no array original
-      const foundIndex = cameras.findIndex((cam) => cam.id === targetId);
+    const targetId = typeof target === 'object' ? target.id : target;
+    const foundIndex = cameras.findIndex((cam) => cam.id === targetId);
 
-      if (foundIndex !== -1) {
-          setCurrentIndex(foundIndex);
-      } else if (typeof target === 'number' && target >= 0 && target < cameras.length) {
-          setCurrentIndex(target);
-      }
+    if (foundIndex !== -1) {
+      setCurrentIndex(foundIndex);
+    } else if (typeof target === 'number' && target >= 0 && target < cameras.length) {
+      setCurrentIndex(target);
+    }
   };
 
   const handleNextCamera = () => {
@@ -152,6 +147,7 @@ export const CameraPage = () => {
       setCurrentIndex(Math.max(0, updatedCameras.length - 1));
     } catch (err) {
       console.error("Falha ao salvar câmera:", err);
+      throw err;
     }
   };
 
@@ -174,6 +170,7 @@ export const CameraPage = () => {
       }
     } catch (err) {
       console.error("Falha ao deletar câmera:", err);
+      throw err;
     }
   };
 
@@ -214,13 +211,13 @@ export const CameraPage = () => {
 
   if (!isLoading && cameras.length === 0) {
     return (
-      <div className={`panel-theme-${currentTheme} min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-center space-y-4 ${isDark ? 'dark' : 'light'}`}>
-        <h2 className="text-lg sm:text-xl text-theme-title tracking-wider">Nenhuma câmera cadastrada</h2>
-        <p className="text-xs sm:text-sm text-theme-main tracking-wider">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
+      <div className={`panel-theme-${currentTheme} min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-center space-y-4 bg-[var(--p-bg)] ${isDark ? 'dark' : 'light'}`}>
+        <h2 className="text-lg sm:text-xl text-theme-title tracking-wider font-theme-title">Nenhuma câmera cadastrada</h2>
+        <p className="text-xs sm:text-sm text-theme-main tracking-wider font-theme-body">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
         
         <div className="pt-4">
           <ButtonAddCam 
-            titlePopup="Add"
+            titlePopup="Adicionar Câmera"
             theme={currentTheme} 
             onAddCamera={handleAddCamera} 
             variant="full"
@@ -244,44 +241,28 @@ export const CameraPage = () => {
             
             {/* CONTAINER PRINCIPAL DO PLAYER */}
             <div className="relative w-full h-[50vh] min-h-[320px] lg:h-[calc(100vh-210px)] lg:min-h-[520px] flex items-center justify-center overflow-hidden rounded-2xl bg-neutral-950 border border-theme-divider shadow-2xl">
-              {cameras.length > 1 && (
-                <button 
-                  onClick={handlePrevCamera}
-                  className="absolute left-2 sm:left-4 z-40 p-2 sm:p-3 rounded-xl bg-[var(--p-header-bg)] border border-theme-divider text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 backdrop-blur-md shadow-2xl"
-                  title="Câmera Anterior"
-                >
-                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
-              )}
-
               <CameraView 
                 camera={currentCamera}
                 activeEpi={activeEpiName}
                 isEditingRiskArea={isEditingRiskArea}
+                onNextCamera={handleNextCamera}
+                onPrevCamera={handlePrevCamera}
+                totalCameras={cameras.length}
               />
-
-              {cameras.length > 1 && (
-                <button 
-                  onClick={handleNextCamera}
-                  className="absolute right-2 sm:right-4 z-40 p-2 sm:p-3 rounded-xl bg-[var(--p-header-bg)] border border-theme-divider text-theme-main hover:border-[var(--p-subtext)] transition-all active:scale-95 backdrop-blur-md shadow-2xl"
-                  title="Próxima Câmera"
-                >
-                  <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
-              )}
             </div>
 
             {/* MOSAICO DE CÂMERAS SECUNDÁRIAS */}
             <CameraMosaicGrid 
               cameras={cameras} 
               currentIndex={currentIndex} 
+              currentCamera={currentCamera}
               onSelectCamera={handleSelectCamera} 
             />
 
           </div>
 
           {/* LADO DIREITO: PAINEL LATERAL DUAL (EPIs E GESTÃO) & ALERTAS */}
-          <div className="lg:col-span-3 flex flex-col gap-3 sm:gap-4 w-full p-3.5 sm:p-5 rounded-2xl bg-[var(--p-header-bg)] dark:bg-neutral-900 light:bg-neutral-50 border border-theme-divider shadow-xl transition-colors duration-300 h-auto lg:h-[calc(100vh-140px)] lg:min-h-[580px]">
+          <div className="lg:col-span-3 flex flex-col gap-3 sm:gap-4 w-full p-3.5 sm:p-5 rounded-2xl bg-[var(--p-header-bg)] border border-theme-divider shadow-xl transition-colors duration-300 h-auto lg:h-[calc(100vh-140px)] lg:min-h-[580px]">
             
             <div className="flex-1 min-h-0 flex flex-col">
               <DetectionPanel 

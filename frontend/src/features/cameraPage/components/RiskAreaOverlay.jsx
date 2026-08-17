@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Edit3 } from 'lucide-react';
 
 export const RiskAreaOverlay = ({
   initialBox = null,
@@ -83,14 +83,14 @@ export const RiskAreaOverlay = ({
       onClick={handleClick}
       onMouseMove={handleMouseMove}
       className={`absolute inset-0 z-20 transition-colors ${
-        isEditing ? 'cursor-crosshair bg-black/30 select-none pointer-events-auto' : 'pointer-events-none'
+        isEditing ? 'cursor-crosshair bg-[var(--p-overlay)] select-none pointer-events-auto' : 'pointer-events-none'
       }`}
     >
       {/* Ponto Visual do 1º Clique */}
       {isDrawing && startPos && (
         <div
           style={{ left: `${startPos.x}%`, top: `${startPos.y}%` }}
-          className="absolute w-3 h-3 -ml-1.5 -mt-1.5 bg-amber-400 border-2 border-black rounded-full shadow-[0_0_8px_rgba(251,191,36,0.9)] animate-ping pointer-events-none z-30"
+          className="absolute w-3.5 h-3.5 -ml-1.75 -mt-1.75 bg-[var(--risk-edit-border)] border-2 border-black rounded-full shadow-[0_0_10px_var(--risk-edit-border)] animate-ping pointer-events-none z-30"
         />
       )}
 
@@ -102,15 +102,25 @@ export const RiskAreaOverlay = ({
             top: `${box.y}%`,
             width: `${box.width}%`,
             height: `${box.height}%`,
+            borderColor: isEditing ? 'var(--risk-edit-border)' : 'var(--risk-alert-border)',
+            backgroundColor: isEditing ? 'var(--risk-edit-bg)' : 'var(--risk-alert-bg)',
           }}
-          className={`absolute transition-all ${
+          className={`absolute transition-all border-2 ${
             isEditing
-              ? 'border-2 border-dashed border-amber-400 bg-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
-              : 'border-2 border-red-500 bg-red-500/15 shadow-[0_0_15px_rgba(239,68,68,0.4)] ring-1 ring-red-500/50'
+              ? 'border-dashed shadow-[0_0_15px_var(--risk-edit-bg)]'
+              : 'border-solid shadow-[0_0_15px_rgba(239,68,68,0.4)] ring-1 ring-[var(--risk-alert-border)]/50'
           }`}
         >
-          <div className="absolute -top-6 left-0 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-md flex items-center gap-1 uppercase tracking-wider whitespace-nowrap pointer-events-none">
-            <AlertTriangle size={12} className="text-yellow-300" />
+          {/* Badge Superior */}
+          <div 
+            style={{ backgroundColor: isEditing ? 'var(--risk-edit-badge)' : 'var(--risk-alert-badge)' }}
+            className="absolute -top-7 left-0 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shadow-md flex items-center gap-1.5 uppercase tracking-wider whitespace-nowrap pointer-events-none font-mono"
+          >
+            {isEditing ? (
+              <Edit3 size={12} className="text-amber-200" />
+            ) : (
+              <AlertTriangle size={12} className="text-yellow-300" />
+            )}
             <span>Área de Risco {isEditing ? (isDrawing ? '(Definindo final)' : '(Editando)') : '(Fixada)'}</span>
           </div>
         </div>
@@ -119,8 +129,11 @@ export const RiskAreaOverlay = ({
       {/* Instrução Flutuante Adaptativa */}
       {isEditing && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none z-30">
-          <span className="text-xs font-medium text-white/90 bg-black/85 px-4 py-2 rounded-full border border-amber-500/40 backdrop-blur-md shadow-xl flex items-center gap-2 font-mono">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className="text-xs font-medium text-[var(--p-text)] bg-[var(--p-header-bg)] px-4 py-2 rounded-full border border-[var(--p-border)] backdrop-blur-md shadow-xl flex items-center gap-2 font-mono">
+            <span 
+              style={{ backgroundColor: 'var(--risk-edit-border)' }}
+              className="w-2 h-2 rounded-full animate-pulse shrink-0" 
+            />
             {!isDrawing 
               ? 'Clique para marcar a Posição Inicial (Eixo A)' 
               : 'Clique em outro ponto para definir a Posição Final (Eixo B)'}

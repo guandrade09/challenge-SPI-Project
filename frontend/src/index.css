@@ -165,6 +165,12 @@ code {
       --chart-line-4: #b35900; /* Laranja escuro */
       --chart-line-alert: #b30000; /* Vermelho escuro */
 
+      --risk-edit-border: #f59e0b;
+      --risk-edit-bg: rgba(245, 158, 11, 0.15);
+      --risk-edit-badge: #d97706;
+      --risk-alert-border: #dc2626;
+      --risk-alert-bg: rgba(220, 38, 38, 0.15);
+      --risk-alert-badge: #dc2626;
     }
 
     .panel-theme-dark {
@@ -206,6 +212,13 @@ code {
       --chart-line-alert: #eab308; /* Amarelo */
 
       --p-chat-bg-user: #5196d6;
+      
+      --risk-edit-border: #f59e0b;
+      --risk-edit-bg: rgba(245, 158, 11, 0.2);
+      --risk-edit-badge: #b45309;
+      --risk-alert-border: #ef4444;
+      --risk-alert-bg: rgba(239, 68, 68, 0.2);
+      --risk-alert-badge: #dc2626;
     }
 
     .panel-theme-dark .recharts-line .recharts-curve {
@@ -251,6 +264,13 @@ code {
       --chart-line-alert: #ef4444; /* Vermelho */
 
       --p-chat-bg-user: #adadad;
+
+      --risk-edit-border: #fbbf24;
+      --risk-edit-bg: rgba(251, 191, 36, 0.18);
+      --risk-edit-badge: #d97706;
+      --risk-alert-border: #f87171;
+      --risk-alert-bg: rgba(248, 113, 113, 0.2);
+      --risk-alert-badge: #dc2626;
     }
 
     /* ========================================================

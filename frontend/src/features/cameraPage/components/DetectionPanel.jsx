@@ -1,4 +1,3 @@
-// src/components/DetectionPanel.jsx
 import React, { useState } from 'react';
 import { Shield, Settings } from 'lucide-react';
 import { DetectionCard } from './DetectionCard';
@@ -9,7 +8,7 @@ export const DetectionPanel = ({
   options, 
   theme,
   cameras,
-  currentIndex, // Prop recebida aqui
+  currentIndex,
   currentCamera,
   onSelectCamera,
   isEditingRiskArea, 
@@ -27,14 +26,14 @@ export const DetectionPanel = ({
     <div className="flex flex-col gap-3 w-full h-full justify-between">
       
       {/* ABAS DE NAVEGAÇÃO */}
-      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-neutral-900/40 border border-theme-divider">
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[var(--p-header-bg)] border border-theme-divider">
         <button
           type="button"
           onClick={() => setActiveTab('epis')}
-          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all ${
+          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all font-theme-title cursor-pointer ${
             activeTab === 'epis'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-              : 'text-neutral-400 hover:text-neutral-200'
+              ? 'bg-[var(--p-button-bg)] text-theme-accent border border-[var(--p-subtext)] shadow-sm'
+              : 'text-theme-muted hover:text-theme-title hover:bg-[var(--p-toggle-hover)]'
           }`}
         >
           <Shield size={14} />
@@ -44,10 +43,10 @@ export const DetectionPanel = ({
         <button
           type="button"
           onClick={() => setActiveTab('config')}
-          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all ${
+          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all font-theme-title cursor-pointer ${
             activeTab === 'config'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-              : 'text-neutral-400 hover:text-neutral-200'
+              ? 'bg-[var(--p-button-bg)] text-theme-accent border border-[var(--p-subtext)] shadow-sm'
+              : 'text-theme-muted hover:text-theme-title hover:bg-[var(--p-toggle-hover)]'
           }`}
         >
           <Settings size={14} />
@@ -57,7 +56,7 @@ export const DetectionPanel = ({
 
       {/* ABA 1: DETECÇÃO DE EPIS */}
       {activeTab === 'epis' && (
-        <div className="flex flex-col gap-2 w-full flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-2 w-full flex-1 overflow-y-auto custom-scrollbar pr-1">
           {options.map((option) => (
             <DetectionCard
               key={option.id}
