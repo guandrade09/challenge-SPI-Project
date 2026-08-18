@@ -32,10 +32,17 @@ Thumbs.db
 # Banco de dados
 *.sqlite
 *.sqlite3
+*.db
 
 # Arquivos temporários do SQLite
 *.sqlite-shm
 *.sqlite-wal
+*.db-shm
+*.db-wal
+
+# Dados biométricos (cadastro facial)
+ml_service/face_id/known_faces.json
+ml_service/face_id/known_faces.json.migrated
 
 # Imagens geradas
 backend/src/uploads/
