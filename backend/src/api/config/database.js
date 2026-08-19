@@ -28,6 +28,16 @@ export async function initDatabase() {
     ALTER TABLE detections ADD COLUMN source TEXT;
   `).catch(() => {});
 
+  // camera_id: identifica a UNIDADE de detecção (par de câmeras frontal+lateral do mesmo orquestrador)
+  await db.exec(`
+    ALTER TABLE detections ADD COLUMN camera_id TEXT;
+  `).catch(() => {});
+
+  // img_path_lateral: caminho da imagem da câmera lateral (ergonomia/zona), quando a unidade tem 2ª câmera
+  await db.exec(`
+    ALTER TABLE detections ADD COLUMN img_path_lateral TEXT;
+  `).catch(() => {});
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS zonas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,12 +118,19 @@ export async function initDatabase() {
       streamUrl TEXT NOT NULL,
       status TEXT NOT NULL,
       epis TEXT,
+      papel TEXT,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
 
 
   `);
+
+  // papel: identifica o papel da câmera na unidade de detecção ("frontal" p/ EPI, "lateral" p/ ergonomia/zona).
+  // O orquestrador busca essas duas câmeras em GET /api/cameras pra saber qual stream usar em cada modelo.
+  await db.exec(`
+    ALTER TABLE cameras ADD COLUMN papel TEXT;
+  `).catch(() => {});
   
   // await db.run("INSERT INTO onedrives (client_id, tenant_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?, ?)", [
   //   ONEDRIVE_CLIENT_ID,

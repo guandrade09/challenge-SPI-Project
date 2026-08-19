@@ -16,8 +16,8 @@ export async function saveCamera(camera) {
   const db = await connect();
 
   const query = `
-    INSERT INTO cameras (nome, setor, ip, streamUrl, status, epis, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO cameras (nome, setor, ip, streamUrl, status, epis, papel, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const now = new Date().toISOString();
@@ -31,6 +31,7 @@ export async function saveCamera(camera) {
     camera.streamUrl || `rtsp://${camera.ip}:554/stream`,
     camera.status || 'connecting',
     JSON.stringify(camera.epis || []),
+    camera.papel || null,
     createdAt,
     updatedAt
   ]);
@@ -42,6 +43,7 @@ export async function saveCamera(camera) {
     streamUrl: camera.streamUrl || `rtsp://${camera.ip}:554/stream`,
     status: camera.status || 'connecting',
     epis: camera.epis || [],
+    papel: camera.papel || null,
     createdAt,
     updatedAt
   });
@@ -50,8 +52,8 @@ export async function saveCamera(camera) {
 export async function getAllCameras() {
   const db = await connect();
   // 🚀 Adicionado 'ip' na query
-  const cameras = await db.all("SELECT id, nome, setor, ip, streamUrl, status, epis, createdAt, updatedAt FROM cameras");
-  
+  const cameras = await db.all("SELECT id, nome, setor, ip, streamUrl, status, epis, papel, createdAt, updatedAt FROM cameras");
+
   return cameras.map(cam => new Camera({
     ...cam,
     epis: parseEpis(cam.epis) // 🚀 Convertendo string de volta para Array
@@ -60,8 +62,8 @@ export async function getAllCameras() {
 
 export async function getCameraById(id) {
   const db = await connect();
-  const camera = await db.get("SELECT id, nome, setor, ip, streamUrl, status, epis, createdAt, updatedAt FROM cameras WHERE id = ?", [id]);
-  
+  const camera = await db.get("SELECT id, nome, setor, ip, streamUrl, status, epis, papel, createdAt, updatedAt FROM cameras WHERE id = ?", [id]);
+
   if (!camera) return null;
 
   return new Camera({
@@ -74,7 +76,7 @@ export async function updateCamera(id, camera) {
   const db = await connect();
   const query = `
     UPDATE cameras
-    SET nome = ?, setor = ?, ip = ?, streamUrl = ?, status = ?, epis = ?, updatedAt = ?
+    SET nome = ?, setor = ?, ip = ?, streamUrl = ?, status = ?, epis = ?, papel = ?, updatedAt = ?
     WHERE id = ?
   `;
 
@@ -87,6 +89,7 @@ export async function updateCamera(id, camera) {
     camera.streamUrl,
     camera.status,
     JSON.stringify(camera.epis || []),
+    camera.papel || null,
     updatedAt,
     id
   ]);

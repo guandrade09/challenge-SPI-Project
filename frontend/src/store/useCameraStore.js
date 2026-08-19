@@ -80,7 +80,27 @@ export const useCameraStore = create((set, get) => ({
     }
   },
 
-  // 4. Deletar Câmera
+  // 4. Atualiza os dados completos da câmera (nome, setor, ip, streamUrl, papel...)
+  updateCamera: async (cameraId, updatedFields) => {
+    const previousCameras = get().cameras;
+
+    try {
+      const savedCamera = await cameraService.updateCamera(cameraId, updatedFields);
+      set((state) => ({
+        cameras: state.cameras.map((cam) => (cam.id === cameraId ? savedCamera : cam))
+      }));
+      return savedCamera;
+    } catch (err) {
+      console.error('Erro ao atualizar câmera:', err);
+      set({
+        error: err.response?.data?.message || 'Erro ao atualizar câmera',
+        cameras: previousCameras
+      });
+      throw err;
+    }
+  },
+
+  // 5. Deletar Câmera
   deleteCamera: async (cameraId) => {
     set({ isLoading: true, error: null });
     try {

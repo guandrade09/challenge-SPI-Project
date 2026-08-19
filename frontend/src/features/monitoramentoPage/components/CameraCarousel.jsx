@@ -1,19 +1,22 @@
 // src/features/monitoramentoPage/components/CameraCarousel.jsx
 import React from 'react';
-import { ChevronLeft, ChevronRight, Maximize2, Cpu } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cpu } from 'lucide-react';
 import { ButtonAddCam } from './ButtonAddCam';
+import { ButtonEditCam } from './ButtonEditCam';
 import { ButtonDeleteCam } from './ButtonDeleteCam';
 
-export function CameraCarousel({ 
-  cameras, 
-  currentIndex, 
-  onNext, 
-  onPrev, 
-  onSelectCamera, 
-  activeEpi, 
-  theme = 'dynamic', 
+export function CameraCarousel({
+  cameras,
+  currentIndex,
+  onNext,
+  onPrev,
+  onSelectCamera,
+  activeEpi,
+  theme = 'dynamic',
   onAddCamera,
-  onDeleteCamera
+  onEditCamera,
+  onDeleteCamera,
+  centralContent,
 }) {
   
   const getCardStyle = (index) => {
@@ -62,8 +65,9 @@ export function CameraCarousel({
 
                   {/* Botões de Ação acoplados ao lado do nome (somente na câmera central) */}
                   {isCentral && (
-                    <div className="grid grid-cols-2 gap-1.5 ml-2 w-56 shrink-0">
+                    <div className="grid grid-cols-3 gap-1.5 ml-2 w-80 shrink-0">
                       <ButtonAddCam theme={theme} onAddCamera={onAddCamera} className="w-full justify-center" />
+                      <ButtonEditCam theme={theme} camera={cam} onEditCamera={onEditCamera} className="w-full justify-center" />
                       <ButtonDeleteCam theme={theme} camera={cam} onDeleteCamera={onDeleteCamera} className="w-full justify-center" />
                     </div>
                   )}
@@ -75,8 +79,10 @@ export function CameraCarousel({
               </div>
 
               {/* Body do Card (Visor de Câmera) */}
-              <div className="aspect-video panel-body-cam flex flex-col items-center justify-center relative group w-full">
-                {isCentral ? (
+              <div className={`panel-body-cam flex flex-col items-center justify-center relative group w-full ${isCentral && centralContent ? '' : 'aspect-video'}`}>
+                {isCentral && centralContent ? (
+                  centralContent
+                ) : isCentral ? (
                   <div className="text-center space-y-2 p-4">
                     <div className="flex items-center justify-center gap-2">
                       <div className={`w-2.5 h-2.5 rounded-full ${activeEpi ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`} />
@@ -84,9 +90,9 @@ export function CameraCarousel({
                         {activeEpi ? `ML ACTIVE: DETECTANDO ${activeEpi}` : 'AGUARDANDO SELEÇÃO DE IA'}
                       </p>
                     </div>
-                    
+
                     <p className="text-theme-head text-[10px] opacity-70">{cam.ip}</p>
-                    
+
                     {activeEpi && (
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full badge-theme-industrial text-xs font-semibold uppercase tracking-wider mt-2">
                         <Cpu size={12} className="animate-spin [animation-duration:3s] text-[var(--p-subtext)]" />
@@ -96,13 +102,6 @@ export function CameraCarousel({
                   </div>
                 ) : (
                   <p className="text-theme-head text-xs opacity-50">Feed em Espera</p>
-                )}
-
-                {/* Botão Expandir no Canto */}
-                {isCentral && (
-                  <button className="absolute bottom-4 right-4 p-2.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main hover:border-[var(--p-subtext)] opacity-0 group-hover:opacity-100 transition-all">
-                    <Maximize2 size={16} />
-                  </button>
                 )}
               </div>
             </div>

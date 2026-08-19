@@ -3,8 +3,8 @@ import cv2
 import base64
 import requests
 import numpy as np
-from ultralytics import YOLO
 from core.entities import Detection
+from ml_service.inference.model_loader import load_yolo_with_engine_fallback
 
 ROBOFLOW_API_KEY = "jeWHRTzYcXTuBLZjd90v"
 ROBOFLOW_MODEL   = "spi-challenge/9"
@@ -50,15 +50,16 @@ class EPIDetector:
     Cai automaticamente para o modelo local (best10.pt) se o Roboflow falhar.
     """
 
-    def __init__(self, model_path: str, conf: float = 0.5):
+    def __init__(self, model_path: str, conf: float = 0.5, imgsz: int = 320):
         self.conf       = conf
         self.model_path = model_path
+        self.imgsz      = imgsz
         self._mode      = "roboflow"
 
-        # Carrega modelo local sempre (fallback)
+        # Carrega modelo local sempre (fallback) — usa .engine (TensorRT) se disponível
         if not os.path.exists(model_path):
             raise RuntimeError(f"Modelo local não encontrado: {model_path}")
-        self.model = YOLO(model_path)
+        self.model = load_yolo_with_engine_fallback(model_path, imgsz=imgsz)
         print(f"[EPI] Modelo local carregado: {model_path} (fallback)")
 
     def run(self, frame: np.ndarray) -> list[Detection]:
@@ -100,7 +101,7 @@ class EPIDetector:
         return detections
 
     def _run_local(self, frame: np.ndarray) -> list[Detection]:
-        results = self.model(frame, conf=self.conf, verbose=False, imgsz=320)
+        results = self.model(frame, conf=self.conf, verbose=False, imgsz=self.imgsz)
         detections = []
         for result in results:
             for box in result.boxes:
@@ -117,5 +118,7 @@ class EPIDetector:
         return [d for d in detections if d.is_risk]
 
     def annotate(self, frame: np.ndarray):
-        results = self.model(frame, conf=self.conf, verbose=False)
+        # imgsz precisa bater com o que foi usado no export do .engine (ver model_loader.py) —
+        # um TensorRT engine é compilado pra um tamanho de entrada fixo.
+        results = self.model(frame, conf=self.conf, verbose=False, imgsz=self.imgsz)
         return results[0].plot()

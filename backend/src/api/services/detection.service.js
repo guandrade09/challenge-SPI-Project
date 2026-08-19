@@ -27,7 +27,13 @@ export async function createDetection(data)
   const folderPath = await createFolderByTimestamp(detection.timestamp);
   const imagePath = await base64ToImage(detection.img_Frame, folderPath);
 
+  // Imagem da câmera lateral (2ª câmera da mesma unidade) — só existe quando a unidade tem dupla câmera
+  const imagePathLateral = detection.img_Frame_lateral
+    ? await base64ToImage(detection.img_Frame_lateral, folderPath)
+    : null;
+
   detection.img_path = imagePath;
+  detection.img_path_lateral = imagePathLateral;
   detection.timestamp = normalizeBrasiliaTimestamp(detection.timestamp);
 
   await saveDetection(detection);

@@ -204,8 +204,14 @@ def _reba_level(score: int) -> str:
 # Detecção de queda
 
 
+FALL_KP_CONF_THRESHOLD = 0.5  # mais rígido que KP_CONF_THRESHOLD: queda é um alerta crítico,
+                                # e keypoints do tronco inferior com confiança só acima do
+                                # threshold frouxo geral costumam ser chute do modelo (corpo
+                                # cortado no enquadramento da câmera), não detecção real.
+
+
 def detect_fall(kps: np.ndarray, bbox: list) -> bool:
-   
+
     kp_n  = kps[NOSE]
     kp_ls = kps[LEFT_SHOULDER]
     kp_rs = kps[RIGHT_SHOULDER]
@@ -222,12 +228,28 @@ def detect_fall(kps: np.ndarray, bbox: list) -> bool:
             if nose_y >= shoulder_y * 0.95:
                 return True
 
-    # Critério 2: bbox mais largo que alto
-    if len(bbox) == 4:
+    # Critério 2: corpo na horizontal — só confiável se ombro, quadril E
+    # perna (joelho/tornozelo) estão REALMENTE visíveis com confiança alta.
+    # Um enquadramento cortado na cintura (comum em webcam de notebook, ou
+    # braço esticado pra frente) já produz um bbox mais largo que alto sem
+    # ninguém ter caído — sem ver o quadril/perna de verdade não dá pra
+    # distinguir "câmera cortou o corpo" de "pessoa caiu no chão".
+    kp_lh, kp_rh = kps[LEFT_HIP],  kps[RIGHT_HIP]
+    kp_lk, kp_rk = kps[LEFT_KNEE], kps[RIGHT_KNEE]
+    kp_la, kp_ra = kps[LEFT_ANKLE], kps[RIGHT_ANKLE]
+
+    shoulder_ok = float(kp_ls[2]) >= FALL_KP_CONF_THRESHOLD or float(kp_rs[2]) >= FALL_KP_CONF_THRESHOLD
+    hip_ok      = float(kp_lh[2]) >= FALL_KP_CONF_THRESHOLD or float(kp_rh[2]) >= FALL_KP_CONF_THRESHOLD
+    leg_ok      = (
+        float(kp_lk[2]) >= FALL_KP_CONF_THRESHOLD or float(kp_rk[2]) >= FALL_KP_CONF_THRESHOLD or
+        float(kp_la[2]) >= FALL_KP_CONF_THRESHOLD or float(kp_ra[2]) >= FALL_KP_CONF_THRESHOLD
+    )
+
+    if shoulder_ok and hip_ok and leg_ok and len(bbox) == 4:
         x1, y1, x2, y2 = bbox
         w = x2 - x1
         h = y2 - y1
-        if h > 0 and w / h > 1.5:  #
+        if h > 0 and w / h > 1.5:
             return True
 
     return False

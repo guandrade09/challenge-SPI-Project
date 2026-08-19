@@ -15,6 +15,7 @@ export function ButtonAddCam({
   const [nome, setNome] = useState('');
   const [setor, setSetor] = useState('');
   const [ip, setIp] = useState('');
+  const [papel, setPapel] = useState('frontal');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleClose = () => {
@@ -22,6 +23,7 @@ export function ButtonAddCam({
     setNome('');
     setSetor('');
     setIp('');
+    setPapel('frontal');
     setIsSubmitting(false);
   };
 
@@ -30,18 +32,33 @@ export function ButtonAddCam({
     setIsOpen(true);
   };
 
+  // Aceita tanto um IP puro (usa o path padrão) quanto uma URL RTSP completa
+  // já validada no VLC (com usuário/senha), ex: rtsp://admin:senha@192.168.15.2:554/onvif1
+  const resolveIpAndStream = (raw) => {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('rtsp://')) {
+      const hostMatch = trimmed.match(/@?([\d.]+):\d+/);
+      return { ip: hostMatch ? hostMatch[1] : trimmed, streamUrl: trimmed };
+    }
+    const resolvedIp = trimmed || "192.168.1.100";
+    return { ip: resolvedIp, streamUrl: `rtsp://${resolvedIp}:554/live/ch0` };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!nome.trim() || !setor.trim()) return;
 
     setIsSubmitting(true);
 
+    const { ip: resolvedIp, streamUrl } = resolveIpAndStream(ip);
+
     const newCamData = {
       nome: nome.trim(),
       setor: setor.trim(),
-      ip: ip.trim() || "192.168.1.100",
-      streamUrl: `rtsp://${ip.trim() || "192.168.1.100"}:554/live/ch0`,
+      ip: resolvedIp,
+      streamUrl,
       status: "online",
+      papel,
       epis: [
         { id: "1", nome: "capacete" },
         { id: "2", nome: "oculos" },
@@ -113,15 +130,45 @@ export function ButtonAddCam({
           </div>
 
           <div>
-            <label className="text-theme-head text-xs block mb-1 font-medium">Endereço IP / RTSP</label>
+            <label className="text-theme-head text-xs block mb-1 font-medium">Endereço IP ou URL RTSP</label>
             <input
               type="text"
               disabled={isSubmitting}
               value={ip}
               onChange={(e) => setIp(e.target.value)}
-              placeholder="192.168.1.100"
+              placeholder="192.168.1.100 ou rtsp://admin:senha@192.168.1.100:554/onvif1"
               className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50"
             />
+            <p className="text-theme-muted text-[10px] mt-1">
+              Cole aqui a URL completa já testada no VLC (com usuário e senha) para garantir que o caminho e as credenciais estejam corretos.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-theme-head text-xs block mb-1 font-medium">Papel na Unidade de Detecção</label>
+            <p className="text-theme-muted text-[10px] mb-2">
+              Frontal roda a detecção de EPI. Lateral roda ergonomia/zona de risco (necessária pra medir postura corretamente).
+            </p>
+            <div className="flex gap-2">
+              {[
+                { value: 'frontal', label: 'Frontal (EPI)' },
+                { value: 'lateral', label: 'Lateral (Ergonomia/Zona)' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => setPapel(opt.value)}
+                  className={`flex-1 p-2 rounded-lg border text-xs transition-colors disabled:opacity-50 ${
+                    papel === opt.value
+                      ? 'border-[var(--p-subtext)] text-[var(--p-subtext)] bg-[var(--p-subtext)]/10'
+                      : 'border-theme-divider text-theme-muted'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-theme-divider">

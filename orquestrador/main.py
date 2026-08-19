@@ -25,11 +25,11 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "ml_ergonomia"))
 sys.path.insert(0, os.path.join(ROOT, "ml_zona_critica"))
 
-from ultralytics import YOLO
 from ml_service.inference.camera import Camera
 from ml_service.inference.detector import EPIDetector, IncidentDebouncer
+from ml_service.inference.model_loader import load_yolo_with_engine_fallback
 from ml_service.streaming.websocket_server import (
-    send_frame, send_alert, send_detections, send_pose, start_server_in_thread,
+    send_frame, send_frame_lateral, send_alert, send_detections, send_pose, start_server_in_thread,
 )
 import ml_service.streaming.websocket_server as _ws
 from core.entities import Detection
@@ -40,9 +40,68 @@ import config_server
 # ── Configuração ───────────────────────────────────────────────────────────────
 BACKEND_URL        = "http://localhost:3000/api/detections"
 BACKEND_ZONAS_URL  = "http://localhost:3000/api/zonas"
+CAMERAS_API_URL    = "http://localhost:3000/api/cameras"
 CONFIG_SERVER_PORT = 5050
-CAMERA_SOURCE      = 0
+
+# Câmera frontal (EPI) — índice local (webcam do note) por padrão, se nada mais resolver.
+CAMERA_SOURCE         = 0
+
+# Câmera lateral (ergonomia + zona) — 2ª câmera da MESMA unidade de detecção.
+# None/"" = câmera única (comportamento antigo, pose roda no frame frontal).
+CAMERA_SOURCE_LATERAL = None
+
+# CAMERA_ID identifica a UNIDADE (o par frontal+lateral), não uma câmera isolada —
+# as duas câmeras pertencem ao mesmo processo/orquestrador, então não há "matching"
+# entre feeds independentes: elas já nascem correlacionadas por rodarem no mesmo loop.
 CAMERA_ID          = "cam_01"
+
+# Como tratar frontal+lateral pra fins de ALERTA (risco ergonômico/queda), quando as
+# duas estão ativas:
+#   "independente" (padrão) — cada câmera é um espaço diferente (ex: quarto + cozinha).
+#       Pessoas detectadas nas duas são tratadas como pessoas distintas, sem fundir.
+#   "mesma_pessoa" — as duas câmeras veem o MESMO posto/pessoa por ângulos diferentes
+#       (ex: uma bancada vista de frente e de lado). Funde por índice de detecção e
+#       fica com a leitura de ângulos REBA mais completa (ver _merge_pose_readings).
+# Isso só afeta a decisão de alerta — o desenho na tela sempre usa a detecção real de
+# cada câmera (ver send_pose com `source`), então nunca aparece gente "fantasma".
+CAMERA_DUAL_MODE = os.environ.get("CAMERA_DUAL_MODE", "independente")
+
+
+def _resolve_camera_sources():
+    """Resolve de onde vêm os streams frontal/lateral, nessa ordem de prioridade:
+    1) variáveis de ambiente CAMERA_SOURCE / CAMERA_SOURCE_LATERAL (útil pra testar
+       localmente sem precisar cadastrar nada no frontend);
+    2) câmeras cadastradas em /monitoramento (GET /api/cameras), usando o streamUrl
+       de quem tiver papel="frontal" e papel="lateral";
+    3) fallback: webcam local (índice 0) só na frontal, sem lateral.
+
+    DISABLE_LATERAL=1 força modo só-frontal mesmo com uma câmera lateral cadastrada
+    — útil quando o cadastro existe mas o stream físico não está disponível agora.
+    """
+    frontal_env = os.environ.get("CAMERA_SOURCE")
+    lateral_env = os.environ.get("CAMERA_SOURCE_LATERAL") or None
+    disable_lateral = os.environ.get("DISABLE_LATERAL") == "1"
+
+    cameras = []
+    try:
+        resp = requests.get(CAMERAS_API_URL, timeout=2)
+        resp.raise_for_status()
+        cameras = resp.json().get("data", [])
+    except Exception as e:
+        print(f"[CAMERAS] Não foi possível buscar câmeras cadastradas em {CAMERAS_API_URL} ({e}) — usando padrão/env.")
+
+    cam_frontal = next((c for c in cameras if c.get("papel") == "frontal"), None)
+    cam_lateral = next((c for c in cameras if c.get("papel") == "lateral"), None)
+
+    frontal = frontal_env or (cam_frontal["streamUrl"] if cam_frontal else 0)
+    lateral = None if disable_lateral else (lateral_env or (cam_lateral["streamUrl"] if cam_lateral else None))
+    camera_id = f"cam_{cam_frontal['id']}" if (cam_frontal and not frontal_env) else "cam_01"
+
+    if cam_frontal or cam_lateral:
+        print(f"[CAMERAS] Usando cadastro do frontend — frontal: {cam_frontal['nome'] if cam_frontal else '(nenhuma)'}, "
+              f"lateral: {'(desativada via DISABLE_LATERAL)' if disable_lateral else (cam_lateral['nome'] if cam_lateral else '(nenhuma)')}")
+
+    return frontal, lateral, camera_id
 
 # Frames consecutivos necessários para confirmar cada tipo de risco
 FRAMES_EPI   = 10
@@ -54,6 +113,17 @@ COOLDOWN_ZONA = 30
 
 # Limiar REBA para considerar risco ergonômico (inclusive)
 REBA_RISCO_MINIMO = 4   # MÉDIO = 4–7, ALTO = 8–15
+
+# Confiança mínima pra aceitar uma detecção do yolov8n-pose como "pessoa". O modelo
+# só tem essa classe, mas é o menor/menos preciso da família — sem esse limiar,
+# uma silhueta parecida (ex: um cachorro em certa pose) pode passar como pessoa
+# de baixa confiança e entrar na análise de ergonomia.
+POSE_CONF_MINIMO = 0.5
+
+# imgsz usado em toda chamada aos modelos de pose/EPI — precisa ser o MESMO valor
+# usado ao exportar o .engine (TensorRT), já que um engine é compilado pra um
+# tamanho de entrada fixo. Mudar aqui sem re-exportar quebra a inferência.
+MODEL_IMGSZ = 320
 
 
 # ── Verdict ────────────────────────────────────────────────────────────────────
@@ -100,6 +170,41 @@ def _pessoa_em_risco_ergo(p: dict) -> bool:
 def _reba_reason(p: dict) -> str:
     """Label legível para incluir no Verdict."""
     return f"ergonomia_reba_{p.get('reba_level', 'DESCONHECIDO').lower()}_{p.get('reba_score', 0)}"
+
+
+def _pose_completude(pessoa: dict) -> int:
+    """Quantos ângulos REBA foram calculados de verdade (mais = leitura mais confiável)."""
+    return len(pessoa.get("angulos", {}))
+
+
+def _merge_pose_readings(pessoas_a: list[dict], pessoas_b: list[dict]) -> list[dict]:
+    """
+    Combina a leitura de ergonomia das duas câmeras da mesma unidade.
+
+    A pessoa vira naturalmente durante o dia — em um dado momento pode estar de
+    perfil pra câmera frontal e de frente pra lateral (ou vice-versa). Uma vista
+    de frente é ambígua pro REBA (não dá pra medir flexão de tronco/pescoço direito),
+    então em vez de fixar numa câmera só, pareamos por índice de detecção e ficamos
+    com a leitura que tem mais ângulos calculados — ou seja, a câmera que no
+    momento está vendo a pessoa de um ângulo utilizável.
+    """
+    if not pessoas_a:
+        return pessoas_b
+    if not pessoas_b:
+        return pessoas_a
+    merged = []
+    for i in range(max(len(pessoas_a), len(pessoas_b))):
+        if i < len(pessoas_a) and i < len(pessoas_b):
+            melhor = (
+                pessoas_a[i] if _pose_completude(pessoas_a[i]) >= _pose_completude(pessoas_b[i])
+                else pessoas_b[i]
+            )
+            merged.append(melhor)
+        elif i < len(pessoas_a):
+            merged.append(pessoas_a[i])
+        else:
+            merged.append(pessoas_b[i])
+    return merged
 
 
 # ── Parse EPI sem segunda inferência (corrige Bug #1) ─────────────────────────
@@ -301,11 +406,16 @@ def _load_zona(zone_checker, camera_id: str) -> bool:
 
 
 # ── Thread de captura separada (corrige Bug #4) ────────────────────────────────
-def _capture_loop(camera: Camera, frame_q: queue.Queue):
+def _capture_loop(camera: Camera, frame_q: queue.Queue, max_width: int | None = None):
     while camera.is_opened():
         ret, frame = camera.read()
         if not ret:
             break
+        # Downscale logo na captura — reduz custo de pose/encode/websocket rio abaixo.
+        # Importante sobretudo pro stream de rede (celular), que costuma vir em alta resolução.
+        if max_width and frame.shape[1] > max_width:
+            scale = max_width / frame.shape[1]
+            frame = cv2.resize(frame, (max_width, int(frame.shape[0] * scale)))
         if frame_q.full():
             try:
                 frame_q.get_nowait()
@@ -316,13 +426,20 @@ def _capture_loop(camera: Camera, frame_q: queue.Queue):
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 def main():
-    model_epi = os.path.join(ROOT, "ml_service", "vision", "models", "best.pt")
+    global CAMERA_SOURCE, CAMERA_SOURCE_LATERAL, CAMERA_ID
+    CAMERA_SOURCE, CAMERA_SOURCE_LATERAL, CAMERA_ID = _resolve_camera_sources()
+
+    model_epi  = os.path.join(ROOT, "ml_service", "vision", "models", "best.pt")
+    model_pose = os.path.join(ROOT, "yolov8n-pose.pt")
+
+    dual_camera = bool(CAMERA_SOURCE_LATERAL)
 
     print("[INIT] Carregando modelos...")
     try:
         camera        = Camera(source=CAMERA_SOURCE)
-        epi_detector  = EPIDetector(model_path=model_epi)
-        pose_model    = YOLO("yolov8n-pose.pt")
+        camera_lateral = Camera(source=CAMERA_SOURCE_LATERAL) if dual_camera else None
+        epi_detector  = EPIDetector(model_path=model_epi, imgsz=MODEL_IMGSZ)
+        pose_model    = load_yolo_with_engine_fallback(model_pose, imgsz=MODEL_IMGSZ)
         pose_analyzer = PoseAnalyzer(model_path=None)
         zone_checker  = ZoneChecker(model_path=None)
     except Exception as e:
@@ -331,6 +448,14 @@ def main():
 
     camera.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     camera.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    if camera_lateral is not None:
+        # BUFFERSIZE=1: sem isso, um stream de rede (celular) acumula frames num buffer
+        # interno do OpenCV mais rápido do que conseguimos consumir — o atraso cresce
+        # sem parar em vez de estabilizar. Também tentamos setar resolução (funciona só
+        # em câmeras locais; streams MJPEG ignoram e continuam na resolução do app).
+        camera_lateral.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        camera_lateral.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        camera_lateral.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     _load_zona(zone_checker, CAMERA_ID)
     config_server.start(zone_checker, CAMERA_ID, CONFIG_SERVER_PORT)
@@ -340,18 +465,32 @@ def main():
     zona_debouncer = SimpleDebouncer(required_frames=FRAMES_ZONA, cooldown_frames=COOLDOWN_ZONA)
 
     _epi_state = {"counter": 0, "cache": [], "running": False}  # estado persistente entre frames
+    _pose_state = {
+        "counter": 0, "raw": None, "lat_ms": 0.0, "pck": None,
+        "pessoas": [], "pessoas_frontal": [], "pessoas_lateral": [],
+    }
     queda_debouncer = SimpleDebouncer(required_frames=6, cooldown_frames=120)  # 6 frames = ~0.2s
     threading.Thread(target=_post_worker, daemon=True).start()
     start_server_in_thread()
 
     frame_queue = queue.Queue(maxsize=2)
-    threading.Thread(target=_capture_loop, args=(camera, frame_queue), daemon=True).start()
+    threading.Thread(target=_capture_loop, args=(camera, frame_queue, 640), daemon=True).start()
+
+    frame_queue_lateral = None
+    _last_lateral_frame = {"frame": None}
+    if camera_lateral is not None:
+        frame_queue_lateral = queue.Queue(maxsize=2)
+        threading.Thread(target=_capture_loop, args=(camera_lateral, frame_queue_lateral, 480), daemon=True).start()
 
     zona_info = zone_checker.get(CAMERA_ID)
     _verdict_cooldown = 0   # frames restantes antes de voltar para MONITORANDO
     print("[OK] Orquestrador ativo — ESC para sair")
-    print(f"     EPI:       {model_epi}")
-    print(f"     Pose:      yolov8n-pose.pt (compartilhado entre ergonomia e zona)")
+    print(f"     Unidade:   {CAMERA_ID}")
+    print(f"     EPI:       {model_epi}  (câmera frontal: {CAMERA_SOURCE})")
+    if dual_camera:
+        print(f"     Pose:      yolov8n-pose.pt  (câmera lateral: {CAMERA_SOURCE_LATERAL})")
+    else:
+        print(f"     Pose:      yolov8n-pose.pt (compartilhado entre ergonomia e zona, câmera única)")
     print(f"     Ergonomia: REBA ≥ {REBA_RISCO_MINIMO} dispara risco  ({FRAMES_ERGO} frames p/ confirmar)")
     print(f"     Zona:      {zona_info['nome'] if zona_info else '(não configurada)'}  ({FRAMES_ZONA} frames p/ confirmar)")
 
@@ -359,6 +498,18 @@ def main():
         while True:
             frame  = frame_queue.get()
             t_start = time.perf_counter()
+
+            # Frame usado para pose (ergonomia + zona): vem da câmera lateral quando
+            # configurada (2ª câmera da mesma unidade); senão cai no frame frontal.
+            frame_pose = frame
+            if frame_queue_lateral is not None:
+                try:
+                    _last_lateral_frame["frame"] = frame_queue_lateral.get_nowait()
+                except queue.Empty:
+                    pass
+                if _last_lateral_frame["frame"] is not None:
+                    frame_pose = _last_lateral_frame["frame"]
+                    send_frame_lateral(frame_pose)
 
             # 1. EPI — Roboflow roda em background a cada 5 frames sem bloquear o loop
             _epi_state["counter"] += 1
@@ -381,12 +532,41 @@ def main():
                 if epi_dets else None
             )
 
-            # 2 + 3. Pose (modelo compartilhado — roda UMA vez)
-            raw_pose    = pose_model(frame, verbose=False, imgsz=320)
-            lat_pose_ms = raw_pose[0].speed.get("inference", 0.0)
-            pck_pose    = _calc_pck(raw_pose)
+            # 2 + 3. Pose — roda nas DUAS câmeras da unidade quando há lateral configurada.
+            # A pessoa vira naturalmente; a câmera que estiver vendo de perfil no momento
+            # é que dá leitura confiável de ergonomia, então usamos a melhor das duas em
+            # vez de fixar só na lateral (a cada 2 frames, pra não saturar a GPU/CPU).
+            _pose_state["counter"] += 1
+            if _pose_state["counter"] >= 2 or _pose_state["raw"] is None:
+                _pose_state["counter"] = 0
+                raw_lateral = pose_model(frame_pose, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
+                _pose_state["raw"]    = raw_lateral   # usado pelo zone_checker (câmera lateral)
+                _pose_state["lat_ms"] = raw_lateral[0].speed.get("inference", 0.0)
+                _pose_state["pck"]    = _calc_pck(raw_lateral)
+                pessoas_lateral       = pose_analyzer.analyze_from_results(raw_lateral)
 
-            ergo_pessoas  = pose_analyzer.analyze_from_results(raw_pose)
+                if dual_camera:
+                    raw_frontal     = pose_model(frame, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
+                    pessoas_frontal = pose_analyzer.analyze_from_results(raw_frontal)
+                    _pose_state["pessoas_frontal"] = pessoas_frontal
+                    _pose_state["pessoas_lateral"] = pessoas_lateral
+                    # Pra decidir ALERTA: "mesma_pessoa" funde por índice (mesmo posto,
+                    # ângulos complementares); "independente" só junta as duas listas —
+                    # cada pessoa detectada conta uma vez, sem virar a mesma nas duas câmeras.
+                    if CAMERA_DUAL_MODE == "mesma_pessoa":
+                        _pose_state["pessoas"] = _merge_pose_readings(pessoas_frontal, pessoas_lateral)
+                    else:
+                        _pose_state["pessoas"] = pessoas_frontal + pessoas_lateral
+                else:
+                    # Câmera única: frame_pose é a própria frontal, não uma lateral de verdade.
+                    _pose_state["pessoas_frontal"] = pessoas_lateral
+                    _pose_state["pessoas_lateral"] = []
+                    _pose_state["pessoas"] = pessoas_lateral
+
+            raw_pose      = _pose_state["raw"]
+            lat_pose_ms   = _pose_state["lat_ms"]
+            pck_pose      = _pose_state["pck"]
+            ergo_pessoas  = _pose_state["pessoas"]
 
             # ── REBA: filtra pessoas em risco (score >= REBA_RISCO_MINIMO) ──
             ergo_em_risco  = [p for p in ergo_pessoas if _pessoa_em_risco_ergo(p)]
@@ -452,7 +632,12 @@ def main():
                 for d in epi_dets
             ])
 
-            send_pose(ergo_pessoas)   # keypoints + reba_score + reba_level para o frontend
+            # keypoints + reba_score + reba_level para o frontend — sempre a detecção
+            # REAL de cada câmera (nunca a lista fundida), pra cada canvas só desenhar
+            # gente que essa câmera especificamente viu.
+            send_pose(_pose_state["pessoas_frontal"], source="frontal")
+            if dual_camera:
+                send_pose(_pose_state["pessoas_lateral"], source="lateral")
 
             # 6. Veredicto confirmado (debounced) → beep + banco
             if epi_confirmed or ergo_confirmed or zona_confirmed:
@@ -476,13 +661,22 @@ def main():
                 _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
                 img_b64   = base64.b64encode(buffer).decode("utf-8")
 
-                _post_queue.put({
+                payload = {
                     "timestamp":  timestamp.isoformat(),
                     "label":      ", ".join(confirmed_verdict.reasons),
                     "confidence": confirmed_verdict.confidence,
                     "img_Frame":  img_b64,
                     "source":     ", ".join(confirmed_verdict.sources),
-                })
+                    "camera_id":  CAMERA_ID,   # identifica a UNIDADE (par frontal+lateral), não uma câmera isolada
+                }
+
+                # Só existe frame lateral de verdade quando a 2ª câmera está configurada
+                # (senão frame_pose é só um alias do frame frontal, redundante)
+                if dual_camera and _last_lateral_frame["frame"] is not None:
+                    _, buffer_lateral = cv2.imencode(".jpg", frame_pose, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    payload["img_Frame_lateral"] = base64.b64encode(buffer_lateral).decode("utf-8")
+
+                _post_queue.put(payload)
 
             # 7. Métricas de latência/qualidade — a cada frame
             lat_total_ms = (time.perf_counter() - t_start) * 1000
@@ -493,6 +687,8 @@ def main():
 
     finally:
         camera.release()
+        if camera_lateral is not None:
+            camera_lateral.release()
         cv2.destroyAllWindows()
         print("[OK] Recursos liberados.")
 

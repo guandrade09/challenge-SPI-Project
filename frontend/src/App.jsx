@@ -7,7 +7,6 @@ import { PerformanceObserver } from './components/shared/PerformanceObserver'; /
 // Importações das Features
 import { Login, Register, ForgotPassword, Logout } from './features/auth/registerUserPage';
 import LogsPage from './features/logsPage/LogsPage';
-import CameraPage from './features/cameraPage/CameraPage';
 import HomePage from './features/homePage/HomePage';
 import MonitoramentoPage from './features/monitoramentoPage/MonitoramentoPage';
 
@@ -29,7 +28,6 @@ export function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/logs" element={<LogsPage />} />
-            <Route path="/camera" element={<CameraPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
             <Route path="/settings" element={
               <div className="flex min-h-screen items-center justify-center">

@@ -8,6 +8,7 @@ import websockets
 CONNECTED_CLIENTS = set()
 _loop = None
 _queue = None
+_queue_lateral = None
 _ready = threading.Event()
 
 async def register(websocket):
@@ -19,10 +20,10 @@ async def register(websocket):
         CONNECTED_CLIENTS.discard(websocket)
         print(f"[WS] Cliente desconectado. Total: {len(CONNECTED_CLIENTS)}")
 
-async def _sender_loop():
+async def _sender_loop(queue_ref, msg_type):
     global CONNECTED_CLIENTS
     while True:
-        frame = await _queue.get()
+        frame = await queue_ref.get()
         if not CONNECTED_CLIENTS:
             continue
 
@@ -30,7 +31,7 @@ async def _sender_loop():
         frame_b64 = base64.b64encode(buffer).decode('utf-8')
 
         # Envia frame como JSON com type
-        msg = json.dumps({"type": "frame", "data": frame_b64})
+        msg = json.dumps({"type": msg_type, "data": frame_b64})
 
         disconnected = set()
         for client in list(CONNECTED_CLIENTS):
@@ -51,6 +52,18 @@ def send_frame(frame):
             _queue.put_nowait(frame)
         _loop.call_soon_threadsafe(_put)
 
+def send_frame_lateral(frame):
+    """Envia o frame da câmera lateral (2ª câmera da mesma unidade) como type 'frame_lateral'."""
+    if _loop and _queue_lateral:
+        def _put():
+            if _queue_lateral.full():
+                try:
+                    _queue_lateral.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+            _queue_lateral.put_nowait(frame)
+        _loop.call_soon_threadsafe(_put)
+
 def send_alert(label: str, confidence: float, timestamp: str):
     if not _loop or not CONNECTED_CLIENTS:
         return
@@ -69,9 +82,11 @@ def send_alert(label: str, confidence: float, timestamp: str):
     asyncio.run_coroutine_threadsafe(_broadcast(), _loop)
 
 async def _serve():
-    global _queue
+    global _queue, _queue_lateral
     _queue = asyncio.Queue(maxsize=2)
-    asyncio.create_task(_sender_loop())
+    _queue_lateral = asyncio.Queue(maxsize=2)
+    asyncio.create_task(_sender_loop(_queue, "frame"))
+    asyncio.create_task(_sender_loop(_queue_lateral, "frame_lateral"))
 
     async with websockets.serve(register, "0.0.0.0", 8765):
         print("[WS] Servidor WebSocket rodando em ws://localhost:8765")
@@ -94,10 +109,10 @@ def send_detections(detections: list):
     asyncio.run_coroutine_threadsafe(_broadcast(), _loop)
 
 
-def send_pose(ergo_pessoas: list):
+def send_pose(ergo_pessoas: list, source: str = "frontal"):
     if not _loop or not CONNECTED_CLIENTS:
         return
-    msg = json.dumps({"type": "pose", "pessoas": ergo_pessoas})
+    msg = json.dumps({"type": "pose", "pessoas": ergo_pessoas, "source": source})
     async def _broadcast():
         for client in list(CONNECTED_CLIENTS):
             try:

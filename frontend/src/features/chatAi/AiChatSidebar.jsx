@@ -28,7 +28,13 @@ export const AiChatSidebar = () => {
         />
       )}
 
-      <aside className={`fixed right-0 top-0 h-full w-96 bg-[var(--color-panel-bg)] shadow-2xl z-50 transform transition-transform duration-500 ease-in-out flex flex-col ${isAiSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      {/* transform inline em vez de translate-x-0/translate-x-full: essas classes do Tailwind v4
+          não fecham o painel aqui — a variável --tw-translate-x fica resetada por outra camada
+          do CSS, então o valor computado nunca muda mesmo com a classe certa aplicada. */}
+      <aside
+        className="fixed right-0 top-0 h-full w-96 bg-[var(--color-panel-bg)] shadow-2xl z-50 transition-transform duration-500 ease-in-out flex flex-col"
+        style={{ transform: isAiSidebarOpen ? 'translateX(0)' : 'translateX(100%)' }}
+      >
 
         <div className="bg-[var(--color-panel-header)] p-6 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3 text-zinc-800">
