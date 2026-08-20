@@ -60,10 +60,10 @@ export async function login({ email, password })
     }
 
     const token = jwt.sign(
-        { id: dbUser.id, email: dbUser.email },
+        { id: dbUser.id, email: dbUser.email, name: dbUser.name },
         SECRET,
         { expiresIn: "1h" }
     );
 
-    return { token };
+    return { token, user: { id: dbUser.id, name: dbUser.name, email: dbUser.email } };
 }

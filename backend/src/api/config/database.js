@@ -8,10 +8,6 @@ export async function initDatabase() {
   await db.exec("PRAGMA busy_timeout = 5000;");
   await db.exec("PRAGMA temp_store = MEMORY;");
 
-  // Tabela para armazenar detecções
-  // id: identificador único
-  // timestamp: data e hora da detecção
-  // label: rótulo da detecção (ex: "Pessoa", "Carro")
   await db.exec(`
     CREATE TABLE IF NOT EXISTS detections (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,13 +44,7 @@ export async function initDatabase() {
     );
   `);
 
-  // Tabela para armazenar usuários (para autenticação)
-  // id: identificador único
-  // timestamp: data e hora do registro
-  // name: nome do usuário
-  // email: email do usuário (deve ser único)
-  // password: hash da senha do usuário
- await db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       timestamp TEXT NOT NULL,
@@ -64,13 +54,6 @@ export async function initDatabase() {
     );
   `);
 
-  // Tabela para armazenar tokens do OneDrive
-  // id: identificador único
-  // client_id: ID do cliente registrado no Azure
-  // tenant_id: ID do locatário registrado no Azure
-  // access_token: token de acesso atual para a API do OneDrive
-  // refresh_token: token de atualização para obter novos tokens de acesso
-  // expires_at: data e hora de expiração do token de acesso
   await db.exec(`
     CREATE TABLE IF NOT EXISTS onedrives (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,11 +65,6 @@ export async function initDatabase() {
     );
   `);
 
-  // Tabela para monitorar consumo de threads
-  // id: identificador único
-  // timestamp: data e hora do registro
-  // thread_name: nome da thread (ex: "CameraThread-1")
-  // quantity_of_cpu_ind_percentage : quantidade de CPU consumida pela thread no momento do registro
   await db.exec(`
     CREATE TABLE IF NOT EXISTS threadsConsume (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,17 +75,31 @@ export async function initDatabase() {
     );
   `);
 
-  // Tabela para armazenar câmeras
-  // id: identificador único
-  // nome: nome da câmera
-  // setor: setor da câmera
-  // ip: endereço IP da câmera
-  // streamUrl: URL do stream da câmera
-  // status: status da câmera (online/offline)
-  // epis: lista de EPIs associados à câmera (armazenado como JSON
-  //  para tipagem OU futuramente deixar separado.)
-  // createdAt: data e hora da criação do registro
-  // updatedAt: data e hora da última atualização do registro
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      title TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      day_index INTEGER NOT NULL DEFAULT 1,
+      title_is_custom INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER,
+      timestamp TEXT NOT NULL,
+      user_id INTEGER,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      model TEXT NOT NULL,
+      metadata TEXT,
+      FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id)
+    );
+  `);
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS cameras (
@@ -122,24 +114,23 @@ export async function initDatabase() {
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
-
-
   `);
 
   // papel: identifica o papel da câmera na unidade de detecção ("frontal" p/ EPI, "lateral" p/ ergonomia/zona).
   // O orquestrador busca essas duas câmeras em GET /api/cameras pra saber qual stream usar em cada modelo.
+  // (já vem na CREATE TABLE acima, mas o ALTER cobre bancos criados antes desse campo existir)
   await db.exec(`
     ALTER TABLE cameras ADD COLUMN papel TEXT;
   `).catch(() => {});
-  
-  // await db.run("INSERT INTO onedrives (client_id, tenant_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?, ?)", [
-  //   ONEDRIVE_CLIENT_ID,
-  //   ONEDRIVE_CLIENT_ID,
-  //   ONEDRIVE_CLIENT_ID,
-  //   ONEDRIVE_TENANT_ID,
-  //   ONEDRIVE_ACCESS_TOKEN,
-  //   ONEDRIVE_REFRESH_TOKEN,
-  //   ONEDRIVE_EXPIRES_AT
-  // ]);
 
+  return db;
+}
+
+export async function clearChatHistory() {
+  const db = await connect();
+  
+  await db.exec("DELETE FROM chat_messages;");
+  await db.exec("DELETE FROM chat_conversations;");
+  
+  console.log("✓ Histórico de mensagens e conversas foi limpo com sucesso");
 }

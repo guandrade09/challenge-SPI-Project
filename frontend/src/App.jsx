@@ -9,6 +9,7 @@ import { Login, Register, ForgotPassword, Logout } from './features/auth/registe
 import LogsPage from './features/logsPage/LogsPage';
 import HomePage from './features/homePage/HomePage';
 import MonitoramentoPage from './features/monitoramentoPage/MonitoramentoPage';
+import { CameraPage } from './features/cameraPage/CameraPage';
 
 export function App() {
   return (
@@ -29,6 +30,7 @@ export function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
+            <Route path="/camera" element={<CameraPage />} />
             <Route path="/settings" element={
               <div className="flex min-h-screen items-center justify-center">
                 <h1 className='text-white font-bold text-3xl'>Configurações (Em breve)</h1>

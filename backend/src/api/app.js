@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import threadRoutes from "./routes/thread.routes.js";
 import logRoutes from "./routes/log.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
 import cameraRoutes from "./routes/camera.routes.js";
 import zonaRoutes from "./routes/zona.routes.js";
 
@@ -24,9 +25,9 @@ app.use("/api", authRoutes);
 app.use("/api", reportRoutes);
 app.use("/api", threadRoutes);
 app.use("/api", logRoutes);
+app.use("/api", chatRoutes);
 app.use("/api", cameraRoutes);
 app.use("/api", zonaRoutes);
-
 
 app.use((err, req, res, next) => {
   if (err && (err instanceof SyntaxError || err.type === "entity.parse.failed")) {
