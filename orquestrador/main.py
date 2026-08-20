@@ -79,6 +79,8 @@ def _resolve_camera_sources():
     — útil quando o cadastro existe mas o stream físico não está disponível agora.
     """
     frontal_env = os.environ.get("CAMERA_SOURCE")
+    if frontal_env is not None and frontal_env.isdigit():
+        frontal_env = int(frontal_env)  # índice de webcam local (ex: "0") — não uma URL
     lateral_env = os.environ.get("CAMERA_SOURCE_LATERAL") or None
     disable_lateral = os.environ.get("DISABLE_LATERAL") == "1"
 
@@ -93,9 +95,9 @@ def _resolve_camera_sources():
     cam_frontal = next((c for c in cameras if c.get("papel") == "frontal"), None)
     cam_lateral = next((c for c in cameras if c.get("papel") == "lateral"), None)
 
-    frontal = frontal_env or (cam_frontal["streamUrl"] if cam_frontal else 0)
+    frontal = frontal_env if frontal_env is not None else (cam_frontal["streamUrl"] if cam_frontal else 0)
     lateral = None if disable_lateral else (lateral_env or (cam_lateral["streamUrl"] if cam_lateral else None))
-    camera_id = f"cam_{cam_frontal['id']}" if (cam_frontal and not frontal_env) else "cam_01"
+    camera_id = f"cam_{cam_frontal['id']}" if (cam_frontal and frontal_env is None) else "cam_01"
 
     if cam_frontal or cam_lateral:
         print(f"[CAMERAS] Usando cadastro do frontend — frontal: {cam_frontal['nome'] if cam_frontal else '(nenhuma)'}, "
