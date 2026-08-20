@@ -17,7 +17,8 @@ export const DetectionPanel = ({
   onClearRiskArea,
   onToggleEpi,
   onAddCamera,
-  onDeleteCamera
+  onDeleteCamera,
+  onEditCamera
 }) => {
   const { detections } = useMonitoramentoStore();
   const [activeTab, setActiveTab] = useState('epis');
@@ -82,6 +83,7 @@ export const DetectionPanel = ({
           onClearRiskArea={onClearRiskArea}
           onAddCamera={onAddCamera}
           onDeleteCamera={onDeleteCamera}
+          onEditCamera={onEditCamera}
         />
       )}
     </div>

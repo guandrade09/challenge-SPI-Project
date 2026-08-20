@@ -2,6 +2,7 @@ import React from 'react';
 import { Target, Check, Trash2, Camera, Video, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { ButtonAddCam } from './ButtonAddCam';
 import { ButtonDeleteCam } from './ButtonDeleteCam';
+import { ButtonEditCam } from './ButtonEditCam';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 
 const EPI_LABELS = {
@@ -23,7 +24,8 @@ export const CameraManagementPanel = ({
   hasRiskArea,
   onClearRiskArea,
   onAddCamera,
-  onDeleteCamera
+  onDeleteCamera,
+  onEditCamera
 }) => {
   const presets = useCameraPresetsStore((state) => state.presets);
   const getRiskAreaForCamera = useCameraPresetsStore((state) => state.getRiskAreaForCamera);
@@ -46,17 +48,25 @@ export const CameraManagementPanel = ({
           </span>
 
           <div className="flex items-center gap-1">
-            <ButtonAddCam 
-              theme={theme} 
-              onAddCamera={onAddCamera} 
-              label="Adicionar"
+            <ButtonAddCam
+              theme={theme}
+              onAddCamera={onAddCamera}
+              label=""
               colorVariant="success"
+              className="p-1.5"
             />
             {currentCamera && (
-              <ButtonDeleteCam 
-                camera={currentCamera} 
-                theme={theme} 
-                onDeleteCamera={onDeleteCamera} 
+              <ButtonEditCam
+                camera={currentCamera}
+                theme={theme}
+                onEditCamera={onEditCamera}
+              />
+            )}
+            {currentCamera && (
+              <ButtonDeleteCam
+                camera={currentCamera}
+                theme={theme}
+                onDeleteCamera={onDeleteCamera}
               />
             )}
           </div>

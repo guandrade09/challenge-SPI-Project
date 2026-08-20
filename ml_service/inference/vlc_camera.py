@@ -25,12 +25,18 @@ class VLCCamera:
     a diferença.
     """
 
+    # Se não chega frame novo nesse tempo, trata como stream morto (câmera travou/caiu de
+    # rede) mesmo que o libvlc não reporte erro nenhum — visto na prática: o player fica
+    # "tocando" pra sempre reexibindo o último frame recebido, sem sinalizar falha.
+    STALE_FRAME_TIMEOUT_S = 6.0
+
     def __init__(self, url: str, width: int = 640, height: int = 480, open_timeout_s: float = 8.0):
         self.width = width
         self.height = height
         self._frame_lock = threading.Lock()
         self._frame = None
         self._has_frame = False
+        self._last_frame_at = 0.0
 
         # RV32 = BGRA "empacotado", 4 bytes/pixel — já sai na ordem que o cv2/numpy espera
         # (só precisa descartar o canal alfa).
@@ -71,17 +77,23 @@ class VLCCamera:
         with self._frame_lock:
             self._frame = arr[:, :, :3].copy()  # BGRA -> BGR
             self._has_frame = True
+            self._last_frame_at = time.time()
 
     def _on_display(self, opaque, picture):
         pass
 
+    def _is_stale(self) -> bool:
+        return self._has_frame and (time.time() - self._last_frame_at) > self.STALE_FRAME_TIMEOUT_S
+
     def read(self):
-        if not self._has_frame:
+        if not self._has_frame or self._is_stale():
             return False, None
         with self._frame_lock:
             return True, self._frame.copy()
 
     def isOpened(self) -> bool:
+        if self._is_stale():
+            return False
         if self._has_frame:
             return True
         return self._player.get_state() not in (vlc.State.Error, vlc.State.Ended, vlc.State.Stopped)

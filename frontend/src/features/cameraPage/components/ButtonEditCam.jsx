@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
-import { Plus, Loader2, X } from 'lucide-react';
+// src/features/monitoramentoPage/components/ButtonEditCam.jsx
+import React, { useState, useEffect } from 'react';
+import { Pencil, Loader2, X, Save } from 'lucide-react';
 import { PopupModal, IconButtonModal } from '../../../components/shared';
 
-export function ButtonAddCam({ 
-  theme = "dynamic", 
-  onAddCamera, 
-  colorVariant = "default", 
-  label = "Adicionar Câmera", 
+export function ButtonEditCam({
+  camera,
+  theme = "dynamic",
+  onEditCamera,
   className = "",
-  titlePopup = "Adicionar Nova Câmera"
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [nome, setNome] = useState('');
@@ -17,14 +16,18 @@ export function ButtonAddCam({
   const [papel, setPapel] = useState('frontal');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Preenche o formulário com os dados atuais da câmera sempre que ela mudar ou o modal abrir
+  useEffect(() => {
+    if (!camera) return;
+    setNome(camera.nome ?? '');
+    setSetor(camera.setor ?? '');
+    setIp(camera.streamUrl ?? camera.ip ?? '');
+    setPapel(camera.papel ?? 'frontal');
+  }, [camera, isOpen]);
+
   const handleClose = () => {
     if (isSubmitting) return;
     setIsOpen(false);
-    setNome('');
-    setSetor('');
-    setIp('');
-    setPapel('frontal');
-    setIsSubmitting(false);
   };
 
   const handleOpen = (e) => {
@@ -40,41 +43,34 @@ export function ButtonAddCam({
       const hostMatch = trimmed.match(/@?([\d.]+)(?::\d+)?/);
       return { ip: hostMatch ? hostMatch[1] : trimmed, streamUrl: trimmed };
     }
-    const resolvedIp = trimmed || "192.168.1.100";
+    const resolvedIp = trimmed || camera?.ip || "192.168.1.100";
     return { ip: resolvedIp, streamUrl: `rtsp://${resolvedIp}:554/live/ch0` };
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!nome.trim() || !setor.trim() || isSubmitting) return;
+    if (!camera?.id || !nome.trim() || !setor.trim()) return;
 
     setIsSubmitting(true);
 
     const { ip: resolvedIp, streamUrl } = resolveIpAndStream(ip);
 
-    const newCamData = {
+    const updatedCamData = {
+      ...camera,
       nome: nome.trim(),
       setor: setor.trim(),
       ip: resolvedIp,
       streamUrl,
       papel,
-      status: "online",
-      epis: [
-        { id: "1", nome: "Capacete" },
-        { id: "2", nome: "Óculos" },
-        { id: "3", nome: "Colete" },
-        { id: "4", nome: "Máscara" },
-        { id: "5", nome: "Luvas" }
-      ]
     };
 
     try {
-      if (onAddCamera) {
-        await onAddCamera(newCamData);
+      if (onEditCamera) {
+        await onEditCamera(camera.id, updatedCamData);
       }
-      handleClose();
+      setIsOpen(false);
     } catch (err) {
-      console.error("Erro ao enviar cadastro da câmera:", err);
+      console.error("Erro ao atualizar câmera:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -83,30 +79,27 @@ export function ButtonAddCam({
   return (
     <>
       <IconButtonModal
-        tipo="button"
-        icon={Plus}
-        title="Adicionar nova câmera"
-        label={label}
+        title="Editar câmera"
+        label=""
+        icon={Pencil}
         onClick={handleOpen}
         variant="panel-btn-toggle"
-        colorVariant={colorVariant}
-        className={className}
+        colorVariant="default"
+        className={`p-1.5 ${className}`}
       />
 
       <PopupModal
         isOpen={isOpen}
         onClose={handleClose}
-        title={titlePopup}
-        icon={Plus}
+        title="Editar Câmera"
+        icon={Pencil}
         maxWidth="max-w-lg"
         theme={theme}
-        className="w-full max-w-[95vw] sm:max-w-lg"
+        className="text-(var[--p-text])"
       >
-        <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] sm:max-h-none overflow-y-auto custom-scrollbar pr-1">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-theme-head text-xs block mb-1 font-medium font-theme-title">
-              Nome da Câmera
-            </label>
+            <label className="text-theme-head text-xs block mb-1 font-medium">Nome da Câmera</label>
             <input
               type="text"
               required
@@ -114,14 +107,12 @@ export function ButtonAddCam({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Pátio Externo"
-              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50 transition-colors font-theme-body"
+              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50"
             />
           </div>
 
           <div>
-            <label className="text-theme-head text-xs block mb-1 font-medium font-theme-title">
-              Setor
-            </label>
+            <label className="text-theme-head text-xs block mb-1 font-medium">Setor</label>
             <input
               type="text"
               required
@@ -129,33 +120,26 @@ export function ButtonAddCam({
               value={setor}
               onChange={(e) => setSetor(e.target.value)}
               placeholder="Ex: Logística"
-              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50 transition-colors font-theme-body"
+              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50"
             />
           </div>
 
           <div>
-            <label className="text-theme-head text-xs block mb-1 font-medium font-theme-title">
-              Endereço IP ou URL (RTSP/HTTP)
-            </label>
+            <label className="text-theme-head text-xs block mb-1 font-medium">Endereço IP ou URL RTSP</label>
             <input
               type="text"
               disabled={isSubmitting}
               value={ip}
               onChange={(e) => setIp(e.target.value)}
               placeholder="192.168.1.100 ou http://192.168.1.100:8080/video ou rtsp://admin:senha@192.168.1.100:554/onvif1"
-              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50 transition-colors font-mono"
+              className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50"
             />
-            <p className="text-theme-muted text-[10px] mt-1">
-              Cole a URL completa (com usuário/senha, se precisar) pra garantir que o caminho esteja certo. IP puro assume RTSP padrão.
-            </p>
           </div>
 
           <div>
-            <label className="text-theme-head text-xs block mb-1 font-medium font-theme-title">
-              Papel na Unidade de Detecção
-            </label>
+            <label className="text-theme-head text-xs block mb-1 font-medium">Papel na Unidade de Detecção</label>
             <p className="text-theme-muted text-[10px] mb-2">
-              Frontal roda a detecção de EPI. Lateral roda ergonomia/zona de risco.
+              Frontal roda a detecção de EPI. Lateral roda ergonomia/zona de risco (necessária pra medir postura corretamente).
             </p>
             <div className="flex gap-2">
               {[
@@ -179,26 +163,21 @@ export function ButtonAddCam({
             </div>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-theme-divider">
+          <div className="flex justify-end gap-2 pt-4 border-t border-theme-divider">
             <IconButtonModal
               tipo="button"
               icon={X}
               onClick={handleClose}
-              disabled={isSubmitting}
               label="Cancelar"
               colorVariant="cancel"
               variant="full"
-              className="w-full sm:w-auto"
             />
             <IconButtonModal
               tipo="submit"
-              icon={isSubmitting ? Loader2 : Plus}
-              iconClassName={isSubmitting ? "animate-spin" : ""}
-              disabled={isSubmitting}
-              label={isSubmitting ? "Salvando..." : "Adicionar Câmera"}
+              icon={isSubmitting ? Loader2 : Save}
+              label={isSubmitting ? "Salvando..." : "Salvar Alterações"}
               colorVariant="success"
               variant="full"
-              className="w-full sm:w-auto"
             />
           </div>
         </form>
@@ -207,4 +186,4 @@ export function ButtonAddCam({
   );
 }
 
-export default ButtonAddCam;
+export default ButtonEditCam;

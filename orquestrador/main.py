@@ -105,6 +105,28 @@ def _resolve_camera_sources():
 
     return frontal, lateral, camera_id
 
+
+def _resolve_single_source(papel: str, env_var_name: str, default=None):
+    """Igual a _resolve_camera_sources, mas pra UMA câmera só — usado pelo _capture_loop
+    pra checar periodicamente se o cadastro mudou (ex: usuária editou o IP no frontend)
+    e reconectar sozinho, sem precisar reiniciar o orquestrador."""
+    env_val = os.environ.get(env_var_name)
+    if env_val is not None:
+        if env_val.isdigit():
+            return int(env_val)
+        return env_val or default
+
+    try:
+        resp = requests.get(CAMERAS_API_URL, timeout=2)
+        resp.raise_for_status()
+        cameras = resp.json().get("data", [])
+        cam = next((c for c in cameras if c.get("papel") == papel), None)
+        if cam:
+            return cam["streamUrl"]
+    except Exception:
+        pass
+    return default
+
 # Frames consecutivos necessários para confirmar cada tipo de risco
 FRAMES_EPI   = 10
 FRAMES_ERGO  = 8
@@ -407,12 +429,85 @@ def _load_zona(zone_checker, camera_id: str) -> bool:
         return False
 
 
+RECHECK_CAMERA_INTERVAL_S = 15  # com que frequência confere se o cadastro (IP/URL) mudou
+
+
 # ── Thread de captura separada (corrige Bug #4) ────────────────────────────────
-def _capture_loop(camera: Camera, frame_q: queue.Queue, max_width: int | None = None):
-    while camera.is_opened():
+# resolve_source_fn: chamada periodicamente pra saber a URL/índice ATUAL da câmera —
+# se a usuária editar o IP no frontend, o loop detecta a mudança sozinho, reconecta
+# com a URL nova e continua rodando, sem precisar reiniciar o orquestrador.
+def _capture_loop(resolve_source_fn, frame_q: queue.Queue, max_width: int | None = None, label: str = "câmera"):
+    camera = None
+    current_source = None
+    last_check = 0.0
+
+    def _reconnect(new_source):
+        nonlocal camera, current_source
+        if camera is not None:
+            try:
+                camera.release()
+            except Exception:
+                pass
+            camera = None
+        if new_source is None:
+            current_source = None
+            return
+        try:
+            camera = Camera(source=new_source)
+            # BUFFERSIZE=1: sem isso, um stream de rede acumula frames num buffer interno
+            # do OpenCV mais rápido do que conseguimos consumir — o atraso cresce sem parar
+            # em vez de estabilizar. Resolução só funciona em câmeras locais; streams de
+            # rede ignoram e continuam na resolução nativa (por isso o resize abaixo).
+            camera.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            camera.cap.set(cv2.CAP_PROP_FRAME_WIDTH, max_width or 640)
+            camera.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            current_source = new_source
+            print(f"[CAMERA] {label}: conectado em {new_source}")
+        except Exception as e:
+            print(f"[CAMERA] {label}: falha ao abrir {new_source} ({e}) — tentando de novo em {RECHECK_CAMERA_INTERVAL_S}s.")
+            camera = None
+            current_source = new_source  # evita log repetido até a URL mudar de novo
+
+    while True:
+        now = time.time()
+        if now - last_check >= RECHECK_CAMERA_INTERVAL_S or (camera is None and last_check == 0.0):
+            last_check = now
+            new_source = resolve_source_fn()
+            if new_source != current_source:
+                if current_source is not None:
+                    print(f"[CAMERA] {label}: cadastro mudou ({current_source} → {new_source}), reconectando...")
+                _reconnect(new_source)
+
+        # Câmera existe mas parou de entregar frame novo (stream travou/caiu de rede sem
+        # o player sinalizar erro) — trata igual a uma leitura que falhou: solta e força
+        # reconectar na PRÓXIMA volta (não espera o timer periódico de 15s pra reagir).
+        if camera is not None and not camera.is_opened():
+            print(f"[CAMERA] {label}: stream parou de responder, reconectando...")
+            try:
+                camera.release()
+            except Exception:
+                pass
+            camera = None
+            current_source = None  # força o _reconnect mesmo se a URL cadastrada não mudou
+            last_check = 0.0       # reconsulta o cadastro já na próxima iteração
+            continue
+
+        if camera is None:
+            time.sleep(1)
+            continue
+
         ret, frame = camera.read()
         if not ret:
-            break
+            print(f"[CAMERA] {label}: leitura falhou, vai tentar reconectar.")
+            try:
+                camera.release()
+            except Exception:
+                pass
+            camera = None
+            current_source = None
+            last_check = 0.0
+            continue
+
         # Downscale logo na captura — reduz custo de pose/encode/websocket rio abaixo.
         # Importante sobretudo pro stream de rede (celular), que costuma vir em alta resolução.
         if max_width and frame.shape[1] > max_width:
@@ -438,8 +533,6 @@ def main():
 
     print("[INIT] Carregando modelos...")
     try:
-        camera        = Camera(source=CAMERA_SOURCE)
-        camera_lateral = Camera(source=CAMERA_SOURCE_LATERAL) if dual_camera else None
         epi_detector  = EPIDetector(model_path=model_epi, imgsz=MODEL_IMGSZ)
         pose_model    = load_yolo_with_engine_fallback(model_pose, imgsz=MODEL_IMGSZ)
         pose_analyzer = PoseAnalyzer(model_path=None)
@@ -448,16 +541,9 @@ def main():
         print(f"[ERRO] Falha na inicialização: {e}")
         return
 
-    camera.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    camera.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    if camera_lateral is not None:
-        # BUFFERSIZE=1: sem isso, um stream de rede (celular) acumula frames num buffer
-        # interno do OpenCV mais rápido do que conseguimos consumir — o atraso cresce
-        # sem parar em vez de estabilizar. Também tentamos setar resolução (funciona só
-        # em câmeras locais; streams MJPEG ignoram e continuam na resolução do app).
-        camera_lateral.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        camera_lateral.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        camera_lateral.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    # A conexão de cada câmera fica a cargo do _capture_loop (abaixo) — ele conecta,
+    # reconecta se cair, e confere periodicamente se o cadastro (IP/URL) mudou no
+    # frontend, sem precisar reiniciar o orquestrador pra pegar a mudança.
 
     _load_zona(zone_checker, CAMERA_ID)
     config_server.start(zone_checker, CAMERA_ID, CONFIG_SERVER_PORT)
@@ -476,13 +562,19 @@ def main():
     start_server_in_thread()
 
     frame_queue = queue.Queue(maxsize=2)
-    threading.Thread(target=_capture_loop, args=(camera, frame_queue, 640), daemon=True).start()
+    resolve_frontal = lambda: _resolve_single_source("frontal", "CAMERA_SOURCE", default=0)
+    threading.Thread(
+        target=_capture_loop, args=(resolve_frontal, frame_queue, 640, "frontal"), daemon=True
+    ).start()
 
     frame_queue_lateral = None
     _last_lateral_frame = {"frame": None}
-    if camera_lateral is not None:
+    if dual_camera:
+        resolve_lateral = lambda: _resolve_single_source("lateral", "CAMERA_SOURCE_LATERAL", default=None)
         frame_queue_lateral = queue.Queue(maxsize=2)
-        threading.Thread(target=_capture_loop, args=(camera_lateral, frame_queue_lateral, 480), daemon=True).start()
+        threading.Thread(
+            target=_capture_loop, args=(resolve_lateral, frame_queue_lateral, 480, "lateral"), daemon=True
+        ).start()
 
     zona_info = zone_checker.get(CAMERA_ID)
     _verdict_cooldown = 0   # frames restantes antes de voltar para MONITORANDO
@@ -498,20 +590,38 @@ def main():
 
     try:
         while True:
-            frame  = frame_queue.get()
-            t_start = time.perf_counter()
+            # timeout em vez de bloquear pra sempre: se a frontal cair (ex: câmera fora
+            # do ar), o pipeline inteiro não pode travar esperando ela — a lateral (se
+            # estiver viva) continua sendo processada e exibida normalmente.
+            try:
+                frame = frame_queue.get(timeout=0.5)
+            except queue.Empty:
+                frame = None
 
-            # Frame usado para pose (ergonomia + zona): vem da câmera lateral quando
-            # configurada (2ª câmera da mesma unidade); senão cai no frame frontal.
-            frame_pose = frame
             if frame_queue_lateral is not None:
                 try:
                     _last_lateral_frame["frame"] = frame_queue_lateral.get_nowait()
                 except queue.Empty:
                     pass
+
+            if frame is None:
+                # Sem frame frontal agora — usa o último frame lateral disponível como
+                # frame "principal" pro resto do pipeline (e o que é exibido) não ficar
+                # em branco só porque uma das duas câmeras caiu.
                 if _last_lateral_frame["frame"] is not None:
-                    frame_pose = _last_lateral_frame["frame"]
-                    send_frame_lateral(frame_pose)
+                    frame = _last_lateral_frame["frame"]
+                else:
+                    time.sleep(0.1)
+                    continue
+
+            t_start = time.perf_counter()
+
+            # Frame usado para pose (ergonomia + zona): vem da câmera lateral quando
+            # configurada (2ª câmera da mesma unidade); senão cai no frame frontal.
+            frame_pose = frame
+            if _last_lateral_frame["frame"] is not None:
+                frame_pose = _last_lateral_frame["frame"]
+                send_frame_lateral(frame_pose)
 
             # 1. EPI — Roboflow roda em background a cada 5 frames sem bloquear o loop
             _epi_state["counter"] += 1
@@ -688,9 +798,8 @@ def main():
                 break
 
     finally:
-        camera.release()
-        if camera_lateral is not None:
-            camera_lateral.release()
+        # As câmeras agora são donas das threads de captura (_capture_loop) — daemon=True,
+        # então são liberadas junto quando o processo principal termina.
         cv2.destroyAllWindows()
         print("[OK] Recursos liberados.")
 

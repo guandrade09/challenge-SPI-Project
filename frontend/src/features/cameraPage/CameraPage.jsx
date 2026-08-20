@@ -36,6 +36,17 @@ const LABEL_PT = {
 
 const RISK_LABELS = new Set(['NO-Hardhat', 'NO-Safety Vest', 'NO-Goggles', 'NO-Mask', 'NO-Gloves']);
 
+// Label do modelo -> EPI (chave usada em cameras.epis / useCameraPresetsStore) — pra só
+// considerar, no alerta, os EPIs que essa câmera específica tem configurado. Sem isso,
+// uma câmera com só "Capacete" selecionado ainda mostrava "Sem Máscara"/"Sem Colete" etc.
+const LABEL_TO_TOGGLE = {
+  'Hardhat': 'capacete', 'NO-Hardhat': 'capacete',
+  'Safety Vest': 'colete', 'NO-Safety Vest': 'colete',
+  'Goggles': 'oculos', 'NO-Goggles': 'oculos',
+  'Mask': 'mascara', 'NO-Mask': 'mascara',
+  'Gloves': 'luvas', 'NO-Gloves': 'luvas',
+};
+
 const formatDetection = (d) => {
   const icon = RISK_LABELS.has(d.label) ? '⚠' : '✓';
   return `${icon} ${LABEL_PT[d.label] ?? d.label} — ${(d.confidence * 100).toFixed(0)}%`;
@@ -50,6 +61,7 @@ export const CameraPage = () => {
   const fetchCameras = useCameraStore((state) => state.fetchCameras);
   const addCamera = useCameraStore((state) => state.addCamera);
   const deleteCamera = useCameraStore((state) => state.deleteCamera);
+  const updateCamera = useCameraStore((state) => state.updateCamera);
 
   // Stores de Presets & Zonas de Risco
   const removePresetForCamera = useCameraPresetsStore((state) => state.removePresetForCamera);
@@ -174,20 +186,36 @@ export const CameraPage = () => {
     }
   };
 
+  const handleEditCamera = async (idToEdit, updatedFields) => {
+    try {
+      await updateCamera(idToEdit, updatedFields);
+    } catch (err) {
+      console.error("Falha ao editar câmera:", err);
+      throw err;
+    }
+  };
+
   // LIMPEZA DE ÁREA DE RISCO
   const handleClearRiskArea = () => {
     window.dispatchEvent(new CustomEvent('clear_risk_area'));
     setIsEditingRiskArea(false);
   };
 
+  // Só considera detecções de EPI que essa câmera tem configurado (activeEpisForVisuals)
+  // — uma câmera com só "Capacete" selecionado não deve acusar "Sem Máscara"/"Sem Colete".
+  const relevantDetections = liveDetections.filter((d) => {
+    const toggleKey = LABEL_TO_TOGGLE[d.label];
+    return !toggleKey || activeEpisForVisuals.includes(toggleKey);
+  });
+
   const buildMessage = () => {
     if (alertaAtivo) {
       return `⚠ ${LABEL_PT[alertaAtivo.label] ?? alertaAtivo.label} — confiança: ${(alertaAtivo.confidence * 100).toFixed(0)}%`;
     }
-    if (liveDetections.length === 0) {
+    if (relevantDetections.length === 0) {
       return 'Aguardando detecções...';
     }
-    const linhas = liveDetections
+    const linhas = relevantDetections
       .filter((d) => LABEL_PT[d.label])
       .map(formatDetection);
     return linhas.length > 0 ? linhas.join('\n') : 'Nenhum EPI no frame.';
@@ -199,7 +227,7 @@ export const CameraPage = () => {
 
   const panelStatus = alertaAtivo
     ? PANEL_STATUS.ALERTA
-    : liveDetections.length > 0
+    : relevantDetections.length > 0
       ? PANEL_STATUS.ATENCAO
       : PANEL_STATUS.PRONTO;
 
@@ -278,6 +306,7 @@ export const CameraPage = () => {
                 onToggleEpi={handleToggleEpi}
                 onAddCamera={handleAddCamera}
                 onDeleteCamera={handleDeleteCamera}
+                onEditCamera={handleEditCamera}
                 onClearRiskArea={handleClearRiskArea}
               />
             </div>

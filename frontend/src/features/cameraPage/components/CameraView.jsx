@@ -159,10 +159,18 @@ export function CameraView({
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-          if (msg.type === 'frame' && imgRef.current) {
-            imgRef.current.src = msg.data.startsWith('data:') 
-              ? msg.data 
-              : `data:image/svg+xml;base64,${msg.data}`;
+          // O backend só transmite 2 feeds fixos (frontal/lateral, não um por câmera
+          // cadastrada) — cada card mostra o que bate com o papel da câmera selecionada,
+          // senão todos os cards mostrariam sempre a mesma imagem (a frontal).
+          const isLateralCam = camera?.papel === 'lateral';
+          const matchesThisCamera =
+            (msg.type === 'frame' && !isLateralCam) ||
+            (msg.type === 'frame_lateral' && isLateralCam);
+
+          if (matchesThisCamera && imgRef.current) {
+            imgRef.current.src = msg.data.startsWith('data:')
+              ? msg.data
+              : `data:image/jpeg;base64,${msg.data}`;
           } else if (msg.type === 'alert') {
             addAlerta(msg);
           } else if (msg.type === 'detections') {
@@ -189,7 +197,7 @@ export function CameraView({
         wsRef.current.close();
       }
     };
-  }, [addAlerta, setLiveDetections, camera?.id]);
+  }, [addAlerta, setLiveDetections, camera?.id, camera?.papel]);
 
   const isStreamActive = connected || useMockStream;
 
@@ -223,14 +231,17 @@ export function CameraView({
           </div>
         )}
 
-        <div className="absolute top-2 sm:top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-max max-w-[90%]">
+        {/* inset-x-0 + flex justify-center em vez de left-1/2 -translate-x-1/2: nesse
+            projeto o -translate-x-1/2 do Tailwind v4 não aplica (mesmo bug já visto no
+            AiChatSidebar) — o badge fica deslocado pra direita em vez de centralizado. */}
+        <div className="absolute top-2 sm:top-4 inset-x-0 flex justify-center z-30 pointer-events-none px-2">
           {activeEpi ? (
-            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate max-w-[90vw]">
               <Cpu size={12} className="animate-spin [animation-duration:3s] text-[var(--p-subtext)] shrink-0 sm:w-3.5 sm:h-3.5" />
               <span className="truncate">ML: DETECTANDO {activeEpi}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate max-w-[90vw]">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
               <span className="truncate">AGUARDANDO SELEÇÃO DE EPI</span>
             </div>
