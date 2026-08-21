@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { IconButtonModal } from './IconButtonModal';
 
@@ -17,8 +18,8 @@ export const PopupModal = ({
 
   const activeThemeClass = `panel-theme-${theme}`;
 
-  return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 ${activeThemeClass}`}>
+  return createPortal(
+    <div className={`fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 ${activeThemeClass}`}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
@@ -73,7 +74,8 @@ export const PopupModal = ({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -618,11 +618,12 @@ code {
     .form-input-icon { @apply w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500; }
     .btn-primary { @apply w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20; }
     .link-emerald { @apply text-emerald-500 font-medium hover:text-emerald-400 transition-colors; }
-    
-    /* Custom Scrollbar */
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #333338; border-radius: 20px; border: 2px solid transparent; background-clip: content-box; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #b59481; }
-    .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }
+
 }
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #333338; border-radius: 20px; border: 2px solid transparent; background-clip: content-box; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #b59481; }
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }

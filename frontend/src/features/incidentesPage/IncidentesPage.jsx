@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, ChevronLeft, ChevronRight, AlertTriangle, Shield, Activity, MapPin, Filter } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import detectionService from '../../services/detectionService';
+import { formatLabel, formatIncidentLabel } from '../../utils/formatLabel';
 
 const BACKEND = 'http://localhost:3000';
 const PAGE_SIZE = 20;
@@ -197,8 +199,8 @@ function IncidentModal({ incident, onClose }) {
   const lateralUrl = imgPathToUrl(incident.img_path_lateral);
   const d = incident.details;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
         className="relative z-10 bg-[#16171d] border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
@@ -207,7 +209,7 @@ function IncidentModal({ incident, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div>
-            <h2 className="text-white font-semibold text-lg">{incident.label}</h2>
+            <h2 className="text-white font-semibold text-lg">{formatIncidentLabel(incident.label)}</h2>
             <p className="text-neutral-400 text-xs mt-0.5">{formatTs(incident.timestamp)}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -246,7 +248,7 @@ function IncidentModal({ incident, onClose }) {
                     const ausente = epi.label?.toLowerCase().includes('ausente');
                     return (
                       <div key={i} className="flex items-center justify-between text-sm">
-                        <span className={ausente ? 'text-red-400' : 'text-emerald-400'}>{epi.label}</span>
+                        <span className={ausente ? 'text-red-400' : 'text-emerald-400'}>{formatLabel(epi.label)}</span>
                         {confidenceBadge(epi.confidence)}
                       </div>
                     );
@@ -319,7 +321,8 @@ function IncidentModal({ incident, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -352,7 +355,7 @@ function IncidentCard({ incident, onClick }) {
 
       {/* Info */}
       <div className="p-3 space-y-1.5">
-        <p className="text-white text-xs font-medium leading-tight line-clamp-2">{incident.label}</p>
+        <p className="text-white text-xs font-medium leading-tight line-clamp-2">{formatIncidentLabel(incident.label)}</p>
         <div className="flex items-center gap-1.5 flex-wrap">
           {confidenceBadge(incident.confidence)}
           {sourceBadge(incident.source)}

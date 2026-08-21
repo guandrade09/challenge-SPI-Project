@@ -1,27 +1,28 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Shield, Settings } from 'lucide-react';
 import { DetectionCard } from './DetectionCard';
 import { CameraManagementPanel } from './CameraManagementPanel';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 
-export const DetectionPanel = ({ 
-  options, 
+export const DetectionPanel = ({
+  options,
   theme,
   cameras,
   currentIndex,
   currentCamera,
   onSelectCamera,
-  isEditingRiskArea, 
-  setIsEditingRiskArea, 
+  isEditingRiskArea,
+  setIsEditingRiskArea,
   hasRiskArea,
   onClearRiskArea,
   onToggleEpi,
   onAddCamera,
   onDeleteCamera,
-  onEditCamera
+  onEditCamera,
+  activeTab,
+  setActiveTab,
 }) => {
   const { detections } = useMonitoramentoStore();
-  const [activeTab, setActiveTab] = useState('epis');
 
   return (
     <div className="flex flex-col gap-3 w-full h-full justify-between">

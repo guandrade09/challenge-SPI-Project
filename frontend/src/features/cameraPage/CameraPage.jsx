@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { formatLabel } from '../../utils/formatLabel';
 
 // Componentes
 import { CameraView, DetectionPanel, AlertPanel } from './components';
@@ -63,7 +64,7 @@ const LABEL_TO_TOGGLE = {
 
 const formatDetection = (d) => {
   const icon = RISK_LABELS.has(d.label) ? '⚠' : '✓';
-  return `${icon} ${LABEL_PT[d.label] ?? d.label} — ${(d.confidence * 100).toFixed(0)}%`;
+  return `${icon} ${formatLabel(d.label)} — ${(d.confidence * 100).toFixed(0)}%`;
 };
 
 export const CameraPage = () => {
@@ -85,6 +86,7 @@ export const CameraPage = () => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isEditingRiskArea, setIsEditingRiskArea] = useState(false);
+  const [activeTab, setActiveTab] = useState('epis');
 
   useEffect(() => {
     fetchCameras();
@@ -249,7 +251,7 @@ export const CameraPage = () => {
 
     // Alerta ativo (EPI crítico disparado) — aparece primeiro
     if (alertaAtivo) {
-      linhas.push(`⚠ ${LABEL_PT[alertaAtivo.label] ?? alertaAtivo.label} — confiança: ${(alertaAtivo.confidence * 100).toFixed(0)}%`);
+      linhas.push(`⚠ ${formatLabel(alertaAtivo.label)} — confiança: ${(alertaAtivo.confidence * 100).toFixed(0)}%`);
     }
 
     // EPIs detectados no frame
@@ -263,11 +265,12 @@ export const CameraPage = () => {
       livePose.forEach((p, i) => {
         if (p.reba_score != null) {
           const nivel = p.reba_level ?? '—';
-          const icon = nivel === 'ALTO' ? '⚠' : nivel === 'MEDIO' ? '⚡' : '✓';
-          linhas.push(`${icon} REBA Pessoa ${i + 1}: ${nivel} (score ${p.reba_score})`);
+          const nivelPt = { ALTO: 'Alto', MEDIO: 'Médio', BAIXO: 'Baixo', MUITO_ALTO: 'Muito Alto' }[nivel] ?? nivel;
+          const icon = nivel === 'ALTO' || nivel === 'MUITO_ALTO' ? '⚠' : nivel === 'MEDIO' ? '⚡' : '✓';
+          linhas.push(`${icon} Risco Ergonômico ${nivelPt} — Pessoa ${i + 1} (REBA ${p.reba_score})`);
         }
         if (p.queda) {
-          linhas.push('⚠ QUEDA DETECTADA');
+          linhas.push(`⚠ Queda detectada — Pessoa ${i + 1}`);
         }
       });
     }
@@ -367,14 +370,18 @@ export const CameraPage = () => {
                   onDeleteCamera={handleDeleteCamera}
                   onEditCamera={handleEditCamera}
                   onClearRiskArea={handleClearRiskArea}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
                 />
               </div>
 
               <div className="h-px w-full border-b border-theme-divider opacity-50 shrink-0 my-1 lg:my-0" />
 
-              <div className="w-full shrink-0">
-                <AlertPanel message={buildMessage()} statuses={panelStatuses} theme={currentTheme} />
-              </div>
+              {activeTab === 'epis' && (
+                <div className="w-full shrink-0">
+                  <AlertPanel message={buildMessage()} statuses={panelStatuses} theme={currentTheme} />
+                </div>
+              )}
             </div>
 
           </div>
