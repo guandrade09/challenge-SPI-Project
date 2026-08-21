@@ -20,16 +20,23 @@ const STATUS_CONFIG = {
   },
 };
 
-export const AlertPanel = ({ message, status }) => {
-  const c = STATUS_CONFIG[status] ?? STATUS_CONFIG[PANEL_STATUS.PRONTO];
+// Aceita `statuses` (array) ou `status` (string legado) para retrocompatibilidade
+export const AlertPanel = ({ message, status, statuses }) => {
+  const activeStatuses = statuses?.length
+    ? statuses
+    : [status ?? PANEL_STATUS.PRONTO];
+
+  const badges = activeStatuses.map((s) => STATUS_CONFIG[s] ?? STATUS_CONFIG[PANEL_STATUS.PRONTO]);
 
   return (
     <div className="panel-subcard flex flex-col gap-3 transition-all duration-200">
-      <div className="flex items-center justify-between">
-        <Badge variant={c.badgeVariant} className="gap-1.5 px-2.5 py-1">
-          <span className={`w-1.5 h-1.5 rounded-full inline-block ${c.dotClass}`} />
-          {c.label}
-        </Badge>
+      <div className="flex items-center gap-2 flex-wrap">
+        {badges.map((c, i) => (
+          <Badge key={i} variant={c.badgeVariant} className="gap-1.5 px-2.5 py-1">
+            <span className={`w-1.5 h-1.5 rounded-full inline-block ${c.dotClass}`} />
+            {c.label}
+          </Badge>
+        ))}
       </div>
 
       <div className="min-w-0">

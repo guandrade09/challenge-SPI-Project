@@ -4,7 +4,7 @@ import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
 
-const WS_URL = 'ws://localhost:8765';
+const WS_URL = 'ws://127.0.0.1:8765';
 
 const DEFAULT_TEST_FRAME = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="100%" height="100%" fill="%23121212"/><grid width="100%" height="100%" stroke="%23333" stroke-width="1"/><circle cx="640" cy="360" r="100" fill="none" stroke="%2300ff88" stroke-width="2"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%2300ff88" font-family="monospace" font-size="28" font-weight="bold">FRAME DE TESTE CAM - SIMULAÇÃO LOCAL</text><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="monospace" font-size="18">Desenhe a Área de Risco sobre este quadro</text></svg>`;
 
@@ -24,10 +24,11 @@ export function CameraView({
   onPrevCamera,      // NOVO: Navegação
   totalCameras = 0   // NOVO: Contador
 }) {
-  const containerRef = useRef(null);
-  const imgRef = useRef(null);
-  const wsRef = useRef(null);
-  const reconnectRef = useRef(null);
+  const containerRef   = useRef(null);
+  const imgRef         = useRef(null);
+  const wsRef          = useRef(null);
+  const reconnectRef   = useRef(null);
+  const lastImgUrlRef  = useRef(null);
 
   const [connected, setConnected] = useState(false);
   const [useMockStream, setUseMockStream] = useState(false);
@@ -46,8 +47,6 @@ export function CameraView({
     return getRiskAreaForCamera(camera?.id) || camera?.riskArea || null;
   });
 
-  const addAlerta = useMonitoramentoStore((s) => s.addAlerta);
-  const setLiveDetections = useMonitoramentoStore((s) => s.setLiveDetections);
 
   // GERENCIADOR DE TELA CHEIA (Fullscreen API)
   const handleToggleFullscreen = async () => {
@@ -141,49 +140,81 @@ export function CameraView({
     }
   };
 
+  // Limpa imagem ao trocar de câmera
+  useEffect(() => {
+    setConnected(false);
+    if (imgRef.current) imgRef.current.src = '';
+    if (lastImgUrlRef.current) { URL.revokeObjectURL(lastImgUrlRef.current); lastImgUrlRef.current = null; }
+  }, [camera?.id]);
+
   useEffect(() => {
     function connect() {
       if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
+        const old = wsRef.current;
+        old.onclose = null;
+        if (old.readyState !== WebSocket.CONNECTING) old.close();
+        else old.onopen = () => old.close();
       }
 
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        console.log(`[WS] conectado | camera="${camera?.nome}" setor="${camera?.setor}"`);
         setConnected(true);
         setUseMockStream(false);
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         try {
-          const msg = JSON.parse(event.data);
-          // O backend só transmite 2 feeds fixos (frontal/lateral, não um por câmera
-          // cadastrada) — cada card mostra o que bate com o papel da câmera selecionada,
-          // senão todos os cards mostrariam sempre a mesma imagem (a frontal).
-          const isLateralCam = camera?.papel === 'lateral';
-          const matchesThisCamera =
-            (msg.type === 'frame' && !isLateralCam) ||
-            (msg.type === 'frame_lateral' && isLateralCam);
+          // Frame binário: header JSON + \n + JPEG bytes
+          if (event.data instanceof Blob) {
+            const ab = await event.data.arrayBuffer();
+            const bytes = new Uint8Array(ab);
+            const nl = bytes.indexOf(10);
+            if (nl === -1) return;
+            const header = JSON.parse(new TextDecoder().decode(bytes.subarray(0, nl)));
+            if (header.type !== 'frame') return;
+            console.log(`[FRAME] setor="${header.setor}" source="${header.source}" | esperado="${camera?.setor}" | match=${header.setor === camera?.setor}`);
+            if (header.setor !== camera?.setor) return;
 
-          if (matchesThisCamera && imgRef.current) {
-            imgRef.current.src = msg.data.startsWith('data:')
-              ? msg.data
-              : `data:image/jpeg;base64,${msg.data}`;
-          } else if (msg.type === 'alert') {
-            addAlerta(msg);
+            if (imgRef.current) {
+              const jpegBlob = new Blob([bytes.subarray(nl + 1)], { type: 'image/jpeg' });
+              if (lastImgUrlRef.current) URL.revokeObjectURL(lastImgUrlRef.current);
+              lastImgUrlRef.current = URL.createObjectURL(jpegBlob);
+              imgRef.current.src = lastImgUrlRef.current;
+            }
+            return;
+          }
+
+          // Mensagens JSON (alert, detections, pose, verdict…)
+          const msg = JSON.parse(event.data);
+          console.log(`[MSG] type="${msg.type}" setor="${msg.setor ?? '-'}"`, msg);
+          if (msg.setor && msg.setor !== camera?.setor) return;
+          const store = useMonitoramentoStore.getState();
+          if (msg.type === 'alert') {
+            store.addAlerta(msg);
           } else if (msg.type === 'detections') {
-            setLiveDetections(msg.data);
+            store.setLiveDetections(msg.data);
+          } else if (msg.type === 'pose') {
+            store.setLivePose(msg.pessoas ?? []);
+          } else if (msg.type === 'verdict') {
+            store.setVerdict(msg);
           }
         } catch {
           // Fail-silent
         }
       };
 
-      ws.onclose = () => {
+      ws.onerror = (e) => {
+        console.error(`[WS] erro | camera="${camera?.nome}" readyState=${ws.readyState}`, e);
+      };
+
+      ws.onclose = (e) => {
+        console.warn(`[WS] fechou | camera="${camera?.nome}" code=${e.code} wasClean=${e.wasClean}`);
         setConnected(false);
         if (imgRef.current && !useMockStream) imgRef.current.src = '';
+        if (lastImgUrlRef.current) { URL.revokeObjectURL(lastImgUrlRef.current); lastImgUrlRef.current = null; }
         reconnectRef.current = setTimeout(connect, 3000);
       };
     }
@@ -192,12 +223,14 @@ export function CameraView({
 
     return () => {
       clearTimeout(reconnectRef.current);
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
+      const wsToClose = wsRef.current;
+      if (wsToClose) {
+        wsToClose.onclose = null;
+        if (wsToClose.readyState !== WebSocket.CONNECTING) wsToClose.close();
+        else wsToClose.onopen = () => wsToClose.close();
       }
     };
-  }, [addAlerta, setLiveDetections, camera?.id, camera?.papel]);
+  }, [camera?.id, camera?.setor]);
 
   const isStreamActive = connected || useMockStream;
 

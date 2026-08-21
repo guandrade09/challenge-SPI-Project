@@ -1,6 +1,21 @@
 import { create } from 'zustand';
 import { CAMERA_STATUS } from '../enums/enums';
 
+const CONFIG_URL = 'http://127.0.0.1:5050/config/analise';
+const EPI_KEYS = ['auricular', 'botas', 'capacete', 'colete', 'mascara', 'oculos'];
+
+function syncOrquestrador(detections) {
+  const epis = EPI_KEYS.filter((k) => detections[k]);
+  fetch(CONFIG_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ epis, ergonomia: detections.ergonomia }),
+  })
+    .then((r) => r.json())
+    .then((d) => console.log('[SPI] config analise →', d))
+    .catch((e) => console.warn('[SPI] orquestrador config falhou:', e));
+}
+
 // Classes do modelo que representam ausência ou uso incorreto de EPI
 // Mapeadas para a chave do toggle correspondente
 const LABEL_MAP = {
@@ -19,18 +34,19 @@ const LABEL_MAP = {
 export const useMonitoramentoStore = create((set, get) => ({
   status: CAMERA_STATUS.IDLE,
   detections: {
-    auricular: false,
-    botas:     false,
-    capacete:  false,
-    colete:    false,
-    mascara:   false,
-    oculos:    false,
+    auricular: true,
+    botas:     true,
+    capacete:  true,
+    colete:    true,
+    mascara:   true,
+    oculos:    true,
     ergonomia: true,
     zona:      true,
   },
   alertas:        [],
   alertaAtivo:    null,
   liveDetections: [],
+  livePose:       [],   // pessoas detectadas no frame atual com dados REBA
   verdict:        null,
   metrics:        null,
   lastFrame:      null,
@@ -38,11 +54,16 @@ export const useMonitoramentoStore = create((set, get) => ({
 
   setStatus: (newStatus) => set({ status: newStatus }),
 
-  toggleDetection: (key) => set((state) => ({
-    detections: { ...state.detections, [key]: !state.detections[key] }
-  })),
+  toggleDetection: (key) => {
+    const next = { ...get().detections, [key]: !get().detections[key] };
+    set({ detections: next });
+    syncOrquestrador(next);
+  },
+
+  syncToOrquestrador: () => syncOrquestrador(get().detections),
 
   setLiveDetections: (data) => set({ liveDetections: data }),
+  setLivePose: (pessoas) => set({ livePose: pessoas }),
   setVerdict:        (v)    => set({ verdict: v }),
   setMetrics:        (m)    => set({ metrics: m }),
   setLastFrame:      (url)  => set({ lastFrame: url }),
@@ -62,6 +83,7 @@ export const useMonitoramentoStore = create((set, get) => ({
       label:      alerta.label,
       confidence: alerta.confidence,
       timestamp:  alerta.timestamp,
+      setor:      alerta.setor ?? '',
     };
 
     set((state) => ({
@@ -71,4 +93,9 @@ export const useMonitoramentoStore = create((set, get) => ({
   },
 
   limparAlertaAtivo: () => set({ alertaAtivo: null }),
+
+  limparAlertasDoSetor: (setor) => set((state) => ({
+    alertas:     state.alertas.filter((a) => a.setor !== setor),
+    alertaAtivo: state.alertaAtivo?.setor === setor ? null : state.alertaAtivo,
+  })),
 }));

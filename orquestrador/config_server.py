@@ -1,10 +1,17 @@
 """
-Servidor de configuração da zona de risco do orquestrador.
-Roda em thread separada (porta 5050) e expõe três endpoints:
+Servidor de configuração do orquestrador (zona de risco + análise de EPIs/ergonomia).
+Roda em thread separada (porta 5050).
+
+Endpoints de zona:
   POST   /zona/configurar  — define ou atualiza a zona
   GET    /zona/status      — retorna zona atual
   DELETE /zona/configurar  — remove a zona
-A zona é salva em zona_config.json para persistir entre reinicializações.
+
+Endpoints de análise:
+  POST   /config/analise   — { "epis": ["capacete","colete"], "ergonomia": true }
+  GET    /config/analise   — retorna config atual
+
+epis = [] significa "todos ativos" (padrão/backward compat).
 """
 
 import json
@@ -13,7 +20,41 @@ import threading
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), "zona_config.json")
+CONFIG_FILE        = os.path.join(os.path.dirname(__file__), "zona_config.json")
+ANALISE_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "analise_config.json")
+
+# ── Config de análise (lida diretamente pelo main.py via import) ───────────────
+def _load_analise_config() -> dict:
+    try:
+        with open(ANALISE_CONFIG_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"epis": [], "ergonomia": True}
+
+_analise_config = _load_analise_config()
+
+def get_analise_config() -> dict:
+    return _analise_config.copy()
+
+# Prefixos dos labels do modelo EPI para cada chave do frontend
+EPI_KEY_TO_PREFIX = {
+    "auricular": "AURICULAR",
+    "botas":     "BOTAS",
+    "capacete":  "CAPACETE",
+    "colete":    "COLETE",
+    "mascara":   "MASCARA",
+    "oculos":    "OCULOS",
+}
+
+def epi_prefixes_ativos() -> list[str] | None:
+    """Retorna lista de prefixos ativos, ou None se todos estiverem ativos."""
+    epis = _analise_config.get("epis", [])
+    if not epis:
+        return None  # todos ativos
+    return [EPI_KEY_TO_PREFIX[k] for k in epis if k in EPI_KEY_TO_PREFIX]
+
+def ergonomia_ativa() -> bool:
+    return bool(_analise_config.get("ergonomia", True))
 
 
 # ── Persistência local ─────────────────────────────────────────────────────────
@@ -81,6 +122,27 @@ def _build_app(zone_checker, camera_id: str) -> Flask:
             delete_config()
             print("[ZONA] Removida")
         return jsonify({"ok": removed, "camera_id": camera_id})
+
+    @app.route("/config/analise", methods=["GET"])
+    def get_analise():
+        return jsonify(_analise_config)
+
+    @app.route("/config/analise", methods=["POST"])
+    def set_analise():
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"erro": "body JSON obrigatório"}), 400
+        if "epis" in data:
+            _analise_config["epis"] = [k for k in data["epis"] if k in EPI_KEY_TO_PREFIX]
+        if "ergonomia" in data:
+            _analise_config["ergonomia"] = bool(data["ergonomia"])
+        try:
+            with open(ANALISE_CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(_analise_config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[CONFIG] Aviso: não foi possível salvar analise_config.json: {e}")
+        print(f"[CONFIG] Análise: epis={_analise_config['epis']} ergonomia={_analise_config['ergonomia']}")
+        return jsonify({"ok": True, **_analise_config})
 
     return app
 

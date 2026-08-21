@@ -1,5 +1,5 @@
 export default class Detection {
-  constructor({ timestamp, label, confidence, img_Path, img_Frame, img_Frame_lateral, source, camera_id }) {
+  constructor({ timestamp, label, confidence, img_Path, img_Frame, img_Frame_lateral, source, camera_id, setor, details }) {
     this.timestamp = timestamp;
     this.label = label;
     this.confidence = confidence;
@@ -8,5 +8,7 @@ export default class Detection {
     this.img_Frame_lateral = img_Frame_lateral ?? null;
     this.source = source ?? null;
     this.camera_id = camera_id ?? null;
+    this.setor = setor ?? null;
+    this.details = details ?? null;
   }
 }

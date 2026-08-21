@@ -18,17 +18,11 @@ import {
 } from '../../components/graficos';
 import { LogPanel, LogReportModal } from './components/painelLog';
 import { logService } from '../../services/logService';
+import { useDetectionStats } from '../../hooks/useDetectionStats';
 import {
-  colunasLogs,
-  areaLogs,
-  lineLogs,
-  pizzaLogs,
-  composedLogs,
   confusionMatrixData,
   latencyLogs,
-  anomalyData,
   radarData,
-  confidenceData,
 } from '../../mocks/logsPageMocks/test';
 
 const DASHBOARD_CONFIG = {
@@ -43,6 +37,8 @@ const LogsPage = () => {
   const isPopUpModalOpen = useUiStore((s) => s.isPopUpModalOpen);
   const closePopUpModal  = useUiStore((s) => s.closePopUpModal);
   const reportData       = useUiStore((s) => s.reportData);
+
+  const { stats: detStats } = useDetectionStats(30000);
 
   const [logs, setLogs] = useState([]);
   const [isLogLoading, setIsLogLoading] = useState(false);
@@ -151,23 +147,23 @@ const LogsPage = () => {
     logs: { label: "Central de Logs", component: <LogPanel logs={logs} loading={isLogLoading} theme={currentTheme}/> },
 
     // Coluna 2 — Análise e Monitoramento
-    area:       { label: "Análise Composta",        component: <AreaDetectionChart    data={areaLogs}  theme={currentTheme}    /> },
-    composed:   { label: "Análise de Eventos",       component: <DetectionComposedChart data={composedLogs} theme={currentTheme} /> },
+    area:       { label: "Análise Composta",        component: <AreaDetectionChart    data={detStats?.hourly ?? []}  theme={currentTheme}    /> },
+    composed:   { label: "Análise de Eventos",       component: <DetectionComposedChart data={detStats?.hourly ?? []} theme={currentTheme} /> },
     radar:      { label: "Eficiência Operacional",   component: <OperationalRadar       data={radarData}  theme={currentTheme}   /> },
     latency:    { label: "Latência MCU/CAM",         component: <InferenceLatencyChart  data={latencyLogs} theme={currentTheme}  /> },
-    monitorcpu: { 
-      label: `Recursos (${currentThread === "backend_processor" ? "Backend" : "Frontend"})`, 
-      headerAction: ThreadToggleButton, // Injeta o botão no header do BasePanelModal via RenderColumn
-      component: <ResourceMonitor data={realTimeResourceData} theme={currentTheme} linesConfig={logsMetricsConfig}/> 
+    monitorcpu: {
+      label: `Recursos (${currentThread === "backend_processor" ? "Backend" : "Frontend"})`,
+      headerAction: ThreadToggleButton,
+      component: <ResourceMonitor data={realTimeResourceData} theme={currentTheme} linesConfig={logsMetricsConfig}/>
     },
 
     // Coluna 3 — Detecções e ML
-    pizza:      { label: "Gráfico de detecções",      component: <DashboardChart        data={pizzaLogs} theme={currentTheme}     /> },
-    linha:      { label: "Gráfico de alertas",         component: <DetectionLineChart    data={lineLogs}  theme={currentTheme}    /> },
-    barra:      { label: "Detecções por Categoria",    component: <DetectionBarChart     data={colunasLogs} theme={currentTheme}  /> },
+    pizza:      { label: "Gráfico de detecções",      component: <DashboardChart        data={detStats?.pizza ?? []} theme={currentTheme}     /> },
+    linha:      { label: "Gráfico de alertas",         component: <DetectionLineChart    data={detStats?.hourly ?? []}  theme={currentTheme}    /> },
+    barra:      { label: "Detecções por Categoria",    component: <DetectionBarChart     data={detStats?.bar ?? []} theme={currentTheme}  /> },
     matrix:     { label: "Matriz de Confusão",          component: <MLConfusionMatrix     data={confusionMatrixData} theme={currentTheme}/> },
-    confidence: { label: "Termômetro de Incerteza",  component: <ConfidenceDistribution data={confidenceData} theme={currentTheme} /> },
-    anomaly:    { label: "Mapa de Anomalias",           component: <AnomalyScatterChart    data={anomalyData}  theme={currentTheme} /> },
+    confidence: { label: "Termômetro de Incerteza",  component: <ConfidenceDistribution data={detStats?.confidence ?? []} theme={currentTheme} /> },
+    anomaly:    { label: "Mapa de Anomalias",           component: <AnomalyScatterChart    data={detStats?.anomaly ?? []}  theme={currentTheme} /> },
   };
 
   return (

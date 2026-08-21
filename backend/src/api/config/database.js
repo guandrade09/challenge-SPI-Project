@@ -34,6 +34,16 @@ export async function initDatabase() {
     ALTER TABLE detections ADD COLUMN img_path_lateral TEXT;
   `).catch(() => {});
 
+  // details: JSON com todas as detecções individuais confirmadas (epi, ergonomia, zona, status)
+  await db.exec(`
+    ALTER TABLE detections ADD COLUMN details TEXT;
+  `).catch(() => {});
+
+  // setor: agrupamento de câmeras (multi-setor)
+  await db.exec(`
+    ALTER TABLE detections ADD COLUMN setor TEXT;
+  `).catch(() => {});
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS zonas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

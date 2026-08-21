@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Camera, FileText, Home, 
-  User, Settings, LogOut, ShieldCheck, Bell, Menu, X 
+import {
+  Camera, FileText, Home, AlertTriangle,
+  User, Settings, LogOut, ShieldCheck, Bell, Menu, X
 } from 'lucide-react';
 import { ThemeToggleButton } from '../components/ui/ThemeToggleButton';
 import { useAuthStore } from '../store/useAuthStore';
@@ -21,6 +21,7 @@ export const NavBar = ({ theme }) => {
   const navItems = [
     { label: 'Início', path: '/', icon: Home },
     { label: 'Câmeras', path: '/camera', icon: Camera },
+    { label: 'Incidentes', path: '/incidentes', icon: AlertTriangle },
     { label: 'Logs & Relatórios', path: '/logs', icon: FileText },
   ];
 
