@@ -39,7 +39,7 @@ export const AlertPanel = ({ message, status, statuses }) => {
         ))}
       </div>
 
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 overflow-y-auto max-h-32">
         <p className="text-xs leading-relaxed tracking-wide m-0 text-theme-main font-mono whitespace-pre-wrap">
           {message || 'Nenhum evento registrado no log.'}
         </p>

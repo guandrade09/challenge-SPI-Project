@@ -230,7 +230,7 @@ export function CameraView({
         else wsToClose.onopen = () => wsToClose.close();
       }
     };
-  }, [camera?.id, camera?.setor]);
+  }, [camera?.setor]);
 
   const isStreamActive = connected || useMockStream;
 

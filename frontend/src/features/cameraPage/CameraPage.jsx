@@ -135,14 +135,30 @@ export const CameraPage = () => {
     });
 
     useMonitoramentoStore.setState({ detections: novoEstadoDetections });
-    useMonitoramentoStore.getState().syncToOrquestrador();
+
+    // Envia a UNIÃO dos EPIs de todas as câmeras do setor para o orquestrador,
+    // evitando que câmeras com presets diferentes no mesmo setor se sobreescrevam.
+    const setor = currentCamera?.setor ?? '';
+    const presetsState = useCameraPresetsStore.getState();
+    const sectorEpisUnion = new Set(activeEpisForVisuals);
+    cameras
+      .filter((c) => c.setor === setor && c.id !== currentCameraId)
+      .forEach((cam) => presetsState.getEpiForCamera(cam.id).forEach((e) => sectorEpisUnion.add(e)));
+
+    const sectorDetections = {
+      colete: false, oculos: false, capacete: false, mascara: false,
+      luvas: false, auricular: false, botas: false, ergonomia: true,
+    };
+    sectorEpisUnion.forEach((epi) => { if (epi in sectorDetections) sectorDetections[epi] = true; });
+
+    useMonitoramentoStore.getState().syncToOrquestrador(setor, sectorDetections);
   }, [currentCameraId, activeEpisForVisuals]);
 
   const handleToggleEpi = (epiId) => {
     if (!currentCameraId) return;
     toggleEpiForCamera(currentCameraId, epiId);
     const toggleDetection = useMonitoramentoStore.getState().toggleDetection;
-    toggleDetection(epiId);
+    toggleDetection(epiId, currentCamera?.setor ?? '');
   };
 
   const handleSelectCamera = (target) => {

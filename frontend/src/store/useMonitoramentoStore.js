@@ -4,12 +4,12 @@ import { CAMERA_STATUS } from '../enums/enums';
 const CONFIG_URL = 'http://127.0.0.1:5050/config/analise';
 const EPI_KEYS = ['auricular', 'botas', 'capacete', 'colete', 'mascara', 'oculos'];
 
-function syncOrquestrador(detections) {
+function syncOrquestrador(detections, setor = '') {
   const epis = EPI_KEYS.filter((k) => detections[k]);
   fetch(CONFIG_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ epis, ergonomia: detections.ergonomia }),
+    body: JSON.stringify({ epis, ergonomia: detections.ergonomia, setor }),
   })
     .then((r) => r.json())
     .then((d) => console.log('[SPI] config analise →', d))
@@ -54,13 +54,14 @@ export const useMonitoramentoStore = create((set, get) => ({
 
   setStatus: (newStatus) => set({ status: newStatus }),
 
-  toggleDetection: (key) => {
+  toggleDetection: (key, setor = '') => {
     const next = { ...get().detections, [key]: !get().detections[key] };
     set({ detections: next });
-    syncOrquestrador(next);
+    syncOrquestrador(next, setor);
   },
 
-  syncToOrquestrador: () => syncOrquestrador(get().detections),
+  syncToOrquestrador: (setor = '', overrideDetections = null) =>
+    syncOrquestrador(overrideDetections ?? get().detections, setor),
 
   setLiveDetections: (data) => set({ liveDetections: data }),
   setLivePose: (pessoas) => set({ livePose: pessoas }),

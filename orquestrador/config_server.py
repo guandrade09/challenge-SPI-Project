@@ -23,18 +23,26 @@ from flask_cors import CORS
 CONFIG_FILE        = os.path.join(os.path.dirname(__file__), "zona_config.json")
 ANALISE_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "analise_config.json")
 
-# ── Config de análise (lida diretamente pelo main.py via import) ───────────────
+# ── Config de análise per-setor (lida diretamente pelo main.py via import) ─────
+_DEFAULT_ANALISE = {"epis": [], "ergonomia": True}
+
 def _load_analise_config() -> dict:
     try:
         with open(ANALISE_CONFIG_FILE, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+        # Migração: formato antigo era {"epis": [...], "ergonomia": bool}
+        if "epis" in data or "ergonomia" in data:
+            return {"": data}
+        return data
     except Exception:
-        return {"epis": [], "ergonomia": True}
+        return {}
 
-_analise_config = _load_analise_config()
+# dict: setor (str) → {"epis": [...], "ergonomia": bool}
+# chave "" (vazia) é o fallback global (retrocompatibilidade)
+_analise_config_por_setor: dict[str, dict] = _load_analise_config()
 
-def get_analise_config() -> dict:
-    return _analise_config.copy()
+def get_analise_config(setor: str = "") -> dict:
+    return _analise_config_por_setor.get(setor, _DEFAULT_ANALISE).copy()
 
 # Prefixos dos labels do modelo EPI para cada chave do frontend
 EPI_KEY_TO_PREFIX = {
@@ -46,15 +54,23 @@ EPI_KEY_TO_PREFIX = {
     "oculos":    "OCULOS",
 }
 
-def epi_prefixes_ativos() -> list[str] | None:
-    """Retorna lista de prefixos ativos, ou None se todos estiverem ativos."""
-    epis = _analise_config.get("epis", [])
+def epi_prefixes_ativos(setor: str = "") -> list[str] | None:
+    """Retorna lista de prefixos ativos para o setor.
+    None  → setor sem config, detecta todos os EPIs.
+    []    → config existe mas epis vazio, pula inferência EPI.
+    [...]  → apenas esses prefixos.
+    """
+    if setor not in _analise_config_por_setor:
+        return None  # sem config → detecta tudo
+    cfg = _analise_config_por_setor[setor]
+    epis = cfg.get("epis", [])
     if not epis:
-        return None  # todos ativos
+        return []  # configurado explicitamente sem EPIs → pula EPI
     return [EPI_KEY_TO_PREFIX[k] for k in epis if k in EPI_KEY_TO_PREFIX]
 
-def ergonomia_ativa() -> bool:
-    return bool(_analise_config.get("ergonomia", True))
+def ergonomia_ativa(setor: str = "") -> bool:
+    cfg = _analise_config_por_setor.get(setor, _DEFAULT_ANALISE)
+    return bool(cfg.get("ergonomia", True))
 
 
 # ── Persistência local ─────────────────────────────────────────────────────────
@@ -125,24 +141,27 @@ def _build_app(zone_checker, camera_id: str) -> Flask:
 
     @app.route("/config/analise", methods=["GET"])
     def get_analise():
-        return jsonify(_analise_config)
+        setor = request.args.get("setor", "")
+        return jsonify(get_analise_config(setor))
 
     @app.route("/config/analise", methods=["POST"])
     def set_analise():
         data = request.get_json(silent=True)
         if not data:
             return jsonify({"erro": "body JSON obrigatório"}), 400
+        setor = data.get("setor", "")
+        cfg = _analise_config_por_setor.setdefault(setor, {"epis": [], "ergonomia": True})
         if "epis" in data:
-            _analise_config["epis"] = [k for k in data["epis"] if k in EPI_KEY_TO_PREFIX]
+            cfg["epis"] = [k for k in data["epis"] if k in EPI_KEY_TO_PREFIX]
         if "ergonomia" in data:
-            _analise_config["ergonomia"] = bool(data["ergonomia"])
+            cfg["ergonomia"] = bool(data["ergonomia"])
         try:
             with open(ANALISE_CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(_analise_config, f, ensure_ascii=False, indent=2)
+                json.dump(_analise_config_por_setor, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"[CONFIG] Aviso: não foi possível salvar analise_config.json: {e}")
-        print(f"[CONFIG] Análise: epis={_analise_config['epis']} ergonomia={_analise_config['ergonomia']}")
-        return jsonify({"ok": True, **_analise_config})
+        print(f"[CONFIG] Análise setor='{setor}': epis={cfg['epis']} ergonomia={cfg['ergonomia']}")
+        return jsonify({"ok": True, "setor": setor, **cfg})
 
     return app
 

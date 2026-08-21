@@ -300,7 +300,7 @@ def _load_zona(zone_checker, camera_id: str, setor: str = "") -> bool:
         return False
     try:
         zone_checker.configure(
-            config.get("camera_id", camera_id),
+            camera_id,
             config["nome"],
             config["pontos"],
             epis_obrigatorios=config.get("epis_obrigatorios", []),
@@ -536,21 +536,24 @@ def _run_sector(
             frame_pose = _last_lateral_frame["frame"]
 
         # 1. EPI — background, a cada 5 frames, com lock de inferência
-        _epi_state["counter"] += 1
-        if _epi_state["counter"] >= 5 and not _epi_state["running"]:
-            _epi_state["counter"]  = 0
-            _epi_state["running"]  = True
-            _frame_snap = frame.copy()
-            def _epi_bg(snap=_frame_snap):
-                with inference_lock:
-                    result = epi_detector.run(snap)
-                _epi_state["cache"]   = result
-                _epi_state["running"] = False
-            threading.Thread(target=_epi_bg, daemon=True).start()
+        # _prefixes=None → detecta tudo; _prefixes=[] → pula EPI (nenhum configurado)
+        _prefixes = epi_prefixes_ativos(setor)
+        if _prefixes != []:
+            _epi_state["counter"] += 1
+            if _epi_state["counter"] >= 5 and not _epi_state["running"]:
+                _epi_state["counter"]  = 0
+                _epi_state["running"]  = True
+                _frame_snap = frame.copy()
+                def _epi_bg(snap=_frame_snap):
+                    with inference_lock:
+                        result = epi_detector.run(snap)
+                    _epi_state["cache"]   = result
+                    _epi_state["running"] = False
+                threading.Thread(target=_epi_bg, daemon=True).start()
+        else:
+            _epi_state["cache"] = []
 
         epi_dets_raw = _epi_state["cache"]
-
-        _prefixes = epi_prefixes_ativos()
         epi_dets = [
             d for d in epi_dets_raw
             if d.label.startswith("PESSOA")
@@ -566,7 +569,7 @@ def _run_sector(
         )
 
         # 2. Pose — background thread, a cada 2 frames, com lock de inferência
-        if ergonomia_ativa():
+        if ergonomia_ativa(setor):
             _pose_state["counter"] += 1
             if _pose_state["counter"] >= 2 and not _pose_state["running"]:
                 _pose_state["counter"] = 0
@@ -784,7 +787,7 @@ def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: 
         with _active_sectors_lock:
             # Iniciar setores novos ou com câmeras diferentes
             for setor, cameras in sectors.items():
-                cam_ids = frozenset(c["id"] for c in cameras)
+                cam_ids = frozenset((c["id"], c.get("papel", "frontal"), c.get("streamUrl", "")) for c in cameras)
                 existing = _active_sectors.get(setor)
 
                 if existing is None:
@@ -807,7 +810,7 @@ def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: 
 
 def _start_sector(setor: str, cameras: list[dict], models: dict, inference_lock: threading.Lock, zone_checker: ZoneChecker):
     stop_event = threading.Event()
-    cam_ids    = frozenset(c["id"] for c in cameras)
+    cam_ids    = frozenset((c["id"], c.get("papel", "frontal")) for c in cameras)
     t = threading.Thread(
         target=_run_sector,
         args=(setor, cameras, models, inference_lock, zone_checker, stop_event),
