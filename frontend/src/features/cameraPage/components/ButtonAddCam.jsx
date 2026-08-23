@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Plus, Loader2, X } from 'lucide-react';
 import { PopupModal, IconButtonModal } from '../../../components/shared';
 
-export function ButtonAddCam({ 
-  theme = "dynamic", 
-  onAddCamera, 
-  colorVariant = "default", 
-  label = "Adicionar Câmera", 
+export function ButtonAddCam({
+  theme = "dynamic",
+  onAddCamera,
+  cameras = [],
+  colorVariant = "default",
+  label = "Adicionar Câmera",
   className = "",
   titlePopup = "Adicionar Nova Câmera"
 }) {
@@ -16,6 +17,10 @@ export function ButtonAddCam({
   const [ip, setIp] = useState('');
   const [papel, setPapel] = useState('frontal');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const setorJaTemFrontal = setor.trim()
+    ? cameras.some((c) => c.setor?.trim().toLowerCase() === setor.trim().toLowerCase() && c.papel === 'frontal')
+    : false;
 
   const handleClose = () => {
     if (isSubmitting) return;
@@ -127,7 +132,14 @@ export function ButtonAddCam({
               required
               disabled={isSubmitting}
               value={setor}
-              onChange={(e) => setSetor(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSetor(val);
+                const jaTemFrontal = cameras.some(
+                  (c) => c.setor?.trim().toLowerCase() === val.trim().toLowerCase() && c.papel === 'frontal'
+                );
+                if (jaTemFrontal) setPapel('lateral');
+              }}
               placeholder="Ex: Logística"
               className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50 transition-colors font-theme-body"
             />
@@ -154,28 +166,40 @@ export function ButtonAddCam({
             <label className="text-theme-head text-xs block mb-1 font-medium font-theme-title">
               Papel na Unidade de Detecção
             </label>
-            <p className="text-theme-muted text-[10px] mb-2">
-              Frontal roda a detecção de EPI. Lateral roda ergonomia/zona de risco.
-            </p>
+            {setorJaTemFrontal ? (
+              <p className="text-[10px] mb-2 text-amber-400">
+                Este setor já tem uma câmera frontal. A nova câmera será adicionada como lateral.
+              </p>
+            ) : (
+              <p className="text-theme-muted text-[10px] mb-2">
+                Frontal roda a detecção de EPI. Lateral roda ergonomia/zona de risco.
+              </p>
+            )}
             <div className="flex gap-2">
               {[
                 { value: 'frontal', label: 'Frontal (EPI)' },
                 { value: 'lateral', label: 'Lateral (Ergonomia/Zona)' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => setPapel(opt.value)}
-                  className={`flex-1 p-2 rounded-lg border text-xs transition-colors disabled:opacity-50 ${
-                    papel === opt.value
-                      ? 'border-[var(--p-subtext)] text-[var(--p-subtext)] bg-[var(--p-subtext)]/10'
-                      : 'border-theme-divider text-theme-muted'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+              ].map((opt) => {
+                const bloqueado = opt.value === 'frontal' && setorJaTemFrontal;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={isSubmitting || bloqueado}
+                    onClick={() => !bloqueado && setPapel(opt.value)}
+                    title={bloqueado ? 'Este setor já tem uma câmera frontal' : undefined}
+                    className={`flex-1 p-2 rounded-lg border text-xs transition-colors ${
+                      bloqueado
+                        ? 'border-theme-divider text-theme-muted opacity-40 cursor-not-allowed'
+                        : papel === opt.value
+                          ? 'border-[var(--p-subtext)] text-[var(--p-subtext)] bg-[var(--p-subtext)]/10'
+                          : 'border-theme-divider text-theme-muted'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

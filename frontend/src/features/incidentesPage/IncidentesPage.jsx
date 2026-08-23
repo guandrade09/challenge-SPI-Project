@@ -74,7 +74,8 @@ function drawSkeleton(ctx, keypoints, rebaColor) {
   });
 }
 
-function IncidentCanvas({ imgUrl, details }) {
+// source="frontal" → desenha EPI + zona | source="lateral" → desenha ergonomia/pose + zona
+function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
 
@@ -93,8 +94,8 @@ function IncidentCanvas({ imgUrl, details }) {
     const fontSize = Math.max(12, canvas.width * 0.018);
     ctx.font = `bold ${fontSize}px monospace`;
 
-    // ── EPI bboxes ──
-    (details.epi || []).forEach(({ label, confidence, bbox }) => {
+    // ── EPI bboxes — só na câmera frontal ──
+    if (source === 'frontal') (details.epi || []).forEach(({ label, confidence, bbox }) => {
       if (!bbox || bbox.length < 4) return;
       const [x1, y1, x2, y2] = bbox;
       const isAusente = label?.toLowerCase().includes('ausente');
@@ -111,8 +112,8 @@ function IncidentCanvas({ imgUrl, details }) {
       ctx.fillText(text, x1 + 4, y1 - 4);
     });
 
-    // ── Esqueleto + bbox de pessoa ──
-    (details.ergonomia || []).forEach(({ pessoa_id, reba_score, reba_level, queda, bbox, keypoints }) => {
+    // ── Esqueleto + bbox de pessoa — só na câmera lateral ──
+    if (source === 'lateral') (details.ergonomia || []).forEach(({ pessoa_id, reba_score, reba_level, queda, bbox, keypoints }) => {
       const rebaColor = (reba_score ?? 0) >= 7 ? '#ef4444' : (reba_score ?? 0) >= 4 ? '#f59e0b' : '#10b981';
 
       // bbox da pessoa
@@ -225,11 +226,11 @@ function IncidentModal({ incident, onClose }) {
           {/* Imagens com canvas */}
           <div className="space-y-3">
             <p className="text-xs font-mono uppercase tracking-wider text-neutral-500">Câmera Frontal</p>
-            <IncidentCanvas imgUrl={imgUrl} details={d} />
+            <IncidentCanvas imgUrl={imgUrl} details={d} source="frontal" />
             {lateralUrl && (
               <>
                 <p className="text-xs font-mono uppercase tracking-wider text-neutral-500 mt-4">Câmera Lateral</p>
-                <IncidentCanvas imgUrl={lateralUrl} details={d} />
+                <IncidentCanvas imgUrl={lateralUrl} details={d} source="lateral" />
               </>
             )}
           </div>

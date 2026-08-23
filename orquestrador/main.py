@@ -494,7 +494,8 @@ def _run_sector(
     _frame_interval = 1.0 / 10   # máx 10 FPS por setor no WebSocket
     _last_frame_t   = 0.0
 
-    _epi_state = {"counter": 0, "cache": [], "running": False}
+    _epi_state         = {"counter": 0, "cache": [], "running": False}
+    _epi_state_lateral = {"counter": 0, "cache": [], "running": False}
     _pose_state = {
         "counter": 0, "raw": None, "lat_ms": 0.0, "pck": None,
         "pessoas": [], "pessoas_frontal": [], "pessoas_lateral": [],
@@ -539,6 +540,7 @@ def _run_sector(
         # _prefixes=None → detecta tudo; _prefixes=[] → pula EPI (nenhum configurado)
         _prefixes = epi_prefixes_ativos(setor)
         if _prefixes != []:
+            # EPI na câmera frontal
             _epi_state["counter"] += 1
             if _epi_state["counter"] >= 5 and not _epi_state["running"]:
                 _epi_state["counter"]  = 0
@@ -550,10 +552,28 @@ def _run_sector(
                     _epi_state["cache"]   = result
                     _epi_state["running"] = False
                 threading.Thread(target=_epi_bg, daemon=True).start()
-        else:
-            _epi_state["cache"] = []
 
-        epi_dets_raw = _epi_state["cache"]
+            # EPI na câmera lateral (quando disponível) — ângulo complementar
+            if has_lateral:
+                _epi_state_lateral["counter"] += 1
+                if _epi_state_lateral["counter"] >= 5 and not _epi_state_lateral["running"]:
+                    _epi_state_lateral["counter"] = 0
+                    _epi_state_lateral["running"] = True
+                    _frame_lat_snap = _last_lateral_frame["frame"].copy()
+                    def _epi_lat_bg(snap=_frame_lat_snap):
+                        with inference_lock:
+                            result = epi_detector.run(snap)
+                        _epi_state_lateral["cache"]   = result
+                        _epi_state_lateral["running"] = False
+                    threading.Thread(target=_epi_lat_bg, daemon=True).start()
+        else:
+            _epi_state["cache"]         = []
+            _epi_state_lateral["cache"] = []
+
+        # Une detecções de ambas as câmeras (OR: se qualquer câmera vê, conta)
+        epi_dets_raw = _epi_state["cache"] + (
+            _epi_state_lateral["cache"] if has_lateral else []
+        )
         epi_dets = [
             d for d in epi_dets_raw
             if d.label.startswith("PESSOA")

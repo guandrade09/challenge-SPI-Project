@@ -29,6 +29,13 @@ export function CameraView({
   const wsRef          = useRef(null);
   const reconnectRef   = useRef(null);
   const lastImgUrlRef  = useRef(null);
+  const cameraRef      = useRef(camera);
+  if (camera) {
+    if (cameraRef.current?.id !== camera.id || cameraRef.current?.papel !== camera.papel) {
+      console.log(`[CAM] troca: ${cameraRef.current?.nome}(${cameraRef.current?.papel}) → ${camera?.nome}(${camera?.papel}) | setor=${camera?.setor}`);
+    }
+    cameraRef.current = camera;
+  }
 
   const [connected, setConnected] = useState(false);
   const [useMockStream, setUseMockStream] = useState(false);
@@ -141,8 +148,13 @@ export function CameraView({
   };
 
   // Limpa imagem ao trocar de câmera
+  // Se o setor não mudou, o WS continua vivo — não derruba o connected
+  const prevSetorRef = useRef(camera?.setor);
   useEffect(() => {
-    setConnected(false);
+    const setorMudou = prevSetorRef.current !== camera?.setor;
+    prevSetorRef.current = camera?.setor;
+    console.log(`[CAM] id mudou → id=${camera?.id} nome=${camera?.nome} papel=${camera?.papel} setor=${camera?.setor} setorMudou=${setorMudou}`);
+    if (setorMudou) setConnected(false);
     if (imgRef.current) imgRef.current.src = '';
     if (lastImgUrlRef.current) { URL.revokeObjectURL(lastImgUrlRef.current); lastImgUrlRef.current = null; }
   }, [camera?.id]);
@@ -175,8 +187,12 @@ export function CameraView({
             if (nl === -1) return;
             const header = JSON.parse(new TextDecoder().decode(bytes.subarray(0, nl)));
             if (header.type !== 'frame') return;
-            console.log(`[FRAME] setor="${header.setor}" source="${header.source}" | esperado="${camera?.setor}" | match=${header.setor === camera?.setor}`);
-            if (header.setor !== camera?.setor) return;
+            const cam = cameraRef.current;
+            if (header.setor !== cam?.setor) return;
+            const expectedSource = cam?.papel ?? 'frontal';
+            console.log(`[FRAME] chegou source="${header.source}" | esperado="${expectedSource}" (${cam?.nome}) | aceito=${header.source === expectedSource}`);
+            if (header.source !== expectedSource) return;
+            setConnected(true);
 
             if (imgRef.current) {
               const jpegBlob = new Blob([bytes.subarray(nl + 1)], { type: 'image/jpeg' });
@@ -189,8 +205,7 @@ export function CameraView({
 
           // Mensagens JSON (alert, detections, pose, verdict…)
           const msg = JSON.parse(event.data);
-          console.log(`[MSG] type="${msg.type}" setor="${msg.setor ?? '-'}"`, msg);
-          if (msg.setor && msg.setor !== camera?.setor) return;
+          if (msg.setor && msg.setor !== cameraRef.current?.setor) return;
           const store = useMonitoramentoStore.getState();
           if (msg.type === 'alert') {
             store.addAlerta(msg);

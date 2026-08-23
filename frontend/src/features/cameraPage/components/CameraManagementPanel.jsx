@@ -51,6 +51,7 @@ export const CameraManagementPanel = ({
             <ButtonAddCam
               theme={theme}
               onAddCamera={onAddCamera}
+              cameras={cameras}
               label=""
               colorVariant="success"
               className="p-1.5"
@@ -58,6 +59,7 @@ export const CameraManagementPanel = ({
             {currentCamera && (
               <ButtonEditCam
                 camera={currentCamera}
+                cameras={cameras}
                 theme={theme}
                 onEditCamera={onEditCamera}
               />
