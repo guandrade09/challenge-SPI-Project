@@ -1,4 +1,4 @@
-export { default as BasePanel } from './BasePanel';
-export { default as IconButton } from './IconButton';
-export { default as ListPanel } from './ListPanel';
+export { default as BasePanelModal } from './BasePanelModal';
+export { default as IconButtonModal } from './IconButtonModal';
+export { default as ListPanelModal } from './ListPanelModal';
 export { default as PopupModal } from './PopupModal';
