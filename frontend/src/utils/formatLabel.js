@@ -26,12 +26,19 @@ const REBA_NIVEL_PT = {
   desconhecido:'Desconhecido',
 };
 
+
 // "ergonomia_reba_médio_5" → "Risco Ergonômico Médio (REBA 5)"
 function formatRebaLabel(raw) {
   const m = raw.match(/^ergonomia_reba_(.+?)_(\d+)$/i);
   if (!m) return raw;
   const nivel = REBA_NIVEL_PT[m[1].toLowerCase()] ?? m[1];
   return `Risco Ergonômico ${nivel} (REBA ${m[2]})`;
+}
+
+
+export function formatTs(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
 }
 
 /**
