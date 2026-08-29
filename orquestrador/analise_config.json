@@ -15,7 +15,19 @@
   },
   "Quarto": {
     "epis": [
-      "colete"
+      "capacete",
+      "colete",
+      "mascara",
+      "oculos"
+    ],
+    "ergonomia": true
+  },
+  "Escritorio": {
+    "epis": [
+      "capacete",
+      "colete",
+      "mascara",
+      "oculos"
     ],
     "ergonomia": true
   }
