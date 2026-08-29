@@ -3,6 +3,7 @@ import { Maximize2, Minimize2, Cpu, ChevronLeft, ChevronRight } from 'lucide-rea
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
+import { processWsStreamMessage } from '../../../utils/websocketStream'; // Import do utilitário central
 
 const WS_URL = 'ws://127.0.0.1:8765';
 
@@ -20,16 +21,18 @@ export function CameraView({
   activeEpi, 
   onToggleMaximize,
   isEditingRiskArea,
-  onNextCamera,      // NOVO: Navegação
-  onPrevCamera,      // NOVO: Navegação
-  totalCameras = 0   // NOVO: Contador
+  onNextCamera,
+  onPrevCamera,
+  totalCameras = 0 
 }) {
   const containerRef   = useRef(null);
   const imgRef         = useRef(null);
   const wsRef          = useRef(null);
   const reconnectRef   = useRef(null);
+  const timeoutRef     = useRef(null);
   const lastImgUrlRef  = useRef(null);
   const cameraRef      = useRef(camera);
+
   if (camera) {
     if (cameraRef.current?.id !== camera.id || cameraRef.current?.papel !== camera.papel) {
       console.log(`[CAM] troca: ${cameraRef.current?.nome}(${cameraRef.current?.papel}) → ${camera?.nome}(${camera?.papel}) | setor=${camera?.setor}`);
@@ -41,7 +44,7 @@ export function CameraView({
   const [useMockStream, setUseMockStream] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // ESTADO PARA O RELÓGIO EM TEMPO REAL
+  // RELÓGIO EM TEMPO REAL
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
 
   // Store de Presets
@@ -53,7 +56,6 @@ export function CameraView({
   const [riskBox, setRiskBox] = useState(() => {
     return getRiskAreaForCamera(camera?.id) || camera?.riskArea || null;
   });
-
 
   // GERENCIADOR DE TELA CHEIA (Fullscreen API)
   const handleToggleFullscreen = async () => {
@@ -76,7 +78,6 @@ export function CameraView({
     }
   };
 
-  // Monitora mudanças no estado de Tela Cheia do Navegador
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -148,18 +149,31 @@ export function CameraView({
   };
 
   // Limpa imagem ao trocar de câmera
-  // Se o setor não mudou, o WS continua vivo — não derruba o connected
   const prevSetorRef = useRef(camera?.setor);
   useEffect(() => {
     const setorMudou = prevSetorRef.current !== camera?.setor;
     prevSetorRef.current = camera?.setor;
     console.log(`[CAM] id mudou → id=${camera?.id} nome=${camera?.nome} papel=${camera?.papel} setor=${camera?.setor} setorMudou=${setorMudou}`);
-    if (setorMudou) setConnected(false);
+    
+    setConnected(false);
+    setUseMockStream(false);
+    
     if (imgRef.current) imgRef.current.src = '';
-    if (lastImgUrlRef.current) { URL.revokeObjectURL(lastImgUrlRef.current); lastImgUrlRef.current = null; }
+    if (lastImgUrlRef.current) { 
+      URL.revokeObjectURL(lastImgUrlRef.current); 
+      lastImgUrlRef.current = null; 
+    }
   }, [camera?.id]);
 
   useEffect(() => {
+    function resetFrameTimeout() {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        setConnected(false);
+        if (imgRef.current && !useMockStream) imgRef.current.src = '';
+      }, 2500);
+    }
+
     function connect() {
       if (wsRef.current) {
         const old = wsRef.current;
@@ -173,40 +187,32 @@ export function CameraView({
 
       ws.onopen = () => {
         console.log(`[WS] conectado | camera="${camera?.nome}" setor="${camera?.setor}"`);
-        setConnected(true);
-        setUseMockStream(false);
       };
 
       ws.onmessage = async (event) => {
         try {
-          // Frame binário: header JSON + \n + JPEG bytes
+          // 1. Processamento de Frame Binário via Utilitário
           if (event.data instanceof Blob) {
-            const ab = await event.data.arrayBuffer();
-            const bytes = new Uint8Array(ab);
-            const nl = bytes.indexOf(10);
-            if (nl === -1) return;
-            const header = JSON.parse(new TextDecoder().decode(bytes.subarray(0, nl)));
-            if (header.type !== 'frame') return;
-            const cam = cameraRef.current;
-            if (header.setor !== cam?.setor) return;
-            const expectedSource = cam?.papel ?? 'frontal';
-            console.log(`[FRAME] chegou source="${header.source}" | esperado="${expectedSource}" (${cam?.nome}) | aceito=${header.source === expectedSource}`);
-            if (header.source !== expectedSource) return;
-            setConnected(true);
+            const streamData = await processWsStreamMessage(event, cameraRef.current);
 
-            if (imgRef.current) {
-              const jpegBlob = new Blob([bytes.subarray(nl + 1)], { type: 'image/jpeg' });
-              if (lastImgUrlRef.current) URL.revokeObjectURL(lastImgUrlRef.current);
-              lastImgUrlRef.current = URL.createObjectURL(jpegBlob);
-              imgRef.current.src = lastImgUrlRef.current;
+            if (streamData) {
+              resetFrameTimeout();
+              setConnected(true);
+
+              if (imgRef.current) {
+                if (lastImgUrlRef.current) URL.revokeObjectURL(lastImgUrlRef.current);
+                lastImgUrlRef.current = streamData.imageUrl;
+                imgRef.current.src = streamData.imageUrl;
+              }
             }
             return;
           }
 
-          // Mensagens JSON (alert, detections, pose, verdict…)
+          // 2. Mensagens JSON (alert, detections, pose, verdict…)
           const msg = JSON.parse(event.data);
           if (msg.setor && msg.setor !== cameraRef.current?.setor) return;
           const store = useMonitoramentoStore.getState();
+          
           if (msg.type === 'alert') {
             store.addAlerta(msg);
           } else if (msg.type === 'detections') {
@@ -229,7 +235,10 @@ export function CameraView({
         console.warn(`[WS] fechou | camera="${camera?.nome}" code=${e.code} wasClean=${e.wasClean}`);
         setConnected(false);
         if (imgRef.current && !useMockStream) imgRef.current.src = '';
-        if (lastImgUrlRef.current) { URL.revokeObjectURL(lastImgUrlRef.current); lastImgUrlRef.current = null; }
+        if (lastImgUrlRef.current) { 
+          URL.revokeObjectURL(lastImgUrlRef.current); 
+          lastImgUrlRef.current = null; 
+        }
         reconnectRef.current = setTimeout(connect, 3000);
       };
     }
@@ -238,6 +247,7 @@ export function CameraView({
 
     return () => {
       clearTimeout(reconnectRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       const wsToClose = wsRef.current;
       if (wsToClose) {
         wsToClose.onclose = null;
@@ -245,7 +255,7 @@ export function CameraView({
         else wsToClose.onopen = () => wsToClose.close();
       }
     };
-  }, [camera?.setor]);
+  }, [camera?.id, camera?.ip, camera?.setor]);
 
   const isStreamActive = connected || useMockStream;
 
@@ -279,9 +289,6 @@ export function CameraView({
           </div>
         )}
 
-        {/* inset-x-0 + flex justify-center em vez de left-1/2 -translate-x-1/2: nesse
-            projeto o -translate-x-1/2 do Tailwind v4 não aplica (mesmo bug já visto no
-            AiChatSidebar) — o badge fica deslocado pra direita em vez de centralizado. */}
         <div className="absolute top-2 sm:top-4 inset-x-0 flex justify-center z-30 pointer-events-none px-2">
           {activeEpi ? (
             <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate max-w-[90vw]">
@@ -326,6 +333,7 @@ export function CameraView({
           className={`w-full h-full object-cover select-none transition-opacity duration-300 ${
             isStreamActive ? 'opacity-100 block' : 'opacity-0 hidden'
           }`}
+          alt=""
         />
 
         {isStreamActive && (

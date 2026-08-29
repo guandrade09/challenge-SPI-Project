@@ -5,24 +5,18 @@ import { persist } from 'zustand/middleware';
 export const useCameraPresetsStore = create(
   persist(
     (set, get) => ({
-      // Estrutura do presets:
-      // {
-      //   [cameraId]: {
-      //     selectedEpis: ['Capacete', 'Óculos'],
-      //     riskArea: { x: 10, y: 10, width: 30, height: 40 } | null
-      //   }
-      // }
       presets: {},
+      lastCameraId: null, // <-- Guarda a última câmera visualizada
+
+      setLastCameraId: (cameraId) => set({ lastCameraId: cameraId }),
+
+      getLastCameraId: () => get().lastCameraId,
 
       // --- GERENCIAMENTO DE EPIs ---
-      
-      // Alterna ou define a lista de EPIs para uma câmera específica
       toggleEpiForCamera: (cameraId, epiName) => set((state) => {
         if (!cameraId) return state;
-        
         const currentPreset = state.presets[cameraId] || { selectedEpis: [], riskArea: null };
         const currentEpis = currentPreset.selectedEpis || [];
-        
         const isAlreadySelected = currentEpis.includes(epiName);
         const updatedEpis = isAlreadySelected
           ? currentEpis.filter((name) => name !== epiName)
@@ -39,12 +33,9 @@ export const useCameraPresetsStore = create(
         };
       }),
 
-      // Define diretamente a lista inteira de EPIs para a câmera
       setSelectedEpisForCamera: (cameraId, episList) => set((state) => {
         if (!cameraId) return state;
-
         const currentPreset = state.presets[cameraId] || { selectedEpis: [], riskArea: null };
-        
         return {
           presets: {
             ...state.presets,
@@ -57,13 +48,9 @@ export const useCameraPresetsStore = create(
       }),
 
       // --- GERENCIAMENTO DE ÁREA DE RISCO ---
-
-      // Salva ou atualiza a Área de Risco da câmera
       setRiskAreaForCamera: (cameraId, riskArea) => set((state) => {
         if (!cameraId) return state;
-
         const currentPreset = state.presets[cameraId] || { selectedEpis: [], riskArea: null };
-
         return {
           presets: {
             ...state.presets,
@@ -75,13 +62,10 @@ export const useCameraPresetsStore = create(
         };
       }),
 
-      // Limpa apenas a área de risco da câmera
       clearRiskAreaForCamera: (cameraId) => set((state) => {
         if (!cameraId) return state;
-
         const currentPreset = state.presets[cameraId];
         if (!currentPreset) return state;
-
         return {
           presets: {
             ...state.presets,
@@ -94,31 +78,26 @@ export const useCameraPresetsStore = create(
       }),
 
       // --- REMOÇÃO E CONSULTAS ---
-
-      // Remove todo o preset quando a câmera é deletada
       removePresetForCamera: (cameraId) => set((state) => {
         const newPresets = { ...state.presets };
         delete newPresets[cameraId];
         return { presets: newPresets };
       }),
 
-      // Retorna os EPIs da câmera (com retrocompatibilidade para o formato antigo de Array)
       getEpiForCamera: (cameraId) => {
         if (!cameraId) return [];
         const data = get().presets[cameraId];
-        if (Array.isArray(data)) return data; // Suporte caso exista dados no formato antigo
+        if (Array.isArray(data)) return data;
         return data?.selectedEpis || [];
       },
 
-      // Retorna a Área de Risco da câmera
       getRiskAreaForCamera: (cameraId) => {
         if (!cameraId) return null;
         const data = get().presets[cameraId];
-        if (Array.isArray(data)) return null; // Compatibilidade com chave antiga
+        if (Array.isArray(data)) return null;
         return data?.riskArea || null;
       },
 
-      // Retorna o objeto completo do preset da câmera
       getPresetForCamera: (cameraId) => {
         if (!cameraId) return { selectedEpis: [], riskArea: null };
         const data = get().presets[cameraId];
@@ -131,10 +110,10 @@ export const useCameraPresetsStore = create(
         };
       },
 
-      clearAllPresets: () => set({ presets: {} })
+      clearAllPresets: () => set({ presets: {}, lastCameraId: null })
     }),
     {
-      name: 'spi-camera-presets', // Chave gravada no localStorage
+      name: 'spi-camera-presets',
     }
   )
 );

@@ -81,6 +81,8 @@ export const CameraPage = () => {
   // Stores de Presets & Zonas de Risco
   const removePresetForCamera = useCameraPresetsStore((state) => state.removePresetForCamera);
   const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
+  const lastCameraId = useCameraPresetsStore((state) => state.lastCameraId);
+  const setLastCameraId = useCameraPresetsStore((state) => state.setLastCameraId);
 
   const { alertaAtivo, limparAlertaAtivo, liveDetections, livePose, verdict } = useMonitoramentoStore();
 
@@ -91,6 +93,16 @@ export const CameraPage = () => {
   useEffect(() => {
     fetchCameras();
   }, [fetchCameras]);
+
+  // Restaura a posição da última câmera assim que a lista de câmeras carregar
+  useEffect(() => {
+    if (cameras.length > 0 && lastCameraId) {
+      const savedIndex = cameras.findIndex((c) => c.id === lastCameraId);
+      if (savedIndex !== -1) {
+        setCurrentIndex(savedIndex);
+      }
+    }
+  }, [cameras, lastCameraId]);
 
   useEffect(() => {
     if (!alertaAtivo) return;
@@ -138,8 +150,6 @@ export const CameraPage = () => {
 
     useMonitoramentoStore.setState({ detections: novoEstadoDetections });
 
-    // Envia a UNIÃO dos EPIs de todas as câmeras do setor para o orquestrador,
-    // evitando que câmeras com presets diferentes no mesmo setor se sobreescrevam.
     const setor = currentCamera?.setor ?? '';
     const presetsState = useCameraPresetsStore.getState();
     const sectorEpisUnion = new Set(activeEpisForVisuals);
@@ -173,28 +183,38 @@ export const CameraPage = () => {
 
     if (foundIndex !== -1) {
       setCurrentIndex(foundIndex);
+      setLastCameraId(cameras[foundIndex].id);
     } else if (typeof target === 'number' && target >= 0 && target < cameras.length) {
       setCurrentIndex(target);
+      setLastCameraId(cameras[target].id);
     }
   };
 
   const handleNextCamera = () => {
     if (cameras.length === 0) return;
     setIsEditingRiskArea(false);
-    setCurrentIndex((prev) => (prev + 1) % cameras.length);
+    const nextIndex = (currentIndex + 1) % cameras.length;
+    setCurrentIndex(nextIndex);
+    setLastCameraId(cameras[nextIndex].id);
   };
 
   const handlePrevCamera = () => {
     if (cameras.length === 0) return;
     setIsEditingRiskArea(false);
-    setCurrentIndex((prev) => (prev - 1 + cameras.length) % cameras.length);
+    const prevIndex = (currentIndex - 1 + cameras.length) % cameras.length;
+    setCurrentIndex(prevIndex);
+    setLastCameraId(cameras[prevIndex].id);
   };
 
   const handleAddCamera = async (newCamData) => {
     try {
       await addCamera(newCamData);
       const updatedCameras = useCameraStore.getState().cameras;
-      setCurrentIndex(Math.max(0, updatedCameras.length - 1));
+      const newIndex = Math.max(0, updatedCameras.length - 1);
+      setCurrentIndex(newIndex);
+      if (updatedCameras[newIndex]) {
+        setLastCameraId(updatedCameras[newIndex].id);
+      }
     } catch (err) {
       console.error("Falha ao salvar câmera:", err);
       throw err;
@@ -211,13 +231,18 @@ export const CameraPage = () => {
       const updatedCameras = useCameraStore.getState().cameras;
       const remainingCount = updatedCameras.length;
 
+      let nextIndex = 0;
       if (remainingCount === 0) {
-        setCurrentIndex(0);
+        nextIndex = 0;
+        setLastCameraId(null);
       } else if (deletedIndex >= remainingCount) {
-        setCurrentIndex(remainingCount - 1);
+        nextIndex = remainingCount - 1;
+        setLastCameraId(updatedCameras[nextIndex].id);
       } else {
-        setCurrentIndex(deletedIndex);
+        nextIndex = deletedIndex;
+        setLastCameraId(updatedCameras[nextIndex].id);
       }
+      setCurrentIndex(nextIndex);
     } catch (err) {
       console.error("Falha ao deletar câmera:", err);
       throw err;
@@ -233,14 +258,11 @@ export const CameraPage = () => {
     }
   };
 
-  // LIMPEZA DE ÁREA DE RISCO
   const handleClearRiskArea = () => {
     window.dispatchEvent(new CustomEvent('clear_risk_area'));
     setIsEditingRiskArea(false);
   };
 
-  // Só considera detecções de EPI que essa câmera tem configurado (activeEpisForVisuals)
-  // — uma câmera com só "Capacete" selecionado não deve acusar "Sem Máscara"/"Sem Colete".
   const relevantDetections = liveDetections.filter((d) => {
     const toggleKey = LABEL_TO_TOGGLE[d.label];
     return !toggleKey || activeEpisForVisuals.includes(toggleKey);
@@ -249,18 +271,15 @@ export const CameraPage = () => {
   const buildMessage = () => {
     const linhas = [];
 
-    // Alerta ativo (EPI crítico disparado) — aparece primeiro
     if (alertaAtivo) {
       linhas.push(`⚠ ${formatLabel(alertaAtivo.label)} — confiança: ${(alertaAtivo.confidence * 100).toFixed(0)}%`);
     }
 
-    // EPIs detectados no frame
     const epiLinhas = relevantDetections
       .filter((d) => LABEL_PT[d.label])
       .map(formatDetection);
     linhas.push(...epiLinhas);
 
-    // REBA / Ergonomia por pessoa
     if (livePose && livePose.length > 0) {
       livePose.forEach((p, i) => {
         if (p.reba_score != null) {
@@ -275,7 +294,6 @@ export const CameraPage = () => {
       });
     }
 
-    // Zona de risco (via verdict)
     if (verdict?.reasons && verdict.reasons.length > 0) {
       verdict.reasons.forEach((r) => {
         if (typeof r === 'string') linhas.push(`⚠ ${r}`);
@@ -311,9 +329,9 @@ export const CameraPage = () => {
 
   if (!isLoading && cameras.length === 0) {
     return (
-      <div className={`panel-theme-${currentTheme} min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-center space-y-4 bg-[var(--p-bg)] ${isDark ? 'dark' : 'light'}`}>
-        <h2 className="text-lg sm:text-xl text-theme-title tracking-wider font-theme-title">Nenhuma câmera cadastrada</h2>
-        <p className="text-xs sm:text-sm text-theme-main tracking-wider font-theme-body">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
+      <div className={`panel-theme-${currentTheme} min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-center space-y-4 ${isDark ? 'dark' : 'light'}`}>
+        <h2 className="text-lg sm:text-xl text-[var(--p-text-title)] tracking-wider font-theme-title">Nenhuma câmera cadastrada</h2>
+        <p className="text-xs sm:text-sm text-[var(--p-text-main)] tracking-wider font-theme-body">Cadastre sua primeira câmera para iniciar o monitoramento.</p>
         
         <div className="pt-4">
           <ButtonAddCam 
@@ -336,10 +354,8 @@ export const CameraPage = () => {
         
         <main className="flex flex-col gap-3 sm:gap-5">
 
-          {/* LINHA PRINCIPAL: câmera + painel com mesma altura */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 items-start">
 
-            {/* FRAME DA CÂMERA */}
             <div className="lg:col-span-9 h-[50vh] min-h-[320px] lg:h-[calc(100vh-200px)] lg:min-h-[520px] flex items-center justify-center overflow-hidden rounded-2xl bg-neutral-950 border border-theme-divider shadow-2xl">
               <CameraView
                 camera={currentCamera}
@@ -351,7 +367,6 @@ export const CameraPage = () => {
               />
             </div>
 
-            {/* PAINEL DE DETALHES E CONFIGURAÇÕES — estica pra mesma altura do frame */}
             <div className="lg:col-span-3 flex flex-col gap-3 sm:gap-4 w-full p-3.5 sm:p-5 rounded-2xl bg-[var(--p-header-bg)] border border-theme-divider shadow-xl transition-colors duration-300 h-[50vh] min-h-[320px] lg:h-[calc(100vh-200px)] lg:min-h-[520px] overflow-hidden">
 
               <div className="flex-1 min-h-0 flex flex-col">
@@ -386,7 +401,6 @@ export const CameraPage = () => {
 
           </div>
 
-          {/* MOSAICO NA LINHA DE BAIXO */}
           <CameraMosaicGrid
             cameras={cameras}
             currentIndex={currentIndex}

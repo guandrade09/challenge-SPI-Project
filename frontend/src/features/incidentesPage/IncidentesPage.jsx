@@ -20,8 +20,15 @@ export default function IncidentesPage() {
     (async () => {
       try {
         const payload = await detectionService.list();
-        const items = (payload?.data || []).slice().reverse();
+        // Trata se payload for o array direto OU se vier dentro de .data / .incidents
+        const rawItems = Array.isArray(payload) 
+          ? payload 
+          : payload?.data || payload?.incidents || [];
+          
+        const items = rawItems.slice().reverse();
         setAll(items);
+      } catch (err) {
+        console.error("Erro ao carregar incidentes:", err);
       } finally {
         setLoading(false);
       }
@@ -53,10 +60,10 @@ export default function IncidentesPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl text-[var(--p-text)] uppercase tracking-wider font-semibold">
+            <h2 className="text-2xl text-[var(--p-text-title)] uppercase tracking-wider font-semibold">
               Histórico de Incidentes
             </h2>
-            <p className="text-xs text-neutral-500 mt-1">{filtered.length} registros encontrados</p>
+            <p className="text-[var(--p-text-title)] mt-1">{filtered.length} registros encontrados</p>
           </div>
         </div>
 
@@ -75,11 +82,11 @@ export default function IncidentesPage() {
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-              <div key={i} className="bg-[#1c1d26] rounded-xl h-52 animate-pulse" />
+              <div key={i} className="panel-subcard h-52 animate-pulse" />
             ))}
           </div>
         ) : pageItems.length === 0 ? (
-          <div className="text-center py-24 text-neutral-500">Nenhum incidente encontrado.</div>
+          <div className="text-center py-24 text-theme-muted">Nenhum incidente encontrado.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {pageItems.map((incident, i) => (
@@ -94,17 +101,17 @@ export default function IncidentesPage() {
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page_ === 0}
-              className="p-2 rounded-lg border border-white/10 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
+              className="icon-btn-ghost disabled:opacity-30"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm text-neutral-400 font-mono">
+            <span className="text-sm text-[var(--p-text-title)] font-mono">
               {page_ + 1} / {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page_ === totalPages - 1}
-              className="p-2 rounded-lg border border-white/10 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
+              className="icon-btn-ghost disabled:opacity-30"
             >
               <ChevronRight size={16} />
             </button>
