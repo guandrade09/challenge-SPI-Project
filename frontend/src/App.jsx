@@ -10,6 +10,7 @@ import LogsPage from './features/logsPage/LogsPage';
 import HomePage from './features/homePage/HomePage';
 import { CameraPage } from './features/cameraPage/CameraPage';
 import IncidentesPage from './features/incidentesPage/IncidentesPage';
+import EventosPage from './features/eventosPage/EventosPage';
 
 export function App() {
   return (
@@ -30,7 +31,8 @@ export function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/incidentes" element={<IncidentesPage />} />
-<Route path="/camera" element={<CameraPage />} />
+            <Route path="/eventos" element={<EventosPage />} />
+            <Route path="/camera" element={<CameraPage />} />
             <Route path="/settings" element={
               <div className="flex min-h-screen items-center justify-center">
                 <h1 className='text-white font-bold text-3xl'>Configurações (Em breve)</h1>

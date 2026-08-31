@@ -4,32 +4,29 @@ import imgNotFound from '../assets/Codexis/img-not-found.jpg';
 
 export const streamService = {
   imagePathToUrl: (imgPath) => {
-    if (!imgPath) return imgNotFound;
+    if (!imgPath || typeof imgPath !== 'string') return imgNotFound;
 
-    // Se já for uma URL absoluta completa (http/https), retorna direto
-    if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+    // 1. Se já for uma URL absoluta (http/https/data:image), retorna direto
+    if (/^(http|https|data:image):/i.test(imgPath)) {
       return imgPath;
     }
 
-    // Normaliza barras do Windows (\) para URL (/)
+    // 2. Normaliza barras de inversão do Windows (\) para (/)
     const normalized = imgPath.replace(/\\/g, '/');
-    
-    // Busca por '/uploads/' ignorando case (maiúsculas/minúsculas)
-    const match = normalized.match(/\/uploads\//i);
 
-    if (!match) return imgNotFound;
-
-    // Obtém o índice onde começa a palavra 'uploads'
-    const idx = match.index;
-
-    // Extrai a origem da API eliminando barras ou rotas "/api" do final
+    // 3. Obtém a origem base do backend retirando '/api' e barras finais
     const rawBase = api?.defaults?.baseURL || 'http://localhost:3000';
-    const origin = rawBase.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+    const origin = rawBase.replace(/\/api\/?$/i, '').replace(/\/+$/, '');
 
-    // Garante a barra inicial no caminho da imagem
-    const relativePath = normalized.slice(idx);
-    const cleanPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+    // 4. Se contiver '/uploads/', extrai a partir do caminho do upload
+    const matchUploads = normalized.match(/\/uploads\//i);
+    if (matchUploads) {
+      const relativePath = normalized.slice(matchUploads.index);
+      return `${origin}${relativePath.startsWith('/') ? '' : '/'}${relativePath}`;
+    }
 
-    return `${origin}${cleanPath}`;
+    // 5. Fallback para qualquer outro caminho relativo do servidor (ex: "frames/1.jpg" ou "/static/1.png")
+    const cleanRelativePath = normalized.startsWith('/') ? normalized : `/${normalized}`;
+    return `${origin}${cleanRelativePath}`;
   }
 };
