@@ -29,6 +29,13 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "ml_ergonomia"))
 sys.path.insert(0, os.path.join(ROOT, "ml_zona_critica"))
 
+# Precisa rodar antes de importar ultralytics/torch — ver cpu_affinity.py
+import cpu_affinity
+_ORCH_CORES = cpu_affinity.apply()
+cv2.setNumThreads(len(_ORCH_CORES))
+
+from thread_metrics import ml_thread_metrics_service
+
 from ml_service.inference.camera import Camera
 from ml_service.inference.detector import EPIDetector, IncidentDebouncer
 from ml_service.inference.model_loader import load_yolo_with_engine_fallback
@@ -847,6 +854,12 @@ def main():
     model_epi  = os.path.join(ROOT, "ml_service", "vision", "models", "best.pt")
     model_pose = os.path.join(ROOT, "yolov8n-pose.pt")
 
+    try:
+        import torch
+        torch.set_num_threads(len(_ORCH_CORES))
+    except ImportError:
+        pass
+
     print("[INIT] Carregando modelos...")
     try:
         epi_detector  = EPIDetector(model_path=model_epi, imgsz=MODEL_IMGSZ)
@@ -866,6 +879,7 @@ def main():
 
     threading.Thread(target=_post_worker, daemon=True).start()
     start_server_in_thread()
+    ml_thread_metrics_service.start()
 
     # Inicia o servidor de configuração (zona + analise) com um zone_checker compartilhado
     # camera_id inicial = "cam_01" (sobrescrito por cada setor ao carregar sua zona)
@@ -889,6 +903,7 @@ def main():
                 break
             time.sleep(0.1)
     finally:
+        ml_thread_metrics_service.stop()
         cv2.destroyAllWindows()
         print("[OK] Orquestrador encerrado.")
 
