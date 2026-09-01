@@ -162,12 +162,12 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
             {/* CONTAINER DA IMAGEM DO CARD */}
             <div 
               onClick={() => handleOpenModalWithFeedback(null)}
-              className="w-full h-36 rounded-lg overflow-hidden border border-theme-divider bg-black/20 relative group cursor-pointer"
+              className="w-full h-44 rounded-lg overflow-hidden border border-theme-divider bg-black/40 relative group cursor-pointer flex items-center justify-center"
             >
               <img
                 src={currentEvent.imagem || imgNotFound}
                 alt={`Ocorrência Crítica ${currentEvent.id}`}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
                   e.currentTarget.onerror = null;
                   e.currentTarget.src = imgNotFound;
