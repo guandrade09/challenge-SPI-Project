@@ -87,3 +87,9 @@ export function formatIncidentLabel(label = '') {
     .map((part) => formatLabel(part.trim()))
     .join(' • ');
 }
+
+
+export const formatDetection = (d) => {
+  const icon = RISK_LABELS.has(d.label) ? '⚠' : '✓';
+  return `${icon} ${formatLabel(d.label)} — ${(d.confidence * 100).toFixed(0)}%`;
+};

@@ -130,11 +130,15 @@ export function EventosPage() {
         />
 
         <section className="flex flex-col gap-6">
+
+          <EventDetailsCard event={selectedEvent} />
+
           <CriticalActionCard
             events={events}
             onValidate={handleValidateEvent}
+            selectedEventId={selectedEventId}
           />
-          <EventDetailsCard event={selectedEvent} />
+          
         </section>
       </main>
     </div>
