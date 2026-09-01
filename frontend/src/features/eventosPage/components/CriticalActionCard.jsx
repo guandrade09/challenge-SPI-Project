@@ -5,7 +5,7 @@ import PopupModal from '../../../components/shared/PopupModal';
 import IconButtonModal from '../../../components/shared/IconButtonModal';
 
 export function CriticalActionCard({ events = [], selectedEventId, onValidate }) {
-  // 1. Filtrar eventos críticos pendentes (normalizando IDs para comparação segura)
+  // 1. Filtrar eventos críticos pendentes
   const pendingCriticalEvents = useMemo(() => {
     return events.filter(
       (evt) =>
@@ -22,7 +22,7 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
   const [errorReason, setErrorReason] = useState('');
   const [customComment, setCustomComment] = useState('');
 
-  // Sincronização inteligente via selectedEventId (comparação com String() para evitar bugs de tipo)
+  // Sincronização via selectedEventId
   useEffect(() => {
     if (!selectedEventId || pendingCriticalEvents.length === 0) return;
 
@@ -36,9 +36,13 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
     }
   }, [selectedEventId, pendingCriticalEvents]);
 
-  // Trava para limites do array
+  // Trava para limites do array e auto-close se zerar os pendentes com o modal aberto
   useEffect(() => {
-    if (currentIndex >= pendingCriticalEvents.length && pendingCriticalEvents.length > 0) {
+    if (pendingCriticalEvents.length === 0) {
+      setCurrentIndex(0);
+      setIsModalOpen(false);
+      resetFeedbackState();
+    } else if (currentIndex >= pendingCriticalEvents.length) {
       setCurrentIndex(pendingCriticalEvents.length - 1);
     }
   }, [pendingCriticalEvents.length, currentIndex]);
@@ -65,11 +69,14 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
     }
   };
 
-  // Abre o modal já selecionando se foi Procedente ou Falso Alarme
-  const handleOpenModalWithFeedback = (initialFeedback = null) => {
+  // Abre o modal pré-selecionando o feedback e opcionalmente o motivo do erro
+  const handleOpenModalWithFeedback = (initialFeedback = null, defaultReason = '') => {
     resetFeedbackState();
     if (initialFeedback) {
       setMlFeedback(initialFeedback);
+      if (defaultReason) {
+        setErrorReason(defaultReason);
+      }
     }
     setIsModalOpen(true);
   };
@@ -93,7 +100,7 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
       onValidate(currentEvent.id, status, validationPayload);
     }
     
-    setIsModalOpen(false);
+    // Reset dos campos de feedback mantendo o modal aberto para a próxima ocorrência
     resetFeedbackState();
   };
 
@@ -194,7 +201,7 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
                 icon={X}
                 label="Falso Alarme"
                 colorVariant="cancel"
-                onClick={() => handleOpenModalWithFeedback('incorrect')}
+                onClick={() => handleOpenModalWithFeedback('incorrect', 'ghost_detection')}
               />
             </div>
           </div>
@@ -211,7 +218,7 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
         )}
       </div>
 
-      {/* POPUP MODAL COM VALIDADOR DE IA */}
+      {/* POPUP MODAL COM CARROSSEL E AUDITORIA */}
       {currentEvent && (
         <PopupModal
           isOpen={isModalOpen}
@@ -221,7 +228,9 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
           maxWidth="max-w-2xl"
         >
           <div className="flex flex-col gap-4">
-            <div className="w-full h-64 sm:h-80 rounded-xl overflow-hidden border border-theme-divider bg-black/40 relative">
+            
+            {/* ÁREA DA IMAGEM COM CONTROLES DO CARROSSEL */}
+            <div className="w-full h-64 sm:h-80 rounded-xl overflow-hidden border border-theme-divider bg-black/40 relative group flex items-center justify-center">
               <img
                 src={currentEvent.imagem || imgNotFound}
                 alt={`Ocorrência ${currentEvent.id}`}
@@ -231,8 +240,42 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
                   e.currentTarget.src = imgNotFound;
                 }}
               />
+
+              {/* Botão Anterior */}
+              {pendingCriticalEvents.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  disabled={currentIndex === 0}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/90 text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all border border-white/10 backdrop-blur-sm"
+                  title="Anterior"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              )}
+
+              {/* Botão Próximo */}
+              {pendingCriticalEvents.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={currentIndex === pendingCriticalEvents.length - 1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/90 text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all border border-white/10 backdrop-blur-sm"
+                  title="Próximo"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              )}
+
+              {/* Indicador de Quantidade/Posição */}
+              {pendingCriticalEvents.length > 1 && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[11px] font-mono text-white/90">
+                  {currentIndex + 1} de {pendingCriticalEvents.length}
+                </div>
+              )}
             </div>
 
+            {/* INFORMAÇÕES DO EVENTO ATUAL */}
             <div className="p-3 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-xs grid grid-cols-2 gap-2 font-mono">
               <div><strong className="text-theme-main">Detecção:</strong> {currentEvent.tipo}</div>
               <div><strong className="text-theme-main">Local:</strong> {currentEvent.setor}</div>
@@ -240,6 +283,7 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
               <div><strong className="text-theme-main">Horário:</strong> {currentEvent.timestamp}</div>
             </div>
 
+            {/* CAMPOS DE AUDITORIA DE IA */}
             <div className="p-3.5 rounded-xl border border-theme-divider bg-theme-hover/20 flex flex-col gap-3">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-theme-main">
                 <Cpu size={16} className="text-blue-500" />
@@ -269,7 +313,10 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
 
                 <button
                   type="button"
-                  onClick={() => setMlFeedback('incorrect')}
+                  onClick={() => {
+                    setMlFeedback('incorrect');
+                    setErrorReason('ghost_detection');
+                  }}
                   className={`p-2.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                     mlFeedback === 'incorrect'
                       ? 'border-red-500 bg-red-500/10 text-red-400 shadow-sm'
@@ -292,9 +339,9 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
                     className="p-2 rounded-lg bg-[var(--p-bg)] border border-theme-divider text-xs text-theme-main focus:outline-none focus:border-red-500"
                   >
                     <option value="">Selecione o motivo do erro...</option>
+                    <option value="ghost_detection">Detecção fantasma selecionada</option>
                     <option value="false_positive_item_present">Equipamento/EPI estava presente (Falso Positivo)</option>
                     <option value="misclassified_object">Objeto confundido com outro item</option>
-                    <option value="ghost_detection">Detecção Fantasma (Sem pessoa/objeto na área)</option>
                     <option value="bad_lighting_occlusion">Iluminação ruim ou objeto oculto</option>
                     <option value="other">Outro motivo</option>
                   </select>
@@ -318,24 +365,28 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-theme-divider">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 rounded-lg border border-theme-divider text-xs text-theme-muted hover:bg-theme-hover transition-colors"
-              >
-                Cancelar
-              </button>
+            {/* RODAPÉ DO MODAL COM AÇÕES */}
+            <div className="flex items-center justify-end pt-2 border-t border-theme-divider">
+              <div className="flex gap-2">
+                <IconButtonModal
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  variant="full"
+                  icon={X}
+                  label="Fechar"
+                  colorVariant="cancel"
+                />
 
-              <button
-                type="button"
-                disabled={!mlFeedback || (mlFeedback === 'incorrect' && !errorReason)}
-                onClick={() => handleFinalSubmit(mlFeedback === 'correct' ? 'Validado' : 'Descartado')}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-md"
-              >
-                <Check size={14} />
-                Salvar Validação & Enviar p/ Re-treino
-              </button>
+                <IconButtonModal
+                  type="button"
+                  variant="full"
+                  icon={Check}
+                  label="Salvar Validação"
+                  colorVariant="success"
+                  disabled={!mlFeedback || (mlFeedback === 'incorrect' && !errorReason)}
+                  onClick={() => handleFinalSubmit(mlFeedback === 'correct' ? 'Validado' : 'Descartado')}
+                />
+              </div>
             </div>
           </div>
         </PopupModal>
