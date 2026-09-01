@@ -1,8 +1,8 @@
 /* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
-
-@theme{
+@theme {
   --color-panel-bg: #D9D9D9;
   --color-panel-header: #B59481;
   --color-card-white: #ffffff;
@@ -14,65 +14,6 @@
   --spacing-panel-gap: 2rem;
 }
 
-@layer utilities {
-  .font-label-auth{
-    @apply text-3xl font-bold text-white mb-2;
-  }
-
-  .font-label-logs{
-    @apply text-black font-bold text-xs uppercase tracking-widest flex-1 text-center;
-  }
-
-
-  .auth-card-dark {
-    @apply bg-neutral-900/80 backdrop-blur-md border border-neutral-700 p-8 rounded-2xl shadow-2xl;
-  }
-
-  .bg-projeto-main {
-    @apply w-full min-h-screen bg-gradient-to-tr from-neutral-500 to-neutral-950;
-  }
-
-  /* Aproveitando para ajustar seus inputs e deixá-os mais limpos no fundo escuro */
-  .auth-card {
-    @apply bg-white rounded-2xl shadow-xl border border-neutral-800/10;
-  }
-
-  /* Estilização para Webkit (Chrome, Safari, Edge, Opera) */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;               /* Largura da barra vertical */
-    height: 6px;              /* Altura da barra horizontal */
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;  /* Fundo da trilha (invisível para ser clean) */
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #333338;      /* Cor da barra (zinc-700) */
-    border-radius: 20px;      /* Arredondamento total */
-    border: 2px solid transparent; /* Cria um respiro visual */
-    background-clip: content-box;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #b59481;      /* Cor de destaque quando passa o mouse (marrom do cabeçalho) */
-  }
-
-  /* Suporte para Firefox */
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: #3f3f46 transparent;
-  }
-  
-}
-
-/* Adicione isso para garantir o fundo escuro do mockup */
-body {
-  margin: 0;
-  font-family: 'Inter', sans-serif;
-}
-
-
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -83,8 +24,7 @@ body {
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -116,17 +56,12 @@ body {
     --accent-bg: rgba(192, 132, 252, 0.15);
     --accent-border: rgba(192, 132, 252, 0.5);
     --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }
 
   #social .button-icon {
     filter: invert(1) brightness(2);
   }
-}
-
-body {
-  margin: 0;
 }
 
 #root {
@@ -138,12 +73,15 @@ body {
   box-sizing: border-box;
 }
 
-@layer base{
-h1, h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  @apply text-[var(--text-h)];
-}
+@layer base {
+  h1, h2 {
+    font-family: var(--heading);
+    font-weight: 500;
+  }
+  
+  /* Mantém o comportamento nativo padrão e deixa classes utilitárias controlarem exceções */
+  h1 { color: var(--text-h); }
+  h2 { color: var(--text-h); }
 }
 
 h1 {
@@ -155,6 +93,7 @@ h1 {
     margin: 20px 0;
   }
 }
+
 h2 {
   font-size: 24px;
   line-height: 118%;
@@ -164,12 +103,10 @@ h2 {
     font-size: 20px;
   }
 }
-p {
-  margin: 0;
-}
 
-code,
-.counter {
+p { margin: 0; }
+
+code, .counter {
   font-family: var(--mono);
   display: inline-flex;
   border-radius: 4px;
@@ -184,13 +121,509 @@ code {
 }
 
 @layer utilities {
-  /* ... suas classes existentes ... */
+    /* ========================================================
+       THEMES MAP (LIGHT / DARK / DYNAMIC) - ISOLADO PARA OS PAINÉIS
+       ======================================================== */
 
-  .bg-monitoramento {
-    background: #111214;
+    .panel-theme-light {
+      --p-bg: #dddcdc;
+      --p-border: #000000;
+      --p-header-bg: #f2f2f2;
+      --p-box-logs: #c5c5c5;
+      --p-text-title: #ffffff;       /* Escuro para leitura sobre o painel claro */
+      --p-text: #000000;  
+      --p-text-logs: #000000;
+      --p-timestamp-logs: #000000;          
+      --p-subtext: #0008ff;
+      --p-graf-bg: #f9fafb;
+      --p-pattern-dor: #d1d5db;
+      --p-toggle-hover: #bbf9a544;
+      --p-toggle-hover-cancel: RED;
+      --p-toggle-text: #000000;
+      --p-button-bg: #f4f4f5;       
+      --p-button-text: #18181b;     
+      --p-toggle-accent: #059669;
+      --p-overlay: rgba(10, 10, 10, 0.4);
+      --p-chat-bg-user: #16b137;
+
+      --chart-grid: #3c3333;
+      --chart-text: #000000;
+      --chart-axis: #000000;
+      --chart-tooltip-bg: #ffffff;
+      --chart-tooltip-border: #e5e5e5;
+      --chart-alertas: #B59481;
+      --chart-proc: #6363e7;
+      --chart-normal-node: #B59481;
+
+      --chart-radar-fill: rgba(34, 197, 94, 0.15);
+      --chart-radar-stroke: #22c55e;
+      --chart-core-ml: #6366f1;
+
+      --chart-line-1: #0000b3; /* Azul escuro */
+      --chart-line-2: #00b300; /* Verde escuro */
+      --chart-line-3: #5a00b3; /* Roxo escuro */
+      --chart-line-4: #b35900; /* Laranja escuro */
+      --chart-line-alert: #b30000; /* Vermelho escuro */
+
+      --risk-edit-border: #f59e0b;
+      --risk-edit-bg: rgba(245, 158, 11, 0.15);
+      --risk-edit-badge: #d97706;
+      --risk-alert-border: #dc2626;
+      --risk-alert-bg: rgba(220, 38, 38, 0.15);
+      --risk-alert-badge: #dc2626;
+    }
+
+    .panel-theme-dark {
+      --p-bg: #18181b;              
+      --p-border: rgba(63, 63, 70, 0.6);
+      --p-header-bg: rgba(10, 10, 10, 0.6);
+      --p-box-logs: rgba(10, 10, 10, 0.6);
+      --p-text-title: #f4f4f5;       
+      --p-text: #d4d4d8;
+      --p-text-logs: #d4d4d8;
+      --p-subtext: #10b981;
+      --p-graf-bg: rgba(10, 10, 10, 0.5);
+      --p-pattern-dot: rgba(255, 255, 255, 0.08)
+      --p-toggle-hover: rgba(63, 63, 70, 0.6);
+      --p-toggle-hover-cancel: RED;
+      --p-toggle-text: #a1a1aa;
+      --p-button-bg: #27272a;       
+      --p-button-text: #ffffff;     
+      --p-toggle-accent: #34d399;
+      --p-overlay: rgba(10, 10, 10, 0.85);
+
+      --chart-grid: #262626;
+      --chart-text: #a3a3a3;
+      --chart-axis: #52525b;
+      --chart-tooltip-bg: #0a0a0a;
+      --chart-tooltip-border: #262626;
+      --chart-alertas: #B59481;
+      --chart-proc: #52525b;
+      --chart-normal-node: #B59481;
+
+      --chart-radar-fill: rgba(101, 255, 209, 0.1);
+      --chart-radar-stroke: #65ffd1;
+      --chart-core-ml: #818cf8;
+
+      --chart-line-1: #ef4444; /* Vermelho */
+      --chart-line-2: #3b82f6; /* Azul */
+      --chart-line-3: #a855f7; /* Roxo */
+      --chart-line-4: #f97316; /* Laranja */
+      --chart-line-alert: #eab308; /* Amarelo */
+
+      --p-chat-bg-user: #5196d6;
+      
+      --risk-edit-border: #f59e0b;
+      --risk-edit-bg: rgba(245, 158, 11, 0.2);
+      --risk-edit-badge: #b45309;
+      --risk-alert-border: #ef4444;
+      --risk-alert-bg: rgba(239, 68, 68, 0.2);
+      --risk-alert-badge: #dc2626;
+    }
+
+    .panel-theme-dark .recharts-line .recharts-curve {
+      filter: drop-shadow(0px 0px 4px currentColor);
+    }
+
+    .panel-theme-dynamic {
+      --p-bg: #18181b;
+      --p-border: #3f3f46;
+      --p-header-bg: #000000;
+      --p-box-logs: #000000;
+      --p-text-title: #f4f4f5;
+      --p-text: #f4f4f5;
+      --p-text-logs: #f4f4f5;
+      --p-subtext: #a1a1aa;
+      --p-graf-bg: #09090b;
+      --p-pattern-dot: #27272a;
+      --p-toggle-hover: #27272a;
+      --p-toggle-hover-cancel: RED;
+      --p-toggle-text: #a1a1aa;
+      --p-button-bg: #565656;       
+      --p-button-text: #000000;     
+      --p-toggle-accent: #ffffff;
+      --p-overlay: rgba(0, 0, 0, 0.95);
+
+      --chart-grid: #27272a;
+      --chart-text: #d4d4d8;
+      --chart-axis: #3f3f46;
+      --chart-tooltip-bg: #000000;
+      --chart-tooltip-border: #3f3f46;
+      --chart-alertas: #ffffff;
+      --chart-proc: #71717a;
+      --chart-normal-node: #ffffff;
+
+      --chart-radar-fill: rgba(255, 255, 255, 0.15);
+      --chart-radar-stroke: #ffffff;
+      --chart-core-ml: #a1a1aa;
+
+      --chart-line-1: #ffffff; /* Branco */
+      --chart-line-2: #b3b3b3; /* Cinza 70/30 */
+      --chart-line-3: #808080; /* Cinza 50/50 */
+      --chart-line-4: #4d4d4d; /* Cinza 30/70 */
+      --chart-line-alert: #ef4444; /* Vermelho */
+
+      --p-chat-bg-user: #adadad;
+
+      --risk-edit-border: #fbbf24;
+      --risk-edit-bg: rgba(251, 191, 36, 0.18);
+      --risk-edit-badge: #d97706;
+      --risk-alert-border: #f87171;
+      --risk-alert-bg: rgba(248, 113, 113, 0.2);
+      --risk-alert-badge: #dc2626;
+    }
+
+    /* ========================================================
+       CLASSES ESTRUTURAIS DINÂMICAS DO MONITORAMENTO
+       ======================================================== */
+    .panel-base {
+      background-color: var(--p-bg);
+      border-color: var(--p-border);
+      border-width: 1px;
+      border-style: solid;
+      border-radius: var(--radius-panel, 16px);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .panel-header-base {
+      background-color: var(--p-header-bg);
+      border-bottom: 1px solid var(--p-border);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .panel-body-cam{
+      background-image: radial-gradient(var(--p-pattern-dot, #262626) 1px,transparent 1px);
+      background-size: 16px 16px;
+      background-color: var(--p-graf-bg);
+    }
+
+    .panel-graf-base {
+      width: 100%;
+      height: 100%;
+      border-radius: var(--radius-grafico);
+      padding: 1rem;
+      position: relative;
+      min-height: 0;
+      background-color: var(--p-graf-bg);
+      border: 1px solid var(--p-border);
+      backdrop-filter: blur(8px);
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    /* ========================================================
+       BOTÕES ADAPTATIVOS 
+       ======================================================== */
+
+    .icon-btn-full {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: var(--p-button-bg);
+    color: var(--p-text) !important;
+    border: 1px solid var(--p-border);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    opacity: 0.8;
+    transition: all 0.2s ease-in-out;
   }
 
-  .camera-feed-height {
-    height: 520px;
+
+  .icon-btn-full:hover {
+    transform: scale(1.01);
+    background-color: var(--p-toggle-hover);
+    color: var(--p-toggle-accent) !important;
   }
+
+  /* Estilo específico para Perigo / Excluir */
+  .icon-btn-danger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background-color: #ef4444;
+    color: #ffffff !important;
+    border: 1px solid #dc2626;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .icon-btn-danger:hover {
+    background-color: #dc2626;
+  }
+
+  
+.icon-btn-cancel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background-color: var(--p-button-bg);
+    color: var(--p-text);
+    border: 1px solid var(--p-border);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    opacity: 0.8;
+    transition: all 0.2s ease-in-out;
+  }
+
+  /* Estado de foco/hover alinhado ao design dos seus painéis */
+  .icon-btn-cancel:hover {
+    opacity: 1;
+    background-color: rgba(239, 68, 68, 0.08); /* Vermelho muito suave no fundo */
+    border-color: rgba(239, 68, 68, 0.4);      /* Borda sutil em tom de alerta */
+    color: #ef4444 !important;                 /* Texto vermelho suave */
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.1);/* Glow minimalista */
+  }
+
+  .icon-btn-cancel:active {
+    transform: scale(0.97);
+  }
+
+
+    .icon-btn-success {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10b981 !important;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+  }
+
+    .icon-btn-success:hover {
+      transform: scale(1.01);
+      background-color: #10b981;
+      color: #ffffff !important;
+      border-color: #059669;
+    }
+
+    .icon-btn-ghost, .chart-control-btn, .modal-close-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem;
+      background-color: var(--p-header-bg, transparent);
+      color: var(--p-text) !important;
+      border: 1px solid var(--p-border);
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn-ghost:hover, .chart-control-btn:hover, .modal-close-btn:hover {
+      background-color: var(--p-toggle-hover);
+      color: var(--p-toggle-accent) !important;
+    }
+
+    .panel-btn-toggle {
+      color: var(--p-button-text) !important;
+      background-color: var(--p-button-bg);
+      transition: all 0.2s;
+    }
+    .panel-btn-toggle:hover {
+      background-color: var(--p-toggle-hover);
+      color: var(--p-toggle-accent) !important;
+    }
+
+    /* ========================================================
+       MAPEAMENTO SEMÂNTICO DO PAINEL
+       ======================================================== */
+   /* Font Families */
+    .font-theme-title { 
+      font-family: 'Sora', sans-serif; 
+    }
+
+    .font-theme-body { 
+      font-family: 'Inter', sans-serif; 
+    }
+
+    /* Tipografia Semântica */
+    .text-theme-title { 
+      font-family: 'Sora', sans-serif;
+      color: var(--p-text); 
+      font-weight: 600; 
+    }
+
+    .text-theme-main { 
+      font-family: 'Inter', sans-serif;
+      color: var(--p-text); 
+    }
+
+    .text-theme-muted { 
+      font-family: 'Inter', sans-serif;
+      color: var(--p-text); 
+      opacity: 0.65; 
+    }
+
+    .text-theme-accent { 
+      color: var(--p-subtext); 
+    }
+
+    /* Dados industriais, datas e cabeçalhos de tabela */
+    .text-theme-head {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--p-text);
+      opacity: 0.8;
+    }
+
+    /* Outras utilidades de container */
+    .border-theme-divider { 
+      border-color: var(--p-border); 
+    }
+
+    .panel-subcard {
+      background-color: var(--p-header-bg);
+      border: 1px solid var(--p-border);
+      border-radius: 12px;
+      padding: 1rem;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .badge-theme-industrial {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--p-header-bg);
+      border: 1px solid var(--p-border);
+      color: var(--p-text);
+    }
+
+    .row-theme-hover:hover {
+      background-color: var(--p-header-bg);
+      opacity: 0.9;
+    }
+
+    /* ========================================================
+       DETECTION CARDS
+       ======================================================== */
+    .detection-card {
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background-color: transparent;
+      user-select: none;
+      transition: all 0.2s ease-out;
+    }
+
+    .detection-card--checked {
+      background-color: rgba(60, 200, 122, 0.08); 
+      border-color: rgba(60, 200, 122, 0.25);  
+    }
+    
+    .detection-card--unchecked:hover {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    /* ========================================================
+       MÉTRICAS & PROGRESS TRACK
+       ======================================================== */
+    .camera-card-container {
+      background-color: var(--p-header-bg);
+      border: 1px solid var(--p-border);
+      border-radius: 12px;
+      padding: 1rem;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .metric-block-divider {
+      border-top: 1px solid var(--p-border);
+      border-bottom: 1px solid var(--p-border);
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .progress-track-theme {
+      background-color: var(--p-bg) !important;
+      border: 1px solid var(--p-border);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .progress-fill-theme {
+      background-color: var(--p-toggle-accent, var(--p-subtext)) !important;
+      transition: all 0.3s ease;
+    }
+
+    .table-row-theme {
+      border-bottom: 1px solid var(--p-border);
+      transition: background-color 0.2s ease;
+    }
+    .table-row-theme:hover {
+      background-color: var(--p-header-bg);
+    }
+
+    .avatar-theme-base {
+      background-color: var(--p-header-bg);
+      border: 1px solid var(--p-border);
+    }
+
+    /* ========================================================
+       LAYOUT UTILITÁRIO LEGADO (RESTAURADO E SEGURO)
+       ======================================================== */
+    .page-container { @apply w-full min-h-screen p-8 bg-gradient-to-tr from-neutral-500 to-neutral-950; }
+    .page-content { @apply mx-auto; }
+    .page-grid-sidebar { @apply grid gap-6 items-start; grid-template-columns: 1fr 300px; }
+    .sidebar-stack { @apply flex flex-col gap-5; }
+    
+    /* Força o título das páginas legadas a manterem a cor correta */
+    .page-title { 
+      @apply text-xl font-bold tracking-wide uppercase; 
+      color: #e2e4e8 !important; 
+      font-family: 'Barlow Condensed', sans-serif; 
+      letter-spacing: .06em; 
+    }
+    
+    .page-subtitle { @apply text-xs mt-1; color: #45484f; }
+    .page-divider { @apply h-px; background: #1e2025; }
+    .font-label-auth { @apply text-3xl font-bold text-white mb-2; }
+    .font-label-logs { @apply text-black font-bold text-xs uppercase tracking-widest flex-1 text-center; }
+    .auth-card-dark { @apply bg-neutral-900/80 backdrop-blur-md border border-neutral-700 p-8 rounded-2xl shadow-2xl; }
+    
+    /* RESTAURADO: Mantém o gradiente escuro industrial padrão do app */
+    .bg-projeto-main { @apply w-full min-h-screen bg-gradient-to-tr from-neutral-500 to-neutral-950; }
+    .bg-projeto-main2 { @apply w-full min-h-screen bg-gradient-to-b from-[#0b0f19] to-[#05070b]; }
+    .bg-projeto-main3 { @apply w-full min-h-screen bg-gradient-to-br from-[#09151d] via-[#070d12] to-[#020406];}
+    
+    .auth-card { @apply bg-white rounded-2xl shadow-xl border border-neutral-800/10; }
+    .form-input-icon { @apply w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500; }
+    .btn-primary { @apply w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20; }
+    .link-emerald { @apply text-emerald-500 font-medium hover:text-emerald-400 transition-colors; }
+
 }
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #333338; border-radius: 20px; border: 2px solid transparent; background-clip: content-box; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #b59481; }
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }

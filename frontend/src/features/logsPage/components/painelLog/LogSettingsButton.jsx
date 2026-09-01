@@ -1,14 +1,15 @@
 import React from 'react';
 import { Settings2 } from 'lucide-react';
-import { IconButton } from '../../../../components/shared/IconButtonModal';
+import { IconButtonModal } from '../../../../components/shared/IconButtonModal';
 
-export const LogSettingsButton = ({ onClick }) => {
+export const LogSettingsButton = ({ onClick, theme = "dynamic" }) => {
   return (
-    <IconButton 
+    <IconButtonModal 
       icon={Settings2} 
       onClick={onClick} 
       variant="ghost" 
       title="Filtros do Painel de Log"
+      className="panel-btn-toggle"
     />
   );
 };

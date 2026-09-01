@@ -6,7 +6,9 @@ export const CAMERA_STATUS = {
 };
 
 export const PANEL_STATUS = {
-  PRONTO: 'pronto',
-  ATENCAO: 'atencao',
-  ALERTA: 'alerta'
+  PRONTO:          'pronto',
+  ATENCAO:         'atencao',
+  ALERTA:          'alerta',
+  ALERTA_CRITICO:  'alerta_critico',
+  ALERTA_MULTIPLO: 'alerta_multiplo',
 }
