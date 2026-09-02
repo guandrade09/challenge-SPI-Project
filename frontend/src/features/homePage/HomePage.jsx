@@ -11,12 +11,14 @@ import {
   OperationalRadar,
   ResourceMonitor,
 } from "../../components/graficos";
-import { BasePanelModal } from "../../components/shared";
-import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw, Cpu } from "lucide-react";
+import { BasePanelModal, ThreadSelector } from "../../components/shared";
+import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 import { colunasLogs, radarData, lineLogs, composedLogs } from "../../mocks/logsPageMocks/test";
 import detectionService from "../../services/detectionService";
 import cameraService from "../../services/cameraService";
 import { teamMembers } from "../../mocks/indexPageMocks/test";
+import { classifyDetection } from "../../utils/detectionStatus";
+import { getThreadLabel, getThreadMetricsConfig } from "../../utils/threadOptions";
 
 function HomePage() {
   const currentTheme = useUiStore((s) => s.theme);
@@ -34,14 +36,7 @@ function HomePage() {
   // 1. Estado para controlar qual thread está sendo exibida no card de recursos
   const [currentThread, setCurrentThread] = useState("backend_processor");
 
-  // 2. Função para alternar entre "backend_processor" e "renderFrontend_pages"
-  const handleToggleThread = () => {
-    setCurrentThread((prev) =>
-      prev === "backend_processor" ? "renderFrontend_pages" : "backend_processor"
-    );
-  };
-
-  // 3. Hook alimentado dinamicamente pelo estado da thread selecionada
+  // 2. Hook alimentado dinamicamente pelo estado da thread selecionada
   const { data: performanceData, refetch: refetchMetrics } = useResourceMetrics(currentThread, 30);
 
   const fetchCameras = async () => {
@@ -76,14 +71,8 @@ function HomePage() {
       const map = {};
       filtered.forEach((it) => {
         const label = it.label || "Desconhecido";
-        const conf = typeof it.confidence !== "undefined" ? parseFloat(it.confidence) : 1;
         if (!map[label]) map[label] = { detectado: 0, naoDetectado: 0 };
-
-        if (!isNaN(conf) && conf < 0.6) {
-          map[label].naoDetectado += 1;
-        } else {
-          map[label].detectado += 1;
-        }
+        map[label][classifyDetection(it)] += 1;
       });
 
       const result = Object.keys(map).map((label) => ({
@@ -180,48 +169,10 @@ function HomePage() {
   const alertasPendentes = reportData?.accuracy?.erros ?? "---";
 
 // Configuração dinâmica das linhas e eixos do gráfico baseada na thread ativa
-  const homeMetricsConfig =
-    currentThread === "renderFrontend_pages"
-      ? [
-          {
-            key: "cpu",
-            name: "% HeapJS",
-            stroke: "var(--chart-line-1)",
-            yAxisId: "left",
-          },
-          {
-            key: "paginas",
-            name: "Páginas Carregadas",
-            stroke: "var(--chart-line-2)",
-            yAxisId: "right",
-          },
-        ]
-      : [
-          {
-            key: "cpu",
-            name: "% CPU",
-            stroke: "var(--chart-line-1)",
-            yAxisId: "left",
-          },
-          {
-            key: "paginas",
-            name: "Quantidade de Processos",
-            stroke: "var(--chart-line-2)",
-            yAxisId: "right",
-          },
-        ];
+  const homeMetricsConfig = getThreadMetricsConfig(currentThread);
 
   // Componente visual do botão para trocar a origem dos dados
-  const ThreadToggleButton = (
-    <button
-      onClick={handleToggleThread}
-      title="Alternar origem das métricas de monitoramento"
-      className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-md border border-white/10 bg-neutral-800/80 hover:bg-neutral-700 text-emerald-400 hover:text-emerald-300 transition-all duration-200 shadow-sm active:scale-95 z-30"
-    >
-      <Cpu size={12} className="shrink-0" />
-      <span>{currentThread === "backend_processor" ? "Backend" : "Frontend"}</span>
-    </button>
-  );
+  const ThreadToggleButton = <ThreadSelector currentThread={currentThread} onChange={setCurrentThread} />;
 
   const chartsForCarousel = [
     {
@@ -238,7 +189,7 @@ function HomePage() {
       component: <OperationalRadar data={radarData} theme={currentTheme} />,
     },
     {
-      label: `Monitoramento de Recursos (${currentThread === "backend_processor" ? "Backend" : "Frontend"})`,
+      label: `Monitoramento de Recursos (${getThreadLabel(currentThread)})`,
       headerAction: ThreadToggleButton, // 🚀 O botão aparece quando este card estiver ativo no carrossel
       component: (
         <ResourceMonitor
