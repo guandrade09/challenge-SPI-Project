@@ -9,25 +9,28 @@ export const eventService = {
       api.get('/detections')
     ]);
 
-    const rawLogs = logsRes.status === 'fulfilled' 
-      ? (logsRes.value.data?.data ?? logsRes.value.data ?? []) 
-      : [];
-      
-    const rawDetections = detectionsRes.status === 'fulfilled' 
-      ? (detectionsRes.value.data?.data ?? detectionsRes.value.data ?? []) 
-      : [];
+    // Extração segura de Array idêntica ao IncidentesPage
+    const logsPayload = logsRes.status === 'fulfilled' ? logsRes.value.data : null;
+    const rawLogs = Array.isArray(logsPayload)
+      ? logsPayload
+      : logsPayload?.data || logsPayload?.logs || [];
+
+    const detectionsPayload = detectionsRes.status === 'fulfilled' ? detectionsRes.value.data : null;
+    const rawDetections = Array.isArray(detectionsPayload)
+      ? detectionsPayload
+      : detectionsPayload?.data || detectionsPayload?.incidents || [];
 
     // 1. Tratamento dos LOGS
     const normalizedLogs = rawLogs.map((entry, index) => {
-      const message = entry.line ?? entry.message ?? entry.logs ?? '';
+      const message = typeof entry === 'string' ? entry : (entry.line ?? entry.message ?? entry.logs ?? '');
       const isAlta = /critico|erro|danger|sem capacete|falha/i.test(message);
       const isMedia = /alerta|warning|ausencia/i.test(message);
 
       const rawDate = entry.timestamp ? new Date(entry.timestamp) : new Date();
       const rawTipo = entry.tipo || entry.event_type || (message.length > 40 ? message.substring(0, 40) + '...' : message) || 'Log De Sistema';
       
-      // Mapeamento exaustivo de campos de imagem
-      const rawImg = entry.imagem || entry.snapshot_url || entry.image_path || entry.frame_path || entry.frame || entry.image_url || null;
+      // Mapeamento apontando diretamente para img_path do backend
+      const rawImg = entry.img_path || entry.img_path_lateral || entry.imagem || entry.snapshot_url || entry.image_path || entry.frame_path || entry.frame || entry.image_url || null;
 
       return {
         id: entry.id ?? `LOG-${index + 1001}`,
@@ -54,8 +57,8 @@ export const eventService = {
 
       const rawDate = entry.timestamp ? new Date(entry.timestamp) : new Date();
       
-      // Mapeamento exaustivo de campos de imagem
-      const rawImg = entry.imagem || entry.snapshot_url || entry.image_url || entry.image_path || entry.frame_path || entry.frame || null;
+      // Aponta para o campo exato img_path retornado do SQLite/API
+      const rawImg = entry.img_path || entry.img_path_lateral || entry.imagem || entry.snapshot_url || entry.image_url || entry.image_path || entry.frame_path || entry.frame || null;
 
       return {
         id: entry.id ?? `DET-${index + 1001}`,
@@ -68,7 +71,7 @@ export const eventService = {
         camera: entry.camera || entry.camera_id || 'CAM-IA',
         status: entry.status || (isAlta ? 'Pendente' : 'Validado'),
         imagem: streamService.imagePathToUrl(rawImg),
-        detalhes: entry.detalhes || `Detecção registrada: ${formattedLabel}`
+        detalhes: entry.detalhes || entry.details || `Detecção registrada: ${formattedLabel}`
       };
     });
 
