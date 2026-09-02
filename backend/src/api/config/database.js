@@ -44,6 +44,21 @@ export async function initDatabase() {
     ALTER TABLE detections ADD COLUMN setor TEXT;
   `).catch(() => {});
 
+  // epi_ausente: só se aplica a detecções de EPI (0/1/NULL) — true quando o EPI está faltando
+  await db.exec(`
+    ALTER TABLE detections ADD COLUMN epi_ausente INTEGER;
+  `).catch(() => {});
+
+  // criticidade: status do veredito recebido (ALERTA, ALERTA_CRITICO, ALERTA_MULTIPLO, MONITORANDO)
+  await db.exec(`
+    ALTER TABLE detections ADD COLUMN criticidade TEXT;
+  `).catch(() => {});
+
+  // reba_nivel: só se aplica a detecções de ergonomia, ex: "medio_6"
+  await db.exec(`
+    ALTER TABLE detections ADD COLUMN reba_nivel TEXT;
+  `).catch(() => {});
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS zonas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

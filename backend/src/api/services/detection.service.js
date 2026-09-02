@@ -13,49 +13,109 @@ import {
   uploadBase64ImageToOneDrive,
 } from "../utils/folder.js";
 
-export async function createDetection(data) 
+function splitRawLabels(rawLabel)
+{
+  if (!rawLabel) return [];
+
+  return String(rawLabel)
+    .split(",")
+    .map((label) => label.trim())
+    .filter(Boolean);
+}
+
+const DIACRITICS_REGEX = new RegExp("[̀-ͯ]", "g");
+
+function stripAccents(value)
+{
+  return value.normalize("NFD").replace(DIACRITICS_REGEX, "");
+}
+
+const ERGONOMIA_REGEX = /^ergonomia_reba_(.+)$/i;
+
+
+function processRawLabel(rawLabel)
+{
+  const ergonomiaMatch = rawLabel.match(ERGONOMIA_REGEX);
+  if (ergonomiaMatch)
+  {
+    return {
+      label: "ERGONOMIA",
+      epi_ausente: null,
+      reba_nivel: stripAccents(ergonomiaMatch[1].trim()).toLowerCase(),
+    };
+  }
+
+  if (rawLabel.includes(" - "))
+  {
+    const [base, status] = rawLabel.split(" - ");
+    return {
+      label: base.trim(),
+      epi_ausente: /ausente/i.test(status ?? ""),
+      reba_nivel: null,
+    };
+  }
+
+  return { label: rawLabel, epi_ausente: null, reba_nivel: null };
+}
+
+export async function createDetection(data)
 {
   const timestamp = normalizeBrasiliaTimestamp(new Date().toISOString());
-  const detection = new Detection({ ...data, timestamp });
 
-  if (!detection.label || !detection.confidence ||
-      !detection.img_Frame || !detection.timestamp) 
+  const rawLabels = [...new Set(splitRawLabels(data.label))];
+  const criticidade = data.details?.status ?? null;
+
+  if (rawLabels.length === 0 || !data.confidence ||
+      !data.img_Frame || !timestamp)
   {
       throw new Error("Dados inválidos");
   }
 
-  const folderPath = await createFolderByTimestamp(detection.timestamp);
-  const imagePath = await base64ToImage(detection.img_Frame, folderPath);
+  const folderPath = await createFolderByTimestamp(timestamp);
+  const imagePath = await base64ToImage(data.img_Frame, folderPath);
 
-  // Imagem da câmera lateral (2ª câmera da mesma unidade) — só existe quando a unidade tem dupla câmera
-  const imagePathLateral = detection.img_Frame_lateral
-    ? await base64ToImage(detection.img_Frame_lateral, folderPath)
+  const imagePathLateral = data.img_Frame_lateral
+    ? await base64ToImage(data.img_Frame_lateral, folderPath)
     : null;
 
-  detection.img_path = imagePath;
-  detection.img_path_lateral = imagePathLateral;
-  detection.timestamp = normalizeBrasiliaTimestamp(detection.timestamp);
+  const detections = [];
+  for (const rawLabel of rawLabels)
+  {
+    const { label, epi_ausente, reba_nivel } = processRawLabel(rawLabel);
 
-  await saveDetection(detection);
+    const detection = new Detection({
+      ...data,
+      label,
+      timestamp,
+      epi_ausente,
+      criticidade,
+      reba_nivel,
+    });
+    detection.img_path = imagePath;
+    detection.img_path_lateral = imagePathLateral;
+
+    await saveDetection(detection);
+    detections.push(detection);
+  }
 
   // const onedriveToken = await findOnedriveAccessToken();
 
   // if (onedriveToken) {
   //     const remoteFolder = await createOneDriveFolderByTimestamp(
-  //         detection.timestamp,
+  //         timestamp,
   //         onedriveToken,
   //         "detections"
   //     );
 
   //     await uploadBase64ImageToOneDrive(
-  //         detection.img_Frame,
+  //         data.img_Frame,
   //         onedriveToken,
   //         remoteFolder,
   //         `frame_${Date.now()}.jpg`
   //     );
   // }
 
-  return detection;
+  return detections;
 }
 
 export async function viewDetection() 
