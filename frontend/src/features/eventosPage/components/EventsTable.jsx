@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Filter, X, Search, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Filter, X, Check, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Card, CardHeader } from '../../../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../components/ui/Table';
 
@@ -11,6 +11,9 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
   const [filters, setFilters] = useState({
     status: 'Todos',
     origem: 'Todos',
+    horaInicio: '',
+    horaFim: '',
+    ordemHorario: 'desc', // 'asc' (mais antigo) ou 'desc' (mais recente)
     tipo: '',
     gravidade: 'Todas',
     setorCamera: '',
@@ -18,6 +21,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
 
   // Estado da Paginação
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageInput, setPageInput] = useState('1');
 
   // Controle do menu popover de filtro aberto
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -48,6 +52,9 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
     setFilters({
       status: 'Todos',
       origem: 'Todos',
+      horaInicio: '',
+      horaFim: '',
+      ordemHorario: 'desc',
       tipo: '',
       gravidade: 'Todas',
       setorCamera: '',
@@ -55,44 +62,99 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
     setOpenDropdown(null);
   };
 
-  // 1. Aplica Filtros
+  // 1. Aplica Filtros e Ordenação
   const filteredEvents = useMemo(() => {
-    return events.filter((evt) => {
+    const filtered = events.filter((evt) => {
       if (filters.status !== 'Todos' && evt.status !== filters.status) return false;
       if (filters.origem !== 'Todos' && evt.origem !== filters.origem) return false;
-      if (filters.tipo.trim() !== '' && !evt.tipo.toLowerCase().includes(filters.tipo.toLowerCase())) return false;
+
+      if (filters.horaInicio || filters.horaFim) {
+        const timeMatch = evt.timestamp?.match(/\d{2}:\d{2}/);
+        if (timeMatch) {
+          const eventTime = timeMatch[0];
+          if (filters.horaInicio && eventTime < filters.horaInicio) return false;
+          if (filters.horaFim && eventTime > filters.horaFim) return false;
+        }
+      }
+
+      if (filters.tipo.trim() !== '') {
+        const queryTipo = filters.tipo.toLowerCase();
+        const matchTipo = evt.tipo?.toLowerCase().includes(queryTipo);
+        const matchId = String(evt.id).toLowerCase().includes(queryTipo);
+        if (!matchTipo && !matchId) return false;
+      }
+
       if (filters.gravidade !== 'Todas' && evt.gravidade !== filters.gravidade) return false;
+
       if (filters.setorCamera.trim() !== '') {
-        const query = filters.setorCamera.toLowerCase();
-        const matchSetor = evt.setor?.toLowerCase().includes(query);
-        const matchCamera = evt.camera?.toLowerCase().includes(query);
+        const querySetor = filters.setorCamera.toLowerCase();
+        const matchSetor = evt.setor?.toLowerCase().includes(querySetor);
+        const matchCamera = evt.camera?.toLowerCase().includes(querySetor) || evt.nome?.toLowerCase().includes(querySetor);
         if (!matchSetor && !matchCamera) return false;
       }
+
       return true;
+    });
+
+    return filtered.sort((a, b) => {
+      const timeA = a.timestamp || '';
+      const timeB = b.timestamp || '';
+      if (filters.ordemHorario === 'asc') {
+        return timeA.localeCompare(timeB);
+      }
+      return timeB.localeCompare(timeA);
     });
   }, [events, filters]);
 
   // 2. Paginação e Cálculos de Exibição
   const totalItems = filteredEvents.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
-
-  // Garantia de limite da página atual
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
   const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+
+  // Sincroniza o valor do input numérico com a página atual válida
+  useEffect(() => {
+    setPageInput(String(safeCurrentPage));
+  }, [safeCurrentPage]);
+
+  // Validação do Input Numérico de Página
+  const handlePageInputChange = (e) => {
+    setPageInput(e.target.value);
+  };
+
+  const handlePageInputSubmit = () => {
+    const parsedPage = parseInt(pageInput, 10);
+    if (!isNaN(parsedPage)) {
+      // Clampa o valor digitado entre 1 e totalPages
+      const validPage = Math.min(Math.max(parsedPage, 1), totalPages);
+      setCurrentPage(validPage);
+      setPageInput(String(validPage));
+    } else {
+      // Em caso de valor inválido ou em branco, restaura a página atual
+      setPageInput(String(safeCurrentPage));
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handlePageInputSubmit();
+    }
+  };
 
   const paginatedEvents = useMemo(() => {
     const start = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
     return filteredEvents.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredEvents, safeCurrentPage]);
 
-  // Cálculos dos índices dos itens exibidos
   const startItem = totalItems === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
   const endItem = Math.min(safeCurrentPage * ITEMS_PER_PAGE, totalItems);
 
-  // Filtros ativos extras (sem contar a aba de Status para a contagem visual)
+  // Filtros ativos extras
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filters.status !== 'Todos') count++;
     if (filters.origem !== 'Todos') count++;
+    if (filters.horaInicio || filters.horaFim) count++;
+    if (filters.ordemHorario !== 'desc') count++;
     if (filters.tipo.trim() !== '') count++;
     if (filters.gravidade !== 'Todas') count++;
     if (filters.setorCamera.trim() !== '') count++;
@@ -102,46 +164,81 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
   return (
     <Card className="lg:col-span-2 shadow-md flex flex-col justify-between">
       <div className="flex flex-col flex-1">
-        {/* HEADER COM NAVEGAÇÃO E ABAS */}
-        <CardHeader className="flex flex-col gap-3 pb-3 border-b border-theme-divider">
-          {/* Linha Superior: Título + Contador + Paginação */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-theme-head text-theme-accent font-semibold text-base">
-                Registros de Ocorrências
-              </h2>
-              
-              {/* Texto com contagem corrigida */}
-              <span className="text-xs text-theme-muted font-mono bg-[var(--p-bg)] px-2.5 py-1 rounded-md border border-theme-divider">
-                Exibindo <strong className="text-theme-main">{startItem}–{endItem}</strong> de{' '}
-                <strong className="text-theme-main">{totalItems}</strong> evento(s)
-                {events.length !== totalItems && (
-                  <span className="text-theme-muted/70 font-sans"> (de {events.length} no total)</span>
-                )}
-              </span>
-
-              {activeFiltersCount > 0 && (
-                <button
-                  onClick={handleClearFilters}
-                  className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"
-                >
-                  <X size={12} /> Limpar Filtros ({activeFiltersCount})
-                </button>
-              )}
+        {/* HEADER UNIFICADO EM UMA FILEIRA (ESQUERDA: FILTROS / DIREITA: PAGINAÇÃO E ABAS) */}
+        <CardHeader className="flex flex-row items-center justify-between gap-4 py-2.5 px-4 border-b border-theme-divider overflow-x-auto custom-scrollbar">
+          
+          {/* LADO ESQUERDO: ABAS DE STATUS + CONTADOR + LIMPAR FILTROS */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Abas de Navegação por Status */}
+            <div className="flex items-center gap-1 bg-[var(--p-bg)] p-1 rounded-lg border border-theme-divider">
+              {STATUS_TABS.map((tab) => {
+                const isActive = filters.status === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setFilters((f) => ({ ...f, status: tab }))}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+                      isActive
+                        ? 'bg-theme-accent text-white shadow-sm font-semibold'
+                        : 'text-theme-muted hover:text-theme-main hover:bg-theme-hover'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Paginação Alocada no Header */}
+            {/* Contador de Exibição */}
+            <span className="text-xs text-theme-muted font-mono bg-[var(--p-bg)] px-2.5 py-1 rounded-md border border-theme-divider whitespace-nowrap hidden sm:inline-block">
+              <strong className="text-theme-main">{startItem}–{endItem}</strong> de{' '}
+              <strong className="text-theme-main">{totalItems}</strong>
+            </span>
+
+            {/* Botão de Limpar Filtros */}
+            {activeFiltersCount > 0 && (
+              <button
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors whitespace-nowrap"
+              >
+                <X size={12} /> Limpar ({activeFiltersCount})
+              </button>
+            )}
+          </div>
+
+          {/* LADO DIREITO: PESQUISA POR INPUT NUMÉRICO + SETAS DE NAVEGAÇÃO + ABAS DE PÁGINAS */}
+          <div className="flex items-center gap-2 shrink-0">
+            
+            {/* INPUT NUMÉRICO PARA INSERIR A PÁGINA COM VALIDAÇÃO */}
+            <div className="flex items-center gap-1.5 bg-[var(--p-bg)] px-2 py-1 rounded-lg border border-theme-divider text-xs text-theme-muted">
+              <span>Pág.</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={pageInput}
+                onChange={handlePageInputChange}
+                onBlur={handlePageInputSubmit}
+                onKeyDown={handleKeyDown}
+                className="w-10 h-6 text-center text-xs font-mono font-bold bg-[var(--p-header-bg)] border border-theme-divider rounded text-theme-main focus:outline-none focus:border-theme-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                title={`Insira uma página entre 1 e ${totalPages}`}
+              />
+              <span>de <strong className="text-theme-main font-mono">{totalPages}</strong></span>
+            </div>
+
+            {/* CONTROLES COM SETAS E NAVEGAÇÃO */}
             <div className="flex items-center gap-1 bg-[var(--p-bg)] p-1 rounded-lg border border-theme-divider">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                 disabled={safeCurrentPage === 1}
-                className="p-1.5 rounded-md hover:bg-theme-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-theme-main"
+                className="p-1 rounded-md hover:bg-theme-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-theme-main"
                 title="Página Anterior"
               >
                 <ChevronLeft size={16} />
               </button>
 
-              <div className="flex items-center px-1 gap-1">
+              {/* ABAS RÁPIDAS DAS PÁGINAS */}
+              <div className="flex items-center gap-0.5 px-0.5">
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter((page) => page === 1 || page === totalPages || Math.abs(page - safeCurrentPage) <= 1)
                   .map((page, index, array) => {
@@ -150,10 +247,10 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
 
                     return (
                       <React.Fragment key={page}>
-                        {showEllipsis && <span className="text-xs text-theme-muted px-1">...</span>}
+                        {showEllipsis && <span className="text-xs text-theme-muted px-0.5">..</span>}
                         <button
                           onClick={() => setCurrentPage(page)}
-                          className={`min-w-[28px] h-7 text-xs font-mono rounded-md transition-all ${
+                          className={`min-w-[24px] h-6 text-xs font-mono rounded transition-all ${
                             safeCurrentPage === page
                               ? 'bg-theme-accent text-white font-bold shadow-sm'
                               : 'text-theme-muted hover:text-theme-main hover:bg-theme-hover'
@@ -169,32 +266,13 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
               <button
                 onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                 disabled={safeCurrentPage === totalPages}
-                className="p-1.5 rounded-md hover:bg-theme-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-theme-main"
+                className="p-1 rounded-md hover:bg-theme-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-theme-main"
                 title="Próxima Página"
               >
                 <ChevronRight size={16} />
               </button>
             </div>
-          </div>
 
-          {/* Linha Inferior: Abas de Navegação Rápida (Status) */}
-          <div className="flex items-center gap-1.5 pt-1 overflow-x-auto custom-scrollbar">
-            {STATUS_TABS.map((tab) => {
-              const isActive = filters.status === tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setFilters((f) => ({ ...f, status: tab }))}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
-                    isActive
-                      ? 'bg-theme-accent text-white shadow-sm font-semibold'
-                      : 'bg-[var(--p-bg)] text-theme-muted hover:text-theme-main hover:bg-theme-hover border border-theme-divider/50'
-                  }`}
-                >
-                  {tab}
-                </button>
-              );
-            })}
           </div>
         </CardHeader>
 
@@ -253,7 +331,81 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
                   )}
                 </TableHead>
 
-                <TableHead className="py-2 px-4">Horário</TableHead>
+                {/* HORÁRIO */}
+                <TableHead className="py-2 px-4 relative">
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Horário</span>
+                    <button
+                      onClick={(e) => toggleDropdown('horario', e)}
+                      className={`p-1 rounded hover:bg-theme-hover transition-colors ${
+                        filters.horaInicio || filters.horaFim || filters.ordemHorario !== 'desc'
+                          ? 'text-amber-400 font-bold bg-amber-500/10'
+                          : 'text-theme-muted hover:text-theme-main'
+                      }`}
+                      title="Filtrar / Ordenar Horário"
+                    >
+                      <Filter size={13} />
+                    </button>
+                  </div>
+
+                  {openDropdown === 'horario' && (
+                    <div className="absolute top-full left-0 mt-1 w-56 bg-[var(--p-header-bg)] border border-theme-divider rounded-xl shadow-xl p-3 z-50 text-xs font-normal flex flex-col gap-3">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-theme-muted block mb-1.5">
+                          Ordem de Exibição
+                        </span>
+                        <div className="grid grid-cols-2 gap-1 bg-[var(--p-bg)] p-1 rounded-lg border border-theme-divider">
+                          <button
+                            onClick={() => setFilters((f) => ({ ...f, ordemHorario: 'desc' }))}
+                            className={`flex items-center justify-center gap-1 py-1 px-2 rounded text-[11px] font-medium transition-colors ${
+                              filters.ordemHorario === 'desc'
+                                ? 'bg-theme-accent text-white font-bold'
+                                : 'text-theme-muted hover:text-theme-main'
+                            }`}
+                          >
+                            <ArrowDown size={12} /> Decrescente
+                          </button>
+                          <button
+                            onClick={() => setFilters((f) => ({ ...f, ordemHorario: 'asc' }))}
+                            className={`flex items-center justify-center gap-1 py-1 px-2 rounded text-[11px] font-medium transition-colors ${
+                              filters.ordemHorario === 'asc'
+                                ? 'bg-theme-accent text-white font-bold'
+                                : 'text-theme-muted hover:text-theme-main'
+                            }`}
+                          >
+                            <ArrowUp size={12} /> Crescente
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-theme-muted block mb-1.5">
+                          Intervalo (HH:MM)
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] text-theme-muted">De:</label>
+                            <input
+                              type="time"
+                              value={filters.horaInicio}
+                              onChange={(e) => setFilters((f) => ({ ...f, horaInicio: e.target.value }))}
+                              className="p-1 rounded bg-[var(--p-bg)] border border-theme-divider text-xs text-theme-main focus:outline-none focus:border-theme-accent"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] text-theme-muted">Até:</label>
+                            <input
+                              type="time"
+                              value={filters.horaFim}
+                              onChange={(e) => setFilters((f) => ({ ...f, horaFim: e.target.value }))}
+                              className="p-1 rounded bg-[var(--p-bg)] border border-theme-divider text-xs text-theme-main focus:outline-none focus:border-theme-accent"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </TableHead>
 
                 {/* OCORRÊNCIA */}
                 <TableHead className="py-2 px-4 relative">
@@ -275,16 +427,15 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
                   {openDropdown === 'tipo' && (
                     <div className="absolute top-full left-0 mt-1 w-56 bg-[var(--p-header-bg)] border border-theme-divider rounded-xl shadow-xl p-3 z-50 text-xs font-normal flex flex-col gap-2">
                       <span className="text-[10px] uppercase font-bold text-theme-muted block">
-                        Buscar Ocorrência
+                        Buscar Ocorrência ou ID
                       </span>
                       <div className="relative">
-                        <Search size={12} className="absolute left-2.5 top-2.5 text-theme-muted" />
                         <input
                           type="text"
-                          placeholder="Ex: Sem Capacete..."
+                          placeholder="Ex: Sem Capacete, #102..."
                           value={filters.tipo}
                           onChange={(e) => setFilters((f) => ({ ...f, tipo: e.target.value }))}
-                          className="w-full pl-8 pr-2 py-1.5 rounded-lg bg-[var(--p-bg)] border border-theme-divider text-xs text-theme-main focus:outline-none focus:border-theme-accent"
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-[var(--p-bg)] border border-theme-divider text-xs text-theme-main focus:outline-none focus:border-theme-accent"
                         />
                       </div>
 
@@ -333,13 +484,12 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
                         Filtrar Setor ou Câmera
                       </span>
                       <div className="relative">
-                        <Search size={12} className="absolute left-2.5 top-2.5 text-theme-muted" />
                         <input
                           type="text"
                           placeholder="Ex: Galpão A, CAM-02..."
                           value={filters.setorCamera}
                           onChange={(e) => setFilters((f) => ({ ...f, setorCamera: e.target.value }))}
-                          className="w-full pl-8 pr-2 py-1.5 rounded-lg bg-[var(--p-bg)] border border-theme-divider text-xs text-theme-main focus:outline-none focus:border-theme-accent"
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-[var(--p-bg)] border border-theme-divider text-xs text-theme-main focus:outline-none focus:border-theme-accent"
                         />
                       </div>
                     </div>
@@ -429,7 +579,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
                             {evt.setor}
                           </span>
                           <span className="text-[10px] font-mono text-theme-muted">
-                            {evt.nome}
+                            {evt.nome || evt.camera}
                           </span>
                         </div>
                       </TableCell>

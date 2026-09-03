@@ -84,9 +84,6 @@ export function EventosPage() {
           <h1 className="text-xl sm:text-2xl text-[var(--p-text-title)] font-theme-title">
             Central de Eventos & Ocorrências
           </h1>
-          <p className="text-xs sm:text-sm text-[var(--p-text-title)]">
-            Gerenciamento, auditoria e validação em tempo real de não conformidades detectadas por IA.
-          </p>
         </div>
       </header>
 
