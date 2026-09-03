@@ -24,6 +24,7 @@ export const NavBar = ({ theme }) => {
     { label: 'Incidentes', path: '/incidentes', icon: AlertTriangle },
     { label: 'Logs & Relatórios', path: '/logs', icon: FileText },
     { label: 'Eventos', path: '/eventos', icon: AlertTriangle },
+    { label: 'Análise', path: '/analise', icon: FileText },
   ];
 
   // Fecha os menus ao mudar de página
