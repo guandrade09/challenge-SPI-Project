@@ -4,10 +4,10 @@ export function EventMetricsCard({ title, value, icon: Icon, colorClass, valueCo
   return (
     <div className="panel-subcard flex items-center justify-between shadow-sm">
       <div>
-        <p className="text-theme-head">
+        <p className="text-[var(--p-text-title)] text-[11px] font-medium uppercase tracking-wider opacity-70">
           {title}
         </p>
-        <h3 className={`text-2xl font-bold mt-1 font-theme-title ${valueColorClass || 'text-[var(--p-text)]'}`}>
+        <h3 className={`text-2xl font-bold mt-1 font-theme-title ${valueColorClass || 'text-[var(--p-text-title)]'}`}>
           {value}
         </h3>
       </div>

@@ -8,23 +8,23 @@ export function StatsCard({ title, value, description, trend, theme = "dark", ic
       <Card className="panel-base gap-3 backdrop-blur-sm relative overflow-hidden transition-all duration-200 hover:border-[var(--p-subtext)]">
         
         {/* Cabeçalho do Card */}
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-theme-head">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 text-theme-title">
+          <CardTitle className="font-title text-[var(--p-text-subtitle)]]">
             {title}
           </CardTitle>
 
           {/* Ícone opcional no canto direito (envolvido em micro-card industrial) */}
           {Icon && (
-            <div className="p-1.5 rounded-lg bg-[var(--p-header-bg)] border border-[var(--p-border)] text-[var(--p-subtext)]">
+            <div className="p-1.5 rounded-lg bg-[var(--p-header-bg)] border border-[var(--p-border)] text-theme-title text-[var(--p-text-title)]">
               <Icon className="w-3 h-3 opacity-80" />
             </div>
           )}
         </CardHeader>
 
         {/* Conteúdo Central e Métricas */}
-        <CardContent className="pt-1">
+        <CardContent className="pt-1 text-theme-title">
           {/* Valor Numérico Principal: Fonte Sora e tamanho imponente */}
-          <div className="font-theme-title text-3xl font-bold uppercase tracking-tight text-[var(--p-text)]">
+          <div className="text-3xl font-bold uppercase tracking-tight text-[var(--p-text-subtitle)]">
             {value}
           </div>
 
@@ -38,7 +38,7 @@ export function StatsCard({ title, value, description, trend, theme = "dark", ic
                   <TrendingUp className="w-3 h-3" />
                 ) : (
                   <TrendingDown className="w-3 h-3" />
-                )}
+                )}'
                 <span className="font-semibold uppercase">{Math.abs(trend.value)}%</span>
               </span>
               <span className="text-theme-muted uppercase">vs. mês anterior</span>
