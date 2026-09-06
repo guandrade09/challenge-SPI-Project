@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { formatLabel } from '../../utils/formatLabel';
+import { formatLabel, formatDetection } from '../../utils/formatLabel';
 
 // Componentes
 import { CameraView, DetectionPanel, AlertPanel } from './components';
@@ -60,11 +60,6 @@ const LABEL_TO_TOGGLE = {
   'OCULOS - AUSENTE':   'oculos',   'OCULOS - ERRADO':   'oculos',   'OCULOS - CERTO':  'oculos',
   'AURICULAR - AUSENTE':'auricular','AURICULAR - ERRADO': 'auricular','AURICULAR - CERTO':'auricular',
   'BOTAS - AUSENTE':    'botas',    'BOTAS - CERTO':      'botas',
-};
-
-const formatDetection = (d) => {
-  const icon = RISK_LABELS.has(d.label) ? '⚠' : '✓';
-  return `${icon} ${formatLabel(d.label)} — ${(d.confidence * 100).toFixed(0)}%`;
 };
 
 export const CameraPage = () => {

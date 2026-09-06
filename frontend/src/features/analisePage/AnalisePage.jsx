@@ -33,9 +33,6 @@ export function AnalisePage() {
         {/* HEADER DA PÁGINA */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-theme-divider pb-5">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase mb-1 text-[var(--p-accent,#6366f1)]">
-              <Sparkles size={14} /> Guia Executivo & Analytics Integrado
-            </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-wider uppercase text-[var(--p-text-title)]">
               Análise Avançada de Telemetria e IA
             </h1>
