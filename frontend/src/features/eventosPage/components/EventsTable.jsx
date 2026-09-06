@@ -179,7 +179,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
                     onClick={() => setFilters((f) => ({ ...f, status: tab }))}
                     className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
                       isActive
-                        ? 'bg-theme-accent text-white shadow-sm font-semibold'
+                        ? 'bg-theme-accent text-[var(--p-text-subtitle)] shadow-sm text-[14px]'
                         : 'text-theme-muted hover:text-theme-main hover:bg-theme-hover'
                     }`}
                   >
@@ -252,7 +252,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
                           onClick={() => setCurrentPage(page)}
                           className={`min-w-[24px] h-6 text-xs font-mono rounded transition-all ${
                             safeCurrentPage === page
-                              ? 'bg-theme-accent text-white font-bold shadow-sm'
+                              ? 'bg-theme-accent text-[var(--p-text-subtitle)] font-bold shadow-sm'
                               : 'text-theme-muted hover:text-theme-main hover:bg-theme-hover'
                           }`}
                         >

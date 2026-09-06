@@ -82,8 +82,10 @@ export const RiskAreaOverlay = ({
       ref={containerRef}
       onClick={handleClick}
       onMouseMove={handleMouseMove}
-      className={`absolute inset-0 z-20 transition-colors ${
-        isEditing ? 'cursor-crosshair bg-[var(--p-overlay)] select-none pointer-events-auto' : 'pointer-events-none'
+      className={`absolute inset-0 z-20 transition-all ${
+        isEditing
+          ? 'cursor-crosshair bg-black/40 backdrop-blur-[1px] select-none pointer-events-auto'
+          : 'pointer-events-none bg-transparent'
       }`}
     >
       {/* Ponto Visual do 1º Clique */}

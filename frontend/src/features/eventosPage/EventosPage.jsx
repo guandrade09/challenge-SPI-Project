@@ -93,13 +93,14 @@ export function EventosPage() {
           title="Total de Eventos"
           value={events.length}
           icon={Clock}
-          colorClass="border-[var(--p-border)] bg-[var(--p-header-bg)] text-[var(--p-subtext)]"
+          colorClass="border-indigo bg-indigo-500/10 text-indigo-500"
+          valueColorClass="text-[var(--p-text-subtitle)]"
         />
         <EventMetricsCard
           title="Pendentes de Validação"
           value={events.filter((e) => e.status === 'Pendente').length}
           icon={AlertTriangle}
-          colorClass="border-amber-500/30 bg-amber-500/10 text-amber-500"
+          colorClass="border-amber bg-amber-500/10 text-amber-500"
           valueColorClass="text-amber-500"
         />
         <EventMetricsCard
@@ -113,7 +114,7 @@ export function EventosPage() {
           title="Auditados / Validados"
           value={events.filter((e) => e.status === 'Validado').length}
           icon={CheckCircle2}
-          colorClass="border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+          colorClass="border-emerald bg-emerald-500/10 text-emerald-500"
           valueColorClass="text-emerald-500"
         />
       </section>

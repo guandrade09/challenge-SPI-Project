@@ -127,7 +127,7 @@ code {
 
     .panel-theme-light {
       --p-bg: #dddcdc;
-      --p-border: #000000;
+      --p-border: #3b3838;
       --p-header-bg: #f2f2f2;
       --p-box-logs: #c5c5c5;
       --p-text-title: #ffffff;       /* Escuro para leitura sobre o painel claro */
