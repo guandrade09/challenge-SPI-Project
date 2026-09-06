@@ -93,11 +93,6 @@ export function AnalisePage() {
           )}
         </div>
 
-        {/* FOOTER */}
-        <footer className="pt-4 border-t border-theme-divider flex items-center justify-between text-xs text-[var(--p-text-muted)]">
-          <span>Painel de Análise Estruturada por Seções • Versão 2.0</span>
-          <span>Sistema Operacional & Analytics</span>
-        </footer>
       </main>
     </div>
   );
