@@ -1,0 +1,29 @@
+{
+  "": {
+    "epis": [
+      "capacete",
+      "mascara"
+    ],
+    "ergonomia": true
+  },
+  "Celular": {
+    "epis": [
+      "capacete",
+      "mascara"
+    ],
+    "ergonomia": true
+  },
+  "Quarto": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "Escritorio": {
+    "epis": [
+      "capacete",
+      "colete",
+      "mascara",
+      "oculos"
+    ],
+    "ergonomia": true
+  }
+}

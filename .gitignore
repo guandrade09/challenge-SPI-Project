@@ -39,5 +39,6 @@ Thumbs.db
 
 # Imagens geradas
 backend/src/uploads/
+backend/src/api/uploads/
 ml_service/incidents/
 

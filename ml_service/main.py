@@ -28,7 +28,7 @@ def post_incident(payload):
 
 def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(base_dir, "vision", "models", "best.pt")
+    model_path = os.path.join(base_dir, "vision", "models", "best10.pt")
 
     try:
         camera = Camera(source=0)
