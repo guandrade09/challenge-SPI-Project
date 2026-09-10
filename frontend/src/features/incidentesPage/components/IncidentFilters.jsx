@@ -1,3 +1,5 @@
+//src/features/incidentesPage/components/IncidentFilters.jsx
+
 import React from 'react';
 import { Search, Filter } from 'lucide-react';
 

@@ -1,3 +1,5 @@
+//src/features/incidentesPage/components/IncidentModal.jsx
+
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { X, AlertTriangle, Shield, Activity, MapPin, Camera, Clock } from 'lucide-react';

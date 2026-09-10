@@ -1,3 +1,5 @@
+//src/features/incidentesPage/components/IncidentCard.jsx
+
 import React, { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { streamService } from '../../../services/streamService';
