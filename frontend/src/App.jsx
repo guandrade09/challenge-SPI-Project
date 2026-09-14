@@ -6,7 +6,6 @@ import { PerformanceObserver } from './components/shared/PerformanceObserver'; /
 
 // Importações das Features
 import { Login, Register, ForgotPassword, Logout } from './features/auth/registerUserPage';
-import LogsPage from './features/logsPage/LogsPage';
 import HomePage from './features/homePage/HomePage';
 import { CameraPage } from './features/cameraPage/CameraPage';
 import IncidentesPage from './features/incidentesPage/IncidentesPage';
@@ -30,7 +29,6 @@ export function App() {
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/" element={<HomePage />} />
-            <Route path="/logs" element={<LogsPage />} />
             <Route path="/incidentes" element={<IncidentesPage />} />
             <Route path="/eventos" element={<EventosPage />} />
             <Route path="/camera" element={<CameraPage />} />

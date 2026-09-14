@@ -1,11 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import analiseService from '../services/analiseService';
 import { classifyDetection, isDetectionConfirmed } from '../utils/detectionStatus';
-import {
-  confusionMatrixData,
-  latencyLogs,
-  radarData,
-} from '../mocks/logsPageMocks/test';
 
 const LABEL_COLORS = [
   '#B59481', '#6366f1', '#71ff5e', '#ef4444', '#f59e0b',
@@ -97,9 +92,9 @@ export function useAnaliseData(currentThread = 'backend_processor', intervalMs =
     detStats: null,
     logs: [],
     resourceData: [],
-    confusionMatrix: confusionMatrixData, // Mapeado via mock por enquanto até o backend fornecer
-    latencyLogs: latencyLogs,
-    radarData: radarData,
+    confusionMatrix: [],
+    latencyLogs: [],
+    radarData: [],
   });
   const [loading, setLoading] = useState(true);
 

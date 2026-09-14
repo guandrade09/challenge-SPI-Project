@@ -2,7 +2,7 @@ import React from 'react';
 import { Shield, Settings } from 'lucide-react';
 import { DetectionCard } from './DetectionCard';
 import { CameraManagementPanel } from './CameraManagementPanel';
-import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
+import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore'; // Importe a store de presets
 
 export const DetectionPanel = ({
   options,
@@ -22,7 +22,13 @@ export const DetectionPanel = ({
   activeTab,
   setActiveTab,
 }) => {
-  const { detections } = useMonitoramentoStore();
+  // Obtém a lista de EPIs ativos para a câmera atualmente selecionada
+  const activeEpis = useCameraPresetsStore((state) => {
+    if (!currentCamera?.id) return [];
+    const data = state.presets[currentCamera.id];
+    if (Array.isArray(data)) return data;
+    return data?.selectedEpis || [];
+  });
 
   return (
     <div className="flex flex-col gap-3 w-full h-full justify-between">
@@ -59,14 +65,19 @@ export const DetectionPanel = ({
       {/* ABA 1: DETECÇÃO DE EPIS */}
       {activeTab === 'epis' && (
         <div className="flex flex-col gap-2 w-full flex-1 overflow-y-auto custom-scrollbar pr-1">
-          {options.map((option) => (
-            <DetectionCard
-              key={option.id}
-              label={option.label}
-              isChecked={!!detections[option.id]}
-              onToggle={() => onToggleEpi(option.id)}
-            />
-          ))}
+          {options.map((option) => {
+            // Verifica se o EPI está ativo para a câmera atual
+            const isChecked = activeEpis.includes(option.id);
+
+            return (
+              <DetectionCard
+                key={option.id}
+                label={option.label}
+                isChecked={isChecked}
+                onToggle={() => onToggleEpi(currentCamera?.id, option.id)}
+              />
+            );
+          })}
         </div>
       )}
 

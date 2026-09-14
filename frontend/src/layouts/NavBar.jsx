@@ -22,7 +22,6 @@ export const NavBar = ({ theme }) => {
     { label: 'Início', path: '/', icon: Home },
     { label: 'Câmeras', path: '/camera', icon: Camera },
     { label: 'Incidentes', path: '/incidentes', icon: AlertTriangle },
-    { label: 'Logs & Relatórios', path: '/logs', icon: FileText },
     { label: 'Eventos', path: '/eventos', icon: AlertTriangle },
     { label: 'Análise', path: '/analise', icon: FileText },
   ];

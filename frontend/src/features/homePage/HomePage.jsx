@@ -13,7 +13,6 @@ import {
 } from "../../components/graficos";
 import { BasePanelModal, ThreadSelector } from "../../components/shared";
 import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
-import { colunasLogs, radarData, lineLogs, composedLogs } from "../../mocks/logsPageMocks/test";
 import detectionService from "../../services/detectionService";
 import cameraService from "../../services/cameraService";
 import { teamMembers } from "../../mocks/indexPageMocks/test";
@@ -174,48 +173,6 @@ function HomePage() {
   // Componente visual do botão para trocar a origem dos dados
   const ThreadToggleButton = <ThreadSelector currentThread={currentThread} onChange={setCurrentThread} />;
 
-  const chartsForCarousel = [
-    {
-      label: "Detecções por Categoria",
-      component: (
-        <DetectionBarChart
-          data={detectionsLoaded ? detectionsByCategory : colunasLogs}
-          theme={currentTheme}
-        />
-      ),
-    },
-    {
-      label: "Eficiência Operacional",
-      component: <OperationalRadar data={radarData} theme={currentTheme} />,
-    },
-    {
-      label: `Monitoramento de Recursos (${getThreadLabel(currentThread)})`,
-      headerAction: ThreadToggleButton, // 🚀 O botão aparece quando este card estiver ativo no carrossel
-      component: (
-        <ResourceMonitor
-          data={performanceData}
-          theme={currentTheme}
-          linesConfig={homeMetricsConfig}
-          yAxisLeftDomain={[0, 100]}
-          showRightAxis={true}
-        />
-      ),
-    },
-    {
-      label: "Análise de Eventos Simultâneos",
-      component: <DetectionComposedChart data={composedLogs} theme={currentTheme} />,
-    },
-    {
-      label: "Alertas Mensais",
-      component: (
-        <DetectionLineChart
-          data={monthlyAlertLoaded ? monthlyAlertData : lineLogs}
-          theme={currentTheme}
-        />
-      ),
-    },
-  ];
-
   return (
     <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300`}>
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
@@ -282,18 +239,6 @@ function HomePage() {
         {/* SEÇÃO 2: Informações do Projeto */}
         <section className="w-full">
           <ProjectInfo theme={currentTheme} data={teamMembers} />
-        </section>
-
-        {/* SEÇÃO 3: Carrossel / Gráficos */}
-        <section className="w-full h-[500px]">
-          <BasePanelModal
-            title="Análise de Dados"
-            isGraf={true}
-            allowFullScreen={true}
-            availableCharts={chartsForCarousel}
-            className="h-[450px]"
-            theme={currentTheme}
-          />
         </section>
 
         {/* SEÇÃO 4: Histórico */}

@@ -14,7 +14,9 @@
     "ergonomia": true
   },
   "Quarto": {
-    "epis": [],
+    "epis": [
+      "oculos"
+    ],
     "ergonomia": true
   },
   "Escritorio": {
@@ -24,6 +26,14 @@
       "mascara",
       "oculos"
     ],
+    "ergonomia": true
+  },
+  "Teste": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "TESTE": {
+    "epis": [],
     "ergonomia": true
   }
 }

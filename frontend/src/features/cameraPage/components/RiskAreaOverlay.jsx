@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AlertTriangle, Edit3 } from 'lucide-react';
+import { AlertTriangle, Edit3, Trash2 } from 'lucide-react'; // Import Trash2 para o badge de instrução
 
 export const RiskAreaOverlay = ({
   initialBox = null,
@@ -13,7 +13,7 @@ export const RiskAreaOverlay = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState(null);
 
-  // Reseta estados quando o modo de edição for desativado
+  // Sincroniza o estado interno com a prop initialBox (quando muda a câmera ou fecha a edição)
   useEffect(() => {
     setBox(initialBox);
     if (!isEditing) {
@@ -21,6 +21,28 @@ export const RiskAreaOverlay = ({
       setStartPos(null);
     }
   }, [initialBox, isEditing]);
+
+  // --- NOVA LÓGICA: ESCUTAR EVENTO DE LIMPAR ---
+  useEffect(() => {
+    // Função que será executada quando o evento customizado 'clear_risk_area' for detectado
+    const handleClearEvent = () => {
+      setBox(null); // Limpa o retângulo visualmente
+      setIsDrawing(false); // Reseta fluxo de desenho
+      setStartPos(null);
+      // Opcional: Se quiser que ao limpar, já salve na store que está vazia
+      if (onSaveBox) {
+        onSaveBox(null);
+      }
+    };
+
+    // Adiciona o listener global
+    window.addEventListener('clear_risk_area', handleClearEvent);
+
+    // Remove o listener ao desmontar o componente para evitar vazamento de memória
+    return () => {
+      window.removeEventListener('clear_risk_area', handleClearEvent);
+    };
+  }, [onSaveBox]);
 
   const getRelativeCoords = (e) => {
     if (!containerRef.current) return { x: 0, y: 0 };
@@ -50,11 +72,16 @@ export const RiskAreaOverlay = ({
 
       const finalBox = { x, y, width, height };
 
+      // Aceita apenas retângulos minimamente visíveis
       if (width > 0.5 && height > 0.5) {
         setBox(finalBox);
         if (onSaveBox) {
           onSaveBox(finalBox);
         }
+      } else {
+        // Se o retângulo for inválido (clique no mesmo lugar), limpa a seleção
+        setBox(null);
+        if (onSaveBox) onSaveBox(null);
       }
 
       // Finaliza o fluxo de desenho
@@ -132,12 +159,17 @@ export const RiskAreaOverlay = ({
       {isEditing && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none z-30">
           <span className="text-xs font-medium text-[var(--p-text)] bg-[var(--p-header-bg)] px-4 py-2 rounded-full border border-[var(--p-border)] backdrop-blur-md shadow-xl flex items-center gap-2 font-mono">
-            <span 
-              style={{ backgroundColor: 'var(--risk-edit-border)' }}
-              className="w-2 h-2 rounded-full animate-pulse shrink-0" 
-            />
+            {box && !isDrawing ? (
+                 <Trash2 style={{color: 'var(--risk-edit-border)'}} size={14} className="shrink-0" />
+            ) : (
+                <span 
+                  style={{ backgroundColor: 'var(--risk-edit-border)' }}
+                  className="w-2 h-2 rounded-full animate-pulse shrink-0" 
+                />
+            )}
+           
             {!isDrawing 
-              ? 'Clique para marcar a Posição Inicial (Eixo A)' 
+              ? (box ? 'Clique para desenhar uma nova Área de Risco (Limpa a atual)' : 'Clique para marcar a Posição Inicial (Eixo A)') 
               : 'Clique em outro ponto para definir a Posição Final (Eixo B)'}
           </span>
         </div>

@@ -1,19 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Maximize2, Minimize2, Cpu, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Maximize2, Minimize2, ChevronLeft, ChevronRight, Expand } from 'lucide-react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
-import { processWsStreamMessage } from '../../../utils/websocketStream'; // Import do utilitário central
+import { processWsStreamMessage } from '../../../utils/websocketStream';
 
 const WS_URL = 'ws://127.0.0.1:8765';
-
-const DEFAULT_TEST_FRAME = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="100%" height="100%" fill="%23121212"/><grid width="100%" height="100%" stroke="%23333" stroke-width="1"/><circle cx="640" cy="360" r="100" fill="none" stroke="%2300ff88" stroke-width="2"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%2300ff88" font-family="monospace" font-size="28" font-weight="bold">FRAME DE TESTE CAM - SIMULAÇÃO LOCAL</text><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="monospace" font-size="18">Desenhe a Área de Risco sobre este quadro</text></svg>`;
+const DEFAULT_TEST_FRAME = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="100%" height="100%" fill="%23121212"/><grid width="100%" height="100%" stroke="%23333" stroke-width="1"/><circle cx="640" cy="360" r="100" fill="none" stroke="%2300ff88" stroke-width="2"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%2300ff88" font-family="monospace" font-size="28" font-weight="bold">FRAME DE TESTE CAM - SIMULAÇÃO LOCAL</text></svg>`;
 
 const CORNER_CLASSES = [
-  'top-2 left-2 sm:top-4 sm:left-4 border-t-2 border-l-2',
-  'top-2 right-2 sm:top-4 sm:right-4 border-t-2 border-r-2',
-  'bottom-2 left-2 sm:bottom-4 sm:left-4 border-b-2 border-l-2',
-  'bottom-2 right-2 sm:bottom-4 sm:right-4 border-b-2 border-r-2',
+  'top-2 left-2 border-t-2 border-l-2',
+  'top-2 right-2 border-t-2 border-r-2',
+  'bottom-2 left-2 border-b-2 border-l-2',
+  'bottom-2 right-2 border-b-2 border-r-2',
 ];
 
 export function CameraView({ 
@@ -23,7 +22,10 @@ export function CameraView({
   isEditingRiskArea,
   onNextCamera,
   onPrevCamera,
-  totalCameras = 0 
+  totalCameras = 0,
+  onExpand,
+  onNextSlotCamera,
+  onPrevSlotCamera
 }) {
   const containerRef   = useRef(null);
   const imgRef         = useRef(null);
@@ -34,35 +36,23 @@ export function CameraView({
   const cameraRef      = useRef(camera);
 
   if (camera) {
-    if (cameraRef.current?.id !== camera.id || cameraRef.current?.papel !== camera.papel) {
-      console.log(`[CAM] troca: ${cameraRef.current?.nome}(${cameraRef.current?.papel}) → ${camera?.nome}(${camera?.papel}) | setor=${camera?.setor}`);
-    }
     cameraRef.current = camera;
   }
 
   const [connected, setConnected] = useState(false);
   const [useMockStream, setUseMockStream] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // RELÓGIO EM TEMPO REAL
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
 
-  // Store de Presets
   const setRiskAreaForCamera = useCameraPresetsStore((s) => s.setRiskAreaForCamera);
-  const clearRiskAreaForCamera = useCameraPresetsStore((s) => s.clearRiskAreaForCamera);
   const getRiskAreaForCamera = useCameraPresetsStore((s) => s.getRiskAreaForCamera);
 
-  // Inicializa a área de risco
   const [riskBox, setRiskBox] = useState(() => {
     return getRiskAreaForCamera(camera?.id) || camera?.riskArea || null;
   });
 
-  // GERENCIADOR DE TELA CHEIA (Fullscreen API)
   const handleToggleFullscreen = async () => {
-    if (onToggleMaximize) {
-      onToggleMaximize();
-    }
-
+    if (onToggleMaximize) onToggleMaximize();
     try {
       if (!document.fullscreenElement) {
         if (containerRef.current?.requestFullscreen) {
@@ -79,24 +69,16 @@ export function CameraView({
   };
 
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
+    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // RELÓGIO EM TEMPO REAL
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString('pt-BR'));
-    }, 1000);
-
+    const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString('pt-BR')), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Sincroniza quando a câmera mudar
   useEffect(() => {
     if (camera?.id) {
       const savedRiskArea = getRiskAreaForCamera(camera.id) || camera.riskArea || null;
@@ -104,66 +86,18 @@ export function CameraView({
     }
   }, [camera?.id]);
 
-  useEffect(() => {
-    const handleClearEvent = () => handleDeleteRiskBox();
-    window.addEventListener('clear_risk_area', handleClearEvent);
-    return () => window.removeEventListener('clear_risk_area', handleClearEvent);
-  }, [camera?.id]);
-
   const handleEnableMock = () => {
     setUseMockStream(true);
-    if (imgRef.current) {
-      imgRef.current.src = DEFAULT_TEST_FRAME;
-    }
+    if (imgRef.current) imgRef.current.src = DEFAULT_TEST_FRAME;
   };
 
   const handleSaveRiskBox = (newBox) => {
     setRiskBox(newBox);
-    
-    if (camera?.id) {
-      setRiskAreaForCamera(camera.id, newBox);
-    }
-    
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'set_risk_area',
-        cameraId: camera?.id,
-        riskArea: newBox
-      }));
+    if (camera?.id) setRiskAreaForCamera(camera.id, newBox);
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'set_risk_area', cameraId: camera?.id, riskArea: newBox }));
     }
   };
-
-  const handleDeleteRiskBox = () => {
-    setRiskBox(null);
-
-    if (camera?.id) {
-      clearRiskAreaForCamera(camera.id);
-    }
-
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'clear_risk_area',
-        cameraId: camera?.id
-      }));
-    }
-  };
-
-  // Limpa imagem ao trocar de câmera
-  const prevSetorRef = useRef(camera?.setor);
-  useEffect(() => {
-    const setorMudou = prevSetorRef.current !== camera?.setor;
-    prevSetorRef.current = camera?.setor;
-    console.log(`[CAM] id mudou → id=${camera?.id} nome=${camera?.nome} papel=${camera?.papel} setor=${camera?.setor} setorMudou=${setorMudou}`);
-    
-    setConnected(false);
-    setUseMockStream(false);
-    
-    if (imgRef.current) imgRef.current.src = '';
-    if (lastImgUrlRef.current) { 
-      URL.revokeObjectURL(lastImgUrlRef.current); 
-      lastImgUrlRef.current = null; 
-    }
-  }, [camera?.id]);
 
   useEffect(() => {
     function resetFrameTimeout() {
@@ -179,26 +113,18 @@ export function CameraView({
         const old = wsRef.current;
         old.onclose = null;
         if (old.readyState !== WebSocket.CONNECTING) old.close();
-        else old.onopen = () => old.close();
       }
 
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
-      ws.onopen = () => {
-        console.log(`[WS] conectado | camera="${camera?.nome}" setor="${camera?.setor}"`);
-      };
-
       ws.onmessage = async (event) => {
         try {
-          // 1. Processamento de Frame Binário via Utilitário
           if (event.data instanceof Blob) {
             const streamData = await processWsStreamMessage(event, cameraRef.current);
-
             if (streamData) {
               resetFrameTimeout();
               setConnected(true);
-
               if (imgRef.current) {
                 if (lastImgUrlRef.current) URL.revokeObjectURL(lastImgUrlRef.current);
                 lastImgUrlRef.current = streamData.imageUrl;
@@ -207,38 +133,18 @@ export function CameraView({
             }
             return;
           }
-
-          // 2. Mensagens JSON (alert, detections, pose, verdict…)
           const msg = JSON.parse(event.data);
           if (msg.setor && msg.setor !== cameraRef.current?.setor) return;
           const store = useMonitoramentoStore.getState();
-          
-          if (msg.type === 'alert') {
-            store.addAlerta(msg);
-          } else if (msg.type === 'detections') {
-            store.setLiveDetections(msg.data);
-          } else if (msg.type === 'pose') {
-            store.setLivePose(msg.pessoas ?? []);
-          } else if (msg.type === 'verdict') {
-            store.setVerdict(msg);
-          }
-        } catch {
-          // Fail-silent
-        }
+          if (msg.type === 'alert') store.addAlerta(msg);
+          else if (msg.type === 'detections') store.setLiveDetections(msg.data);
+          else if (msg.type === 'pose') store.setLivePose(msg.pessoas ?? []);
+          else if (msg.type === 'verdict') store.setVerdict(msg);
+        } catch {}
       };
 
-      ws.onerror = (e) => {
-        console.error(`[WS] erro | camera="${camera?.nome}" readyState=${ws.readyState}`, e);
-      };
-
-      ws.onclose = (e) => {
-        console.warn(`[WS] fechou | camera="${camera?.nome}" code=${e.code} wasClean=${e.wasClean}`);
+      ws.onclose = () => {
         setConnected(false);
-        if (imgRef.current && !useMockStream) imgRef.current.src = '';
-        if (lastImgUrlRef.current) { 
-          URL.revokeObjectURL(lastImgUrlRef.current); 
-          lastImgUrlRef.current = null; 
-        }
         reconnectRef.current = setTimeout(connect, 3000);
       };
     }
@@ -248,165 +154,107 @@ export function CameraView({
     return () => {
       clearTimeout(reconnectRef.current);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      const wsToClose = wsRef.current;
-      if (wsToClose) {
-        wsToClose.onclose = null;
-        if (wsToClose.readyState !== WebSocket.CONNECTING) wsToClose.close();
-        else wsToClose.onopen = () => wsToClose.close();
-      }
+      if (wsRef.current) wsRef.current.close();
     };
-  }, [camera?.id, camera?.ip, camera?.setor]);
+  }, [camera?.id]);
 
   const isStreamActive = connected || useMockStream;
+
+  // Usa as setas do slot do grid se disponíveis, caso contrário usa a navegação global
+  const handlePrev = onPrevSlotCamera || onPrevCamera;
+  const handleNext = onNextSlotCamera || onNextCamera;
+
+  // As setas de troca só devem ser exibidas se houver MAIS de 4 câmeras no total
+  const showSlotArrows = totalCameras > 4 && handlePrev && handleNext;
 
   return (
     <div 
       ref={containerRef}
-      className={`w-full flex flex-col rounded-2xl border panel-base backdrop-blur-md overflow-hidden transition-all duration-300 shadow-2xl h-full ${
-        isFullscreen ? 'bg-black p-0 border-none rounded-none' : ''
+      className={`w-full flex flex-col rounded border panel-base backdrop-blur-md overflow-hidden transition-all duration-300 shadow-2xl h-full ${
+        isFullscreen ? 'bg-black p-0 border-none' : ''
       }`}
       style={{ borderColor: 'var(--p-subtext)' }}
     >
-      {/* Screen */}
-      <div className="flex-1 relative flex items-center justify-center bg-[var(--p-graf-bg)] overflow-hidden group min-h-[220px] sm:min-h-[380px]">
+      <div className="flex-1 relative flex items-center justify-center bg-[var(--p-graf-bg)] overflow-hidden group min-h-[160px]">
         {CORNER_CLASSES.map((classes, i) => (
-          <div 
-            key={i} 
-            className={`absolute w-3 h-3 sm:w-5 sm:h-5 z-20 pointer-events-none transition-colors duration-300 ${
-              isStreamActive ? 'border-[var(--p-subtext)]' : 'border-[var(--p-border)]'
-            } ${classes}`} 
-          />
+          <div key={i} className={`absolute w-3 h-3 z-20 pointer-events-none ${isStreamActive ? 'border-[var(--p-subtext)]' : 'border-[var(--p-border)]'} ${classes}`} />
         ))}
 
-        {isStreamActive && (
-          <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--p-subtext)] to-transparent z-20 pointer-events-none animate-[scanline_4s_linear_infinite]" />
-        )}
-
-        {/* NOME DA CÂMERA EM FULLSCREEN */}
-        {isFullscreen && (
-          <div className="absolute top-4 left-4 z-30 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 font-mono text-xs text-white uppercase tracking-wider">
+        {/* BARRA SUPERIOR DA CÂMERA */}
+        <div className="absolute top-2 left-2 right-2 z-30 flex items-center justify-between pointer-events-none">
+          <div className="px-2 py-1 rounded bg-black/70 backdrop-blur-md border border-white/20 font-mono text-[10px] text-white uppercase tracking-wider truncate max-w-[65%] pointer-events-auto">
             {camera?.nome || 'CÂMERA'}
           </div>
-        )}
 
-        <div className="absolute top-2 sm:top-4 inset-x-0 flex justify-center z-30 pointer-events-none px-2">
-          {activeEpi ? (
-            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate max-w-[90vw]">
-              <Cpu size={12} className="animate-spin [animation-duration:3s] text-[var(--p-subtext)] shrink-0 sm:w-3.5 sm:h-3.5" />
-              <span className="truncate">ML: DETECTANDO {activeEpi}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md bg-black/60 border border-[var(--p-subtext)] text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-theme-title text-[var(--p-text-title)] shadow-lg truncate max-w-[90vw]">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-              <span className="truncate">AGUARDANDO SELEÇÃO DE EPI</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1 pointer-events-auto">
+            {onExpand && (
+              <button
+                type="button"
+                onClick={onExpand}
+                className="p-1.5 rounded bg-black/80 hover:bg-emerald-600 text-white border border-white/20 backdrop-blur-md transition-all active:scale-95 cursor-pointer shadow-lg"
+                title="Expandir para Câmera Única"
+              >
+                <Expand className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* CONTROLES DE TROCA DE CÂMERA (FLUTUANTES) */}
-        {totalCameras > 1 && (
-          <div className={`absolute inset-y-0 left-0 right-0 flex items-center justify-between px-3 sm:px-5 pointer-events-none z-30 transition-opacity duration-300 ${
-            isFullscreen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          }`}>
+        {/* SETAS EXIBIDAS APENAS SE HOUVER MAIS DE 4 CÂMERAS CADASTRADAS */}
+        {showSlotArrows && (
+          <>
             <button
               type="button"
-              onClick={onPrevCamera}
-              className="pointer-events-auto p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white shadow-xl backdrop-blur-md transition-all active:scale-90 cursor-pointer"
+              onClick={handlePrev}
+              className="absolute left-2 z-30 p-1.5 rounded bg-black/60 hover:bg-black/90 text-white border border-white/20 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
               title="Câmera Anterior"
             >
-              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
 
             <button
               type="button"
-              onClick={onNextCamera}
-              className="pointer-events-auto p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white shadow-xl backdrop-blur-md transition-all active:scale-90 cursor-pointer"
+              onClick={handleNext}
+              className="absolute right-2 z-30 p-1.5 rounded bg-black/60 hover:bg-black/90 text-white border border-white/20 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
               title="Próxima Câmera"
             >
-              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+              <ChevronRight className="w-4 h-4" />
             </button>
-          </div>
+          </>
         )}
 
         <img
           ref={imgRef}
-          className={`w-full h-full object-cover select-none transition-opacity duration-300 ${
-            isStreamActive ? 'opacity-100 block' : 'opacity-0 hidden'
-          }`}
+          className={`w-full h-full object-cover select-none transition-opacity duration-300 ${isStreamActive ? 'opacity-100 block' : 'opacity-0 hidden'}`}
           alt=""
         />
 
         {isStreamActive && (
-          <RiskAreaOverlay
-            initialBox={riskBox}
-            isEditing={isEditingRiskArea}
-            onSaveBox={handleSaveRiskBox}
-          />
+          <RiskAreaOverlay initialBox={riskBox} isEditing={isEditingRiskArea} onSaveBox={handleSaveRiskBox} />
         )}
 
         {!isStreamActive && (
-          <div className="relative z-10 text-center select-none p-4 sm:p-6 rounded-xl bg-[var(--p-bg)] border border-[var(--p-border)] shadow-xl backdrop-blur-sm mx-4 flex flex-col items-center gap-3">
-            <p className="font-mono text-[10px] sm:text-xs font-bold tracking-widest text-[var(--p-text)] animate-pulse">
-              SEM SINAL DE TRANSMISSÃO
-            </p>
-            <p className="font-mono text-[9px] sm:text-[10px] text-[var(--p-text)] opacity-60 truncate max-w-[200px] sm:max-w-xs">
-              {camera?.ip || WS_URL}
-            </p>
-
-            <button
-              onClick={handleEnableMock}
-              className="mt-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-lg active:scale-95 cursor-pointer z-40"
-            >
-              Simular Câmera no Navegador
+          <div className="relative z-10 text-center select-none p-2 rounded bg-[var(--p-bg)] border border-[var(--p-border)] shadow-xl backdrop-blur-sm mx-2 flex flex-col items-center gap-1">
+            <p className="font-mono text-[9px] font-bold tracking-widest text-[var(--p-text)] animate-pulse">SEM SINAL</p>
+            <button onClick={handleEnableMock} className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-[10px] font-bold uppercase transition-all cursor-pointer">
+              Simular
             </button>
           </div>
         )}
 
-        {/* Botão de Fullscreen */}
         <button 
           onClick={handleToggleFullscreen}
-          className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-30 p-2 sm:p-2.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main hover:border-[var(--p-subtext)] opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-lg active:scale-95 cursor-pointer"
-          title={isFullscreen ? "Sair da Tela Cheia" : "Expandir Visualização"}
+          className="absolute bottom-2 right-2 z-30 p-1.5 rounded bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main opacity-80 group-hover:opacity-100 transition-all cursor-pointer"
+          title="Tela Cheia"
         >
-          {isFullscreen ? (
-            <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-          ) : (
-            <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          )}
+          {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-amber-400" /> : <Maximize2 className="w-3.5 h-3.5" />}
         </button>
       </div>
 
-      {/* Footer com Hora em Tempo Real */}
-      <div className="flex items-center justify-between p-2.5 sm:p-3.5 font-mono text-[10px] sm:text-xs shrink-0 border-t border-[var(--p-border)] bg-[var(--p-header-bg)] transition-colors duration-300">
-        <span className="font-bold text-[var(--p-subtext)] tracking-wider">
-          {currentTime}{' '}
-          <span className="font-normal opacity-60 text-[var(--p-text)] hidden sm:inline">
-            · {connected ? 'servidor ws' : useMockStream ? 'simulado' : 'offline'}
-          </span>
-        </span>
-
-        <div className="flex items-center gap-1.5 sm:gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wide select-none">
-          <span 
-            className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-300 ${
-              isStreamActive 
-                ? 'bg-[var(--p-subtext)] shadow-[0_0_10px_var(--p-subtext)] animate-pulse' 
-                : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
-            }`} 
-          />
-          <span className={isStreamActive ? 'text-[var(--p-subtext)] font-bold' : 'text-amber-500 font-bold'}>
-            {connected ? 'conectado' : useMockStream ? 'simulado' : 'aguardando'}
-          </span>
-        </div>
+      <div className="flex items-center justify-between px-2.5 py-1.5 font-mono text-[10px] shrink-0 border-t border-[var(--p-border)] bg-[var(--p-header-bg)]">
+        <span className="font-bold text-[var(--p-subtext)] tracking-wider">{currentTime}</span>
+        <span className={`w-2 h-2 rounded-full ${isStreamActive ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`} />
       </div>
-
-      <style>{`
-        @keyframes scanline {
-          0%   { top: 0; opacity: 0; }
-          5%   { opacity: 1; }
-          95%  { opacity: 1; }
-          100% { top: 100%; opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 }
