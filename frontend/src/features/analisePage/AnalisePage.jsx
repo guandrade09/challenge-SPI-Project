@@ -33,7 +33,7 @@ export function AnalisePage() {
         {/* HEADER DA PÁGINA */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-theme-divider pb-5">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-wider uppercase text-[var(--p-text-title)]">
+            <h1 className="text-xl sm:text-2xl text-[var(--p-text-title)] font-theme-title">
               Análise Avançada de Telemetria e IA
             </h1>
           </div>

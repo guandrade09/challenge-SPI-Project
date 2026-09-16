@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { LayoutGrid, Square } from 'lucide-react';
 
 import { DetectionPanel } from './components';
 import { CameraViewContainer } from './components/CameraViewContainer';
@@ -10,15 +9,9 @@ import { MonitoramentoSkeleton } from './components/MonitoramentoSkeleton';
 import { useCameraStore } from '../../store/useCameraStore';
 import { useCameraPresetsStore } from '../../store/useCameraPresetsStore';
 import { useUiStore } from '../../store/useUiStore';
+import { DETECTION_CONFIG } from '../../enums/enums';
 
 const EMPTY_ARRAY = [];
-
-const DETECTION_CONFIG = [
-  { id: 'colete',   label: 'Detectar Colete'   },
-  { id: 'oculos',   label: 'Detectar Óculos'   },
-  { id: 'capacete', label: 'Detectar Capacete' },
-  { id: 'mascara',  label: 'Detectar Máscara'  },
-];
 
 export const CameraPage = () => {
   const currentTheme = useUiStore((s) => s.theme);
@@ -80,22 +73,22 @@ export const CameraPage = () => {
     handleSelectCamera(prevIdx);
   };
 
-  const activeEpisForVisuals = useCameraPresetsStore(
-    useShallow((state) => {
-      if (!currentCameraId) return EMPTY_ARRAY;
-      const data = state.presets[currentCameraId];
-
-      let rawList = [];
-      if (Array.isArray(data)) {
-        rawList = data;
-      } else if (data && typeof data === 'object') {
-        rawList = Array.isArray(data.selectedEpis) ? data.selectedEpis : [];
-      }
-
-      // Sanitiza: garante que extraímos apenas a string (id/nome) se for objeto ou string pura
-      return rawList.map((item) => (typeof item === 'object' && item !== null ? item.id || item.name : item)).filter(Boolean);
-    })
+  const presetData = useCameraPresetsStore(
+    useShallow((state) => (currentCameraId ? state.presets[currentCameraId] : null))
   );
+
+  const activeEpisForVisuals = React.useMemo(() => {
+    if (!presetData) return EMPTY_ARRAY;
+    let rawList = [];
+    if (Array.isArray(presetData)) {
+      rawList = presetData;
+    } else if (typeof presetData === 'object') {
+      rawList = Array.isArray(presetData.selectedEpis) ? presetData.selectedEpis : [];
+    }
+    return rawList
+      .map((item) => (typeof item === 'object' && item !== null ? item.id || item.name : item))
+      .filter(Boolean);
+  }, [presetData]);
 
   const activeEpiName = activeEpisForVisuals.length > 0 ? activeEpisForVisuals.join(', ').toUpperCase() : null;
   const isDark = currentTheme === 'dark';
@@ -111,40 +104,6 @@ export const CameraPage = () => {
             {/* CONTAINER PRINCIPAL DA CÂMERA */}
             <div className="lg:col-span-9 flex flex-col gap-2 h-[50vh] min-h-[320px] lg:h-[calc(100vh-200px)] lg:min-h-[520px]">
               
-              {/* BARRA SUPERIOR EXTERNA COM BORDAS ARREDONDADAS */}
-              <div className="flex items-center justify-between px-4 py-2 rounded-2xl bg-[var(--p-header-bg)] border border-theme-divider shrink-0 shadow-md">
-                <span className="font-mono text-xs font-bold text-[var(--p-text-subtitle)] uppercase tracking-wider">
-                  Modo de Exibição: <span className="text-emerald-400">{layoutMode === 'single' ? 'Câmera Única' : 'Grade 2x2'}</span>
-                </span>
-
-                <div className="flex items-center gap-1 bg-black/40 p-1 border border-white/10 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setLayoutMode('single')}
-                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                      layoutMode === 'single'
-                        ? 'bg-emerald-500 text-[var(--p-text-title)] font-bold shadow-[0_0_10px_rgba(16,185,129,0.5)]'
-                        : 'text-neutral-400 hover:text-white hover:bg-white/10'
-                    }`}
-                    title="Modo Câmera Única"
-                  >
-                    <Square className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLayoutMode('grid2x2')}
-                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                      layoutMode === 'grid2x2'
-                        ? 'bg-emerald-500 text-[var(--p-text-title)] font-bold shadow-[0_0_10px_rgba(16,185,129,0.5)]'
-                        : 'text-neutral-400 hover:text-white hover:bg-white/10'
-                    }`}
-                    title="Modo Grade 2x2"
-                  >
-                    <LayoutGrid className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
               {/* PAINEL DE CÂMERAS */}
               <div className="flex-1 min-h-0 relative">
                 <CameraViewContainer
@@ -152,6 +111,7 @@ export const CameraPage = () => {
                   setLayoutMode={setLayoutMode}
                   cameras={cameras}
                   currentCamera={currentCamera}
+                  onExpand={() => handleExpandCamera(cam.id)}
                   activeEpiName={activeEpiName}
                   isEditingRiskArea={isEditingRiskArea}
                   onSelectCamera={handleSelectCamera}
@@ -161,7 +121,7 @@ export const CameraPage = () => {
               </div>
             </div>
 
-            {/* PAINEL LATERAL (CONTAINER COM BORDAS ARREDONDADAS) */}
+            {/* PAINEL LATERAL */}
             <div className="lg:col-span-3 flex flex-col gap-3 sm:gap-4 w-full p-3.5 sm:p-5 rounded-2xl bg-[var(--p-header-bg)] border border-theme-divider shadow-xl transition-colors duration-300 h-[50vh] min-h-[320px] lg:h-[calc(100vh-200px)] lg:min-h-[520px] overflow-hidden">
               <div className="flex-1 min-h-0 flex flex-col">
                 <DetectionPanel
@@ -175,10 +135,8 @@ export const CameraPage = () => {
                   setIsEditingRiskArea={setIsEditingRiskArea}
                   onToggleEpi={(arg1, arg2) => {
                     if (arg2 !== undefined) {
-                      // Recebeu (camId, epiId)
                       toggleEpiForCamera(arg1, arg2);
                     } else {
-                      // Recebeu apenas (epiId)
                       toggleEpiForCamera(currentCameraId, arg1);
                     }
                   }}

@@ -47,20 +47,16 @@ export function CameraViewContainer({
   const handleSlotNavigate = (slotIndex, direction) => {
     const totalAvailable = cameras.length;
 
-    // Se temos 4 ou menos câmeras no total, todas já estão alocadas na grade (ou em slots disponíveis),
-    // portanto a troca manual por seta deve ser bloqueada.
     if (totalAvailable <= 4) return;
 
     setGridIndices((prev) => {
       const updated = [...prev];
       const currentIdx = updated[slotIndex] ?? 0;
 
-      // Coleta todas as câmeras já alocadas nos OUTROS slots para não repetir
       const usedIndices = new Set(
         updated.filter((val, idx) => idx !== slotIndex && val !== null)
       );
 
-      // Se todas as câmeras existentes já estão sendo exibidas nos outros slots
       if (usedIndices.size >= totalAvailable) {
         return prev;
       }
@@ -68,7 +64,6 @@ export function CameraViewContainer({
       const step = direction === 'next' ? 1 : -1;
       let candidate = (currentIdx + step + totalAvailable) % totalAvailable;
 
-      // Procura o próximo índice livre
       while (usedIndices.has(candidate)) {
         candidate = (candidate + step + totalAvailable) % totalAvailable;
       }
@@ -83,21 +78,23 @@ export function CameraViewContainer({
     if (setLayoutMode) setLayoutMode('single');
   };
 
-  // MODO: VISUALIZAÇÃO ÚNICA
+  // MODO: VISUALIZAÇÃO ÚNICA (Sem padding interno)
   if (layoutMode === 'single') {
     return (
-      <div className="w-full h-full relative overflow-hidden rounded-2xl bg-neutral-950 border border-theme-divider shadow-2xl p-1">
+      <div className="w-full h-full relative overflow-hidden rounded-2xl bg-neutral-950 border border-theme-divider shadow-2xl">
         {currentCamera ? (
           <CameraView
             camera={currentCamera}
             activeEpi={activeEpiName}
             isEditingRiskArea={isEditingRiskArea}
             totalCameras={cameras.length}
+            layoutMode={layoutMode}
+            setLayoutMode={setLayoutMode}
             onNextCamera={onNextCamera}
             onPrevCamera={onPrevCamera}
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/60 border border-dashed border-neutral-800 rounded-xl text-neutral-500 font-mono text-xs">
+          <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/60 border border-dashed border-neutral-800 rounded-2xl text-neutral-500 font-mono text-xs">
             <span>NENHUMA CÂMERA SELECIONADA</span>
           </div>
         )}
@@ -105,26 +102,28 @@ export function CameraViewContainer({
     );
   }
 
-  // MODO: GRADE 2X2
+  // MODO: GRADE 2X2 (Sem padding interno)
   return (
-    <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-2 p-2 rounded-2xl bg-neutral-950 border border-theme-divider shadow-2xl overflow-hidden">
+    <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-1 rounded-2xl bg-neutral-950 border border-theme-divider shadow-2xl overflow-hidden">
       {gridIndices.map((camIdx, slotIndex) => {
         const cam = camIdx !== null && cameras[camIdx] ? cameras[camIdx] : null;
 
         return (
-          <div key={`slot-${slotIndex}`} className="w-full h-full relative overflow-hidden rounded-none">
+          <div key={`slot-${slotIndex}`} className="w-full h-full relative overflow-hidden">
             {cam ? (
               <CameraView
                 camera={cam}
                 activeEpi={cam.id === currentCameraId ? activeEpiName : null}
                 isEditingRiskArea={cam.id === currentCameraId && isEditingRiskArea}
                 totalCameras={cameras.length}
+                layoutMode={layoutMode}
+                setLayoutMode={setLayoutMode}
                 onExpand={() => handleExpandCamera(cam.id)}
                 onNextSlotCamera={() => handleSlotNavigate(slotIndex, 'next')}
                 onPrevSlotCamera={() => handleSlotNavigate(slotIndex, 'prev')}
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/60 border border-dashed border-neutral-800 rounded-none text-neutral-500 font-mono text-xs">
+              <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/60 border border-dashed border-neutral-800 text-neutral-500 font-mono text-xs">
                 <span>SLOT {slotIndex + 1} - VAZIO</span>
               </div>
             )}

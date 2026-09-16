@@ -60,7 +60,7 @@ export default function IncidentesPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl text-[var(--p-text-title)] uppercase tracking-wider font-semibold">
+            <h2 className="text-xl sm:text-2xl text-[var(--p-text-title)] font-theme-title">
               Histórico de Incidentes
             </h2>
             <p className="text-[var(--p-text-title)] mt-1">{filtered.length} registros encontrados</p>

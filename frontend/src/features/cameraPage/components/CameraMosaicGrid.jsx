@@ -40,7 +40,7 @@ export function CameraMosaicGrid({ cameras, currentIndex, currentCamera, onSelec
   return (
     <div className="w-full flex flex-col gap-1.5 sm:gap-2 mt-2 sm:mt-4">
       <div className="flex items-center justify-between px-1">
-        <span className="text-theme-head font-bold text-xs uppercase tracking-wider">
+        <span className="text-[var(--p-text-title)] font-theme-title text-xs uppercase tracking-wider">
           MOSAICO DE CÂMERAS ({cameras.length})
         </span>
       </div>

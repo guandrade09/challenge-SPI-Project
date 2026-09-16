@@ -9,12 +9,11 @@ import { useAuthStore } from '../store/useAuthStore';
 import logoCodexis from '../assets/codexis/logo_codexis.svg';
 
 export const NavBar = ({ theme }) => {
-  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false); // Menu Navegação Mobile
-  const [isConfigOpen, setIsConfigOpen] = useState(false);   // Menu Usuário/Configs
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
   const location = useLocation();
   const configRef = useRef(null);
 
-  // Zustand Store de Autenticação
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
 
@@ -26,13 +25,11 @@ export const NavBar = ({ theme }) => {
     { label: 'Análise', path: '/analise', icon: FileText },
   ];
 
-  // Fecha os menus ao mudar de página
   useEffect(() => {
     setIsNavMenuOpen(false);
     setIsConfigOpen(false);
   }, [location.pathname]);
 
-  // Fecha o menu de usuário ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (configRef.current && !configRef.current.contains(event.target)) {
@@ -49,16 +46,16 @@ export const NavBar = ({ theme }) => {
   };
 
   return (
-    <nav className="w-full px-4 py-3 flex items-center justify-between relative bg-[#1a1b23] border-b border-white/5 z-50">
+    <nav className="w-full px-4 py-3 flex items-center justify-between relative bg-transparent border-b border-white/10 z-50">
       
-      {/* 1. LADO ESQUERDO: Botão de Logo (Atua como Avatar / Disparador do Menu de Usuário) */}
+      {/* 1. LADO ESQUERDO: Botão de Logo Circulado */}
       <div className="flex items-center gap-3 relative" ref={configRef}>
         <button
           onClick={() => setIsConfigOpen((prev) => !prev)}
-          className={`group flex items-center p-1.5 rounded-xl transition-all focus:outline-none ${
+          className={`group flex items-center justify-center p-1.5 rounded-full transition-all focus:outline-none ${
             isConfigOpen 
-              ? 'bg-blue-600/20 ring-2 ring-blue-500/40' 
-              : 'hover:bg-white/5'
+              ? 'ring-2 ring-blue-500/60 bg-blue-500/10 shadow-[0_0_12px_rgba(59,130,246,0.3)]' 
+              : 'hover:bg-white/10'
           }`}
           title="Menu do Usuário e Configurações"
           aria-label="Abrir Menu do Usuário"
@@ -66,13 +63,13 @@ export const NavBar = ({ theme }) => {
           <img 
             src={logoCodexis} 
             alt="Codexis Logo" 
-            className="h-7 w-auto transition-transform group-hover:scale-105 active:scale-95" 
+            className="h-8 w-8 rounded-full object-cover transition-transform group-hover:scale-105 active:scale-95" 
           />
         </button>
 
         {/* --- DROPDOWN DE CONFIGURAÇÕES DO USUÁRIO --- */}
         {isConfigOpen && (
-          <div className="absolute top-12 left-0 w-72 bg-[#1c1d26] border border-white/10 rounded-xl shadow-2xl p-4 z-50 animate-[fadeIn_0.15s_ease-out]">
+          <div className="absolute top-12 left-0 w-72 bg-[#0a0f1d]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl p-4 z-50 animate-[fadeIn_0.15s_ease-out]">
             {/* Perfil do Usuário */}
             <div className="flex items-center gap-3 pb-3 mb-3 border-b border-white/5">
               <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-semibold shrink-0">
@@ -155,7 +152,6 @@ export const NavBar = ({ theme }) => {
       <div className="flex items-center gap-3">
         <ThemeToggleButton theme={theme} />
 
-        {/* Botão para os Links de Navegação Mobile */}
         <button
           onClick={() => setIsNavMenuOpen((prev) => !prev)}
           className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 md:hidden focus:outline-none"
@@ -167,7 +163,7 @@ export const NavBar = ({ theme }) => {
 
       {/* 4. GAVETA DE NAVEGAÇÃO MOBILE */}
       {isNavMenuOpen && (
-        <div className="fixed inset-0 top-[57px] bg-[#16171d]/95 backdrop-blur-md z-40 flex flex-col p-6 animate-[fadeIn_0.2s_ease-out] md:hidden">
+        <div className="fixed inset-0 top-[57px] bg-[#0a0f1d]/95 backdrop-blur-md z-40 flex flex-col p-6 animate-[fadeIn_0.2s_ease-out] md:hidden">
           <div className="flex flex-col gap-2">
             <span className="text-xs font-mono uppercase tracking-wider text-gray-500 mb-2">Navegação Principal</span>
             {navItems.map((item) => {

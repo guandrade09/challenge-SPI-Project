@@ -179,7 +179,7 @@ function HomePage() {
         {/* Cabeçalho */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl text-[var(--p-text-title)] uppercase tracking-wider">
+            <h2 className="text-xl sm:text-2xl text-[var(--p-text-title)] font-theme-title">
               Visão geral do sistema de detecção de EPI's
             </h2>
             <p className="text-xs text-[var(--p-text-title)] flex items-center gap-2 mt-1">

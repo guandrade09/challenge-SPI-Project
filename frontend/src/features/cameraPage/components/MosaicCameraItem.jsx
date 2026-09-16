@@ -13,19 +13,10 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
 
   const [connected, setConnected] = useState(false);
 
+  // Atualiza a referência da câmera sem disparar re-render do efeito de rede
   useEffect(() => {
     camRef.current = cam;
   }, [cam]);
-
-  // Limpa imagem se trocar a câmera do card
-  useEffect(() => {
-    setConnected(false);
-    if (imgRef.current) imgRef.current.src = '';
-    if (lastImgUrlRef.current) {
-      URL.revokeObjectURL(lastImgUrlRef.current);
-      lastImgUrlRef.current = null;
-    }
-  }, [cam?.id, cam?.ip]);
 
   useEffect(() => {
     let isMounted = true;
@@ -41,16 +32,19 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
     }
 
     function connect() {
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+
       if (wsRef.current) {
-        const old = wsRef.current;
-        old.onclose = null;
-        if (old.readyState !== WebSocket.CONNECTING) old.close();
+        wsRef.current.onclose = null;
+        wsRef.current.onerror = null;
+        wsRef.current.close();
       }
 
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
       ws.onmessage = async (event) => {
+        if (!isMounted) return;
         const streamData = await processWsStreamMessage(event, camRef.current);
 
         if (streamData && isMounted) {
@@ -65,11 +59,17 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
         }
       };
 
+      ws.onerror = () => {
+        if (isMounted) {
+          setConnected((prev) => (prev ? false : prev)); // Evita re-render se já for false
+        }
+      };
+
       ws.onclose = () => {
         if (isMounted) {
-          setConnected(false);
+          setConnected((prev) => (prev ? false : prev));
           if (imgRef.current) imgRef.current.src = '';
-          reconnectRef.current = setTimeout(connect, 3000);
+          reconnectRef.current = setTimeout(connect, 5000); // Aumente o intervalo se o servidor estiver offline
         }
       };
     }
@@ -78,12 +78,16 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
 
     return () => {
       isMounted = false;
-      clearTimeout(reconnectRef.current);
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (wsRef.current) wsRef.current.close();
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.onerror = null;
+        wsRef.current.close();
+      }
       if (lastImgUrlRef.current) URL.revokeObjectURL(lastImgUrlRef.current);
     };
-  }, [cam?.id, cam?.ip]);
+  }, [cam?.id]); // Mantém dependência única pelo ID primitivo
 
   return (
     <div
@@ -94,7 +98,6 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
           : 'border-[var(--p-border)] opacity-85 hover:opacity-100 hover:border-[var(--p-subtext)]/60'
       }`}
     >
-      {/* Stream preenchendo 100% do card */}
       <img
         ref={imgRef}
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-0 ${
@@ -103,7 +106,6 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
         alt=""
       />
 
-      {/* Fallback visual quando offline */}
       {!connected && (
         <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 z-0">
           <span className="font-mono text-[10px] text-neutral-500 uppercase font-bold tracking-widest">
@@ -112,11 +114,9 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
         </div>
       )}
 
-      {/* Gradientes de sombra para garantir legibilidade dos textos sobre a imagem */}
       <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none z-10" />
       <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10" />
 
-      {/* Header sobreposto (Nome da Câmera / Setor + Status Indicator) */}
       <div className="absolute top-2 left-2.5 right-2.5 flex items-center justify-between gap-2 z-20">
         <span className="font-bold text-xs truncate text-white drop-shadow-md tracking-wide">
           {cam?.setor || cam?.nome || 'Câmera'}
@@ -130,7 +130,6 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
         />
       </div>
 
-      {/* Footer sobreposto (IP da Câmera) */}
       <div className="absolute bottom-1.5 left-2.5 right-2.5 flex items-center justify-between z-20">
         <span className="font-mono text-[9px] font-medium text-white/80 drop-shadow-sm tracking-wider">
           {cam?.ip || '0.0.0.0'}

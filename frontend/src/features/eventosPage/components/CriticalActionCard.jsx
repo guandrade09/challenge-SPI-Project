@@ -210,8 +210,8 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
             <div className="p-3 rounded-full bg-emerald-500/10 text-emerald-500">
               <Check size={24} />
             </div>
-            <p className="text-xs font-semibold text-theme-main">Tudo limpo por aqui!</p>
-            <p className="text-[11px] text-theme-muted max-w-[200px]">
+            <p className="text-xs font-semibold text-[var(--p-text-title)]">Tudo limpo por aqui!</p>
+            <p className="text-[11px] text-[var(--p-text-title)] max-w-[200px]">
               Nenhum evento crítico pendente de validação no momento.
             </p>
           </div>

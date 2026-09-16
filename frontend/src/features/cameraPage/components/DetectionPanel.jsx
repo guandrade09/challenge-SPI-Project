@@ -1,11 +1,15 @@
 import React from 'react';
 import { Shield, Settings } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow'; // 1. IMPORTAR USE SHALLOW
 import { DetectionCard } from './DetectionCard';
 import { CameraManagementPanel } from './CameraManagementPanel';
-import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore'; // Importe a store de presets
+import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
+
+// Array constante para fallback estático
+const EMPTY_ARRAY = [];
 
 export const DetectionPanel = ({
-  options,
+  options = [],
   theme,
   cameras,
   currentIndex,
@@ -22,13 +26,16 @@ export const DetectionPanel = ({
   activeTab,
   setActiveTab,
 }) => {
-  // Obtém a lista de EPIs ativos para a câmera atualmente selecionada
-  const activeEpis = useCameraPresetsStore((state) => {
-    if (!currentCamera?.id) return [];
-    const data = state.presets[currentCamera.id];
-    if (Array.isArray(data)) return data;
-    return data?.selectedEpis || [];
-  });
+
+  // ✅ CORREÇÃO COM useShallow E FALLBACK ESTÁTICO:
+  const activeEpis = useCameraPresetsStore(
+    useShallow((state) => {
+      if (!currentCamera?.id) return EMPTY_ARRAY;
+      const data = state.presets[currentCamera.id];
+      if (Array.isArray(data)) return data;
+      return data?.selectedEpis || EMPTY_ARRAY;
+    })
+  );
 
   return (
     <div className="flex flex-col gap-3 w-full h-full justify-between">
@@ -66,7 +73,6 @@ export const DetectionPanel = ({
       {activeTab === 'epis' && (
         <div className="flex flex-col gap-2 w-full flex-1 overflow-y-auto custom-scrollbar pr-1">
           {options.map((option) => {
-            // Verifica se o EPI está ativo para a câmera atual
             const isChecked = activeEpis.includes(option.id);
 
             return (

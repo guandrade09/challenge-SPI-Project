@@ -1,21 +1,20 @@
-// src/store/useCameraPresetsStore.js
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+
+const DEFAULT_PRESET = { selectedEpis: [], riskArea: null };
 
 export const useCameraPresetsStore = create(
   persist(
     (set, get) => ({
       presets: {},
-      lastCameraId: null, // <-- Guarda a última câmera visualizada
+      lastCameraId: null,
 
       setLastCameraId: (cameraId) => set({ lastCameraId: cameraId }),
-
       getLastCameraId: () => get().lastCameraId,
 
-      // --- GERENCIAMENTO DE EPIs ---
       toggleEpiForCamera: (cameraId, epiName) => set((state) => {
         if (!cameraId) return state;
-        const currentPreset = state.presets[cameraId] || { selectedEpis: [], riskArea: null };
+        const currentPreset = state.presets[cameraId] || DEFAULT_PRESET;
         const currentEpis = currentPreset.selectedEpis || [];
         const isAlreadySelected = currentEpis.includes(epiName);
         const updatedEpis = isAlreadySelected
@@ -35,7 +34,7 @@ export const useCameraPresetsStore = create(
 
       setSelectedEpisForCamera: (cameraId, episList) => set((state) => {
         if (!cameraId) return state;
-        const currentPreset = state.presets[cameraId] || { selectedEpis: [], riskArea: null };
+        const currentPreset = state.presets[cameraId] || DEFAULT_PRESET;
         return {
           presets: {
             ...state.presets,
@@ -47,10 +46,9 @@ export const useCameraPresetsStore = create(
         };
       }),
 
-      // --- GERENCIAMENTO DE ÁREA DE RISCO ---
       setRiskAreaForCamera: (cameraId, riskArea) => set((state) => {
         if (!cameraId) return state;
-        const currentPreset = state.presets[cameraId] || { selectedEpis: [], riskArea: null };
+        const currentPreset = state.presets[cameraId] || DEFAULT_PRESET;
         return {
           presets: {
             ...state.presets,
@@ -77,7 +75,6 @@ export const useCameraPresetsStore = create(
         };
       }),
 
-      // --- REMOÇÃO E CONSULTAS ---
       removePresetForCamera: (cameraId) => set((state) => {
         const newPresets = { ...state.presets };
         delete newPresets[cameraId];
@@ -99,7 +96,7 @@ export const useCameraPresetsStore = create(
       },
 
       getPresetForCamera: (cameraId) => {
-        if (!cameraId) return { selectedEpis: [], riskArea: null };
+        if (!cameraId) return DEFAULT_PRESET;
         const data = get().presets[cameraId];
         if (Array.isArray(data)) {
           return { selectedEpis: data, riskArea: null };

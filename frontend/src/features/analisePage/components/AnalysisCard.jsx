@@ -22,7 +22,7 @@ export function AnalysisCard({
               size={20} 
             />
           )}
-          <h2 className="text-lg font-bold uppercase tracking-wider text-[var(--p-text-subtitle)]">
+          <h2 className="text-lg font-theme-title tracking-wider text-[var(--p-text-logs)]">
             {title}
           </h2>
         </div>
@@ -30,7 +30,7 @@ export function AnalysisCard({
         <div className="flex items-center gap-3">
           {headerAction}
           {badgeText && (
-            <span className="text-[13px] font-bold uppercase border border-theme-divider px-2.5 py-1 rounded-md text-[var(--p-text-subtitle)] bg-[var(--p-bg)]">
+            <span className="text-[13px] font-bold uppercase border border-theme-divider px-2.5 py-1 rounded-md text-[var(--p-text-logs)] bg-[var(--p-bg)]">
               {badgeText}
             </span>
           )}
@@ -53,11 +53,11 @@ export function AnalysisCard({
                 key={index} 
                 className="border border-theme-divider rounded-xl p-3.5 bg-[var(--p-bg)] transition-colors duration-200"
               >
-                <div className="flex items-center gap-1.5 font-bold text-xs uppercase mb-1 text-[var(--p-text-subtitle)]">
+                <div className="flex items-center gap-1.5 font-theme-title text-xs uppercase mb-1 text-[var(--p-text-logs)]">
                   {ItemIcon && <ItemIcon size={13} className="text-[var(--p-accent,#6366f1)]" />}
                   <span>{item.title}</span>
                 </div>
-                <p className="text-xs leading-relaxed text-[var(--p-text-muted)]">
+                <p className="text-xs leading-relaxed text-[var(--p-text-logs)]">
                   {item.description}
                 </p>
               </div>
