@@ -8,13 +8,12 @@ export function ForgotPassword() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Reset password for:', email);
     setSubmitted(true);
   };
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-projeto-main p-4">
+      <div className="bg-projeto-main flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="auth-card-dark text-center">
             <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
@@ -22,13 +21,10 @@ export function ForgotPassword() {
             </div>
             <h1 className="font-label-auth">Email Enviado!</h1>
             <p className="text-neutral-400 mb-8">
-              Enviamos um link de recuperação para <strong className="text-white">{email}</strong>. 
+              Enviamos um link de recuperação para <strong className="text-white">{email}</strong>.
               Verifique sua caixa de entrada.
             </p>
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-2 text-emerald-500 font-semibold hover:text-emerald-400 transition-colors"
-            >
+            <Link to="/login" className="inline-flex items-center gap-2 link-emerald">
               <ArrowLeft className="w-4 h-4" />
               Voltar para login
             </Link>
@@ -39,11 +35,11 @@ export function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-projeto-main p-4">
+    <div className="bg-projeto-main flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="auth-card-dark">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold !text-white mb-2">Esqueceu a Senha?</h1>
+            <h1 className="text-3xl font-bold text-white mb-2">Esqueceu a Senha?</h1>
             <p className="text-neutral-400">
               Digite seu email cadastrado para receber as instruções de recuperação.
             </p>
@@ -61,26 +57,20 @@ export function ForgotPassword() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-neutral-800/50 border border-neutral-700 text-white pl-10 pr-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-neutral-500"
+                  className="form-input-icon"
                   placeholder="seu@email.com"
                   required
                 />
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
-            >
+            <button type="submit" className="btn-primary active:scale-95">
               Enviar Link
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-emerald-500 transition-colors"
-            >
+            <Link to="/login" className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-emerald-500 transition-colors">
               <ArrowLeft className="w-4 h-4" />
               Voltar para login
             </Link>

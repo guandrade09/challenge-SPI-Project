@@ -1,10 +1,11 @@
-import { Navigate } from 'react-router-dom';
+// src/routes/PrivateRoute.jsx
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 
-export const PrivateRoute = ({ children }) => {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  
-  // Se não estiver logado, manda para o login
-  //return isAuthenticated ? children : <Navigate to="/login" />;
-  return children;
+export const PrivateRoute = () => {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // Se o usuário estiver autenticado, o <Outlet /> renderiza o MainLayout e as páginas internas.
+  // Se não estiver, ele é redirecionado para o /login de forma segura.
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 };
