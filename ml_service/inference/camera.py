@@ -18,7 +18,7 @@ class Camera:
             # frames com qualidade ruim/corrompida em teste real — provável falta do
             # extradata (SPS/PPS) no CodecContext manual do decoder de hardware. VLC é
             # mais lento de CPU mas visualmente correto — usar até resolver o NVDEC.
-            self.cap = VLCCamera(source)
+            self.cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
         else:
             self.cap = cv2.VideoCapture(source)
 

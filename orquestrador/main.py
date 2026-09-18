@@ -830,7 +830,7 @@ def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: 
 
 def _start_sector(setor: str, cameras: list[dict], models: dict, inference_lock: threading.Lock, zone_checker: ZoneChecker):
     stop_event = threading.Event()
-    cam_ids    = frozenset((c["id"], c.get("papel", "frontal")) for c in cameras)
+    cam_ids    = frozenset((c["id"], c.get("papel", "frontal"), c.get("streamUrl", "")) for c in cameras)
     t = threading.Thread(
         target=_run_sector,
         args=(setor, cameras, models, inference_lock, zone_checker, stop_event),
