@@ -37,6 +37,18 @@ export const CameraManagementPanel = ({
     }
   };
 
+  // Trata a ação de limpar a área de risco
+  const handleClear = () => {
+    // 1. Dispara o evento customizado para o RiskAreaOverlay resetar o box visual na tela
+    const event = new CustomEvent('clear_risk_area');
+    window.dispatchEvent(event);
+
+    // 2. Executa a função repassada via prop para atualizar o estado/store pai
+    if (onClearRiskArea) {
+      onClearRiskArea();
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full justify-between min-h-0 overflow-hidden font-theme-body">
       
@@ -82,74 +94,86 @@ export const CameraManagementPanel = ({
             </div>
           ) : (
             cameras.map((cam, idx) => {
-              const isActive = currentCamera && cam.id 
-                ? cam.id === currentCamera.id 
-                : idx === currentIndex;
+            const isActive = currentCamera && cam.id 
+              ? cam.id === currentCamera.id 
+              : idx === currentIndex;
 
-              // Resgata EPIs da store ou da própria câmera
-              const camPreset = presets[cam.id];
-              const rawEpis = Array.isArray(camPreset)
-                ? camPreset
-                : camPreset?.selectedEpis || cam.epis || [];
+            // Resgata EPIs da store ou da própria câmera
+            const camPreset = presets[cam.id];
+            
+            let rawEpis = [];
+            if (Array.isArray(camPreset)) {
+              rawEpis = camPreset;
+            } else if (camPreset && typeof camPreset === 'object' && Array.isArray(camPreset.selectedEpis)) {
+              rawEpis = camPreset.selectedEpis;
+            } else if (Array.isArray(cam.epis)) {
+              rawEpis = cam.epis;
+            }
 
-              const activeEpiNames = rawEpis
-                .map((epiKey) => EPI_LABELS[epiKey] || epiKey)
-                .join(', ');
+            // Normaliza os itens caso venham como objeto { id: 'colete' } ou string 'colete'
+            const normalizedEpis = rawEpis
+              .map((item) => (typeof item === 'object' && item !== null ? item.id || item.name : item))
+              .filter(Boolean);
 
-              // Checa se a câmera possui área de risco configurada
-              const camRiskArea = getRiskAreaForCamera 
-                ? getRiskAreaForCamera(cam.id) 
-                : (camPreset?.riskArea || cam.riskArea);
-              
-              const camHasRiskArea = Boolean(
-                camRiskArea && 
-                (Array.isArray(camRiskArea) ? camRiskArea.length > 0 : Object.keys(camRiskArea).length > 0)
-              );
+            // Mapeia para os nomes amigáveis (Colete, Óculos, etc)
+            const activeEpiNames = normalizedEpis
+              .map((epiKey) => EPI_LABELS[epiKey] || epiKey)
+              .join(', ');
 
-              return (
-                <button
-                  key={cam.id || `cam-${idx}`}
-                  type="button"
-                  onClick={() => handleSelect(cam)}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-lg text-left transition-all text-xs font-mono cursor-pointer select-none shrink-0 border ${
-                    isActive
-                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-400 font-bold shadow-sm'
-                      : 'bg-transparent border-transparent text-theme-muted hover:bg-theme-divider/50 hover:text-theme-main'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate min-w-0 flex-1 mr-2">
-                    <Video size={14} className={isActive ? 'text-amber-400 shrink-0' : 'text-theme-muted shrink-0'} />
-                    
-                    <div className="flex flex-col truncate min-w-0">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="truncate leading-tight text-theme-main">{cam.nome || `Câmera ${idx + 1}`}</span>
-                        
-                        {/* Indicador de Zona Configurada */}
-                        {camHasRiskArea ? (
-                          <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[8px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold shrink-0">
-                            <Target size={9} /> ZONA
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[8px] bg-theme-divider/40 text-theme-muted border border-theme-divider font-normal shrink-0">
-                            SEM ZONA
-                          </span>
-                        )}
-                      </div>
+            // Checa se a câmera possui área de risco configurada
+            const camRiskArea = getRiskAreaForCamera 
+              ? getRiskAreaForCamera(cam.id) 
+              : (camPreset?.riskArea || cam.riskArea);
+            
+            const camHasRiskArea = Boolean(
+              camRiskArea && 
+              (Array.isArray(camRiskArea) ? camRiskArea.length > 0 : Object.keys(camRiskArea).length > 0)
+            );
+
+            return (
+              <button
+                key={cam.id || `cam-${idx}`}
+                type="button"
+                onClick={() => handleSelect(cam)}
+                className={`w-full flex items-center justify-between p-2.5 rounded-lg text-left transition-all text-xs font-mono cursor-pointer select-none shrink-0 border ${
+                  isActive
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-400 font-bold shadow-sm'
+                    : 'bg-transparent border-transparent text-theme-muted hover:bg-theme-divider/50 hover:text-theme-main'
+                }`}
+              >
+                <div className="flex items-center gap-2 truncate min-w-0 flex-1 mr-2">
+                  <Video size={14} className={isActive ? 'text-amber-400 shrink-0' : 'text-theme-muted shrink-0'} />
+                  
+                  <div className="flex flex-col truncate min-w-0">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="truncate leading-tight text-theme-main">{cam.nome || `Câmera ${idx + 1}`}</span>
                       
-                      {/* Exibição dos EPIs Dinâmicos */}
-                      <span className="text-[9px] text-theme-muted font-normal leading-tight truncate mt-0.5 opacity-75">
-                        {cam.setor ? `${cam.setor} • ` : ''}
-                        EPIs: {rawEpis.length > 0 ? activeEpiNames : 'Nenhum'}
-                      </span>
+                      {/* Indicador de Zona Configurada */}
+                      {camHasRiskArea ? (
+                        <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[8px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold shrink-0">
+                          <Target size={9} /> ZONA
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[8px] bg-theme-divider/40 text-theme-muted border border-theme-divider font-normal shrink-0">
+                          SEM ZONA
+                        </span>
+                      )}
                     </div>
+                    
+                    {/* Exibição dos EPIs Dinâmicos */}
+                    <span className="text-[9px] text-theme-muted font-normal leading-tight truncate mt-0.5 opacity-75">
+                      {cam.setor ? `${cam.setor} • ` : ''}
+                      EPIs: {normalizedEpis.length > 0 ? activeEpiNames : 'Nenhum'}
+                    </span>
                   </div>
+                </div>
 
-                  {isActive && (
-                    <CheckCircle2 size={14} className="text-amber-400 shrink-0 ml-1" />
-                  )}
-                </button>
-              );
-            })
+                {isActive && (
+                  <CheckCircle2 size={14} className="text-amber-400 shrink-0 ml-1" />
+                )}
+              </button>
+            );
+          })
           )}
         </div>
       </div>
@@ -188,8 +212,8 @@ export const CameraManagementPanel = ({
 
             <button
               type="button"
-              onClick={onClearRiskArea}
-              className="icon-btn-danger text-xs font-semibold uppercase tracking-wider gap-1.5"
+              onClick={handleClear}
+              className="icon-btn-danger text-xs font-semibold uppercase tracking-wider gap-1.5 cursor-pointer"
             >
               <Trash2 size={14} />
               <span>Limpar</span>

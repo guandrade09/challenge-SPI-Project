@@ -5,13 +5,16 @@ import { initDatabase } from "./config/database.js";
 import realtimeService from "../services/realtime-service.js";
 import threadMetricsService from "../services/thread-metrics.service.js";
 import logMonitorService from "../services/log-monitor.service.js";
+import {
+  computeBackendCores,
+  pinProcessToCore,
+  pinProcessToCores,
+} from "./utils/cpuAffinity.js";
 
 const numCPUs = os.cpus().length;
 const PORT = 3000;
 
-// NO_CLUSTER=1: roda um único processo (sem cluster.fork()). Útil pra teste local
-// onde o orquestrador de ML e o navegador já disputam CPU — um Node por núcleo
-// só pra servir uma API local de dev soma pressão desnecessária.
+const backendCores = computeBackendCores();
 const useCluster = process.env.NO_CLUSTER !== "1";
 
 async function startWorker() {
@@ -28,6 +31,7 @@ async function startWorker() {
 
 async function startSingleProcess() {
   try {
+    pinProcessToCores(process.pid, backendCores);
     await initDatabase();
     console.log("Banco de dados inicializado com sucesso");
     console.log("Iniciando serviço de detecções em tempo real");
@@ -50,13 +54,21 @@ async function startSingleProcess() {
 async function startPrimary() {
   try {
     await initDatabase();
-    console.log(`CPUs: ${numCPUs}`);
+    console.log(`CPUs: ${numCPUs} (backend usando núcleos ${backendCores.join(",")})`);
     console.log("Banco de dados inicializado no Primary com sucesso");
     console.log(`Iniciando serviço de detecções em tempo real`);
     console.log(`Iniciando monitoramento de métricas de threads`);
 
-    for (let i = 0; i < numCPUs; i++) {
-      cluster.fork();
+    const workerCores = new Map();
+    const forkWorker = (core) => {
+      const worker = cluster.fork();
+      workerCores.set(worker.id, core);
+      worker.on("online", () => pinProcessToCore(worker.process.pid, core));
+      return worker;
+    };
+
+    for (const core of backendCores) {
+      forkWorker(core);
     }
 
     cluster.on("message", (worker, message) => {
@@ -66,8 +78,10 @@ async function startPrimary() {
     });
 
     cluster.on("exit", (worker) => {
-      console.log(`Worker ${worker.process.pid} morreu. Recriando...`);
-      cluster.fork();
+      const core = workerCores.get(worker.id) ?? backendCores[0];
+      workerCores.delete(worker.id);
+      console.log(`Worker ${worker.process.pid} morreu. Recriando no núcleo ${core}...`);
+      forkWorker(core);
     });
 
     await realtimeService.start();

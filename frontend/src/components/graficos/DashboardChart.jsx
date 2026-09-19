@@ -53,9 +53,9 @@ export const DashboardChart = ({ data = [], theme = "dynamic" }) => {
             }`}
           >
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getPieColor(entry.color) }} />
-            <span className="text-[9px] font-bold uppercase panel-text-title">{entry.name}</span>
+            <span className="text-[9px] font-theme-title uppercase text-[var(--p-text-logs)]">{entry.name}</span>
             {hoveredIndex === index && (
-              <span className="text-[9px] font-mono font-black panel-text-sub animate-in fade-in slide-in-from-left-1 duration-300">
+              <span className="text-[9px] font-theme-title uppercase text-[var(--p-text-logs)] animate-in fade-in slide-in-from-left-1 duration-300">
                 {entry.value}
               </span>
             )}
@@ -63,7 +63,7 @@ export const DashboardChart = ({ data = [], theme = "dynamic" }) => {
         ))}
       </div>
 
-      <div className="text-[8px] font-bold text-center mt-3 uppercase tracking-widest opacity-60 panel-text-title">
+      <div className="text-[8px] font-theme-title text-[var(--p-text-logs)] text-center mt-3 uppercase tracking-widest opacity-60 panel-text-title">
         Prevalência de Objetos Detectados
       </div>
     </div>

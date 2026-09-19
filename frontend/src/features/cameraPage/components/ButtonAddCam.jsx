@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Loader2, X } from 'lucide-react';
+import { Plus, Loader2, X, Camera, ShieldAlert, Check } from 'lucide-react';
 import { PopupModal, IconButtonModal } from '../../../components/shared';
+import { Badge } from '../../../components/ui/Badge'; // Importação do seu Badge
 
 export function ButtonAddCam({
   theme = "dynamic",
@@ -37,8 +38,6 @@ export function ButtonAddCam({
     setIsOpen(true);
   };
 
-  // Aceita URL completa (rtsp:// ou http(s)://, ex: app IP Webcam do celular) ou um IP
-  // puro (aí assume RTSP com o path padrão da Yoosee, que é o mais comum aqui).
   const resolveIpAndStream = (raw) => {
     const trimmed = raw.trim();
     if (trimmed.startsWith('rtsp://') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
@@ -54,7 +53,6 @@ export function ButtonAddCam({
     if (!nome.trim() || !setor.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
-
     const { ip: resolvedIp, streamUrl } = resolveIpAndStream(ip);
 
     const newCamData = {
@@ -154,12 +152,9 @@ export function ButtonAddCam({
               disabled={isSubmitting}
               value={ip}
               onChange={(e) => setIp(e.target.value)}
-              placeholder="192.168.1.100 ou http://192.168.1.100:8080/video ou rtsp://admin:senha@192.168.1.100:554/onvif1"
+              placeholder="192.168.1.100 ou http://192.168.1.100:8080/video"
               className="w-full p-2.5 rounded-lg border border-theme-divider bg-[var(--p-bg)] text-theme-main text-xs focus:outline-none focus:border-[var(--p-subtext)] disabled:opacity-50 transition-colors font-mono"
             />
-            <p className="text-theme-muted text-[10px] mt-1">
-              Cole a URL completa (com usuário/senha, se precisar) pra garantir que o caminho esteja certo. IP puro assume RTSP padrão.
-            </p>
           </div>
 
           <div>
@@ -175,29 +170,35 @@ export function ButtonAddCam({
                 Frontal roda a detecção de EPI. Lateral roda ergonomia/zona de risco.
               </p>
             )}
+            
+            {/* LINHAS 185-200 RESTRUCTURADAS */}
             <div className="flex gap-2">
               {[
-                { value: 'frontal', label: 'Frontal (EPI)' },
-                { value: 'lateral', label: 'Lateral (Ergonomia/Zona)' },
+                { value: 'frontal', label: 'Frontal (EPI)', icon: Camera },
+                { value: 'lateral', label: 'Lateral (Ergonomia)', icon: ShieldAlert },
               ].map((opt) => {
                 const bloqueado = opt.value === 'frontal' && setorJaTemFrontal;
+                const ativo = papel === opt.value;
+
                 return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    disabled={isSubmitting || bloqueado}
-                    onClick={() => !bloqueado && setPapel(opt.value)}
-                    title={bloqueado ? 'Este setor já tem uma câmera frontal' : undefined}
-                    className={`flex-1 p-2 rounded-lg border text-xs transition-colors ${
-                      bloqueado
-                        ? 'border-theme-divider text-theme-muted opacity-40 cursor-not-allowed'
-                        : papel === opt.value
-                          ? 'border-[var(--p-subtext)] text-[var(--p-subtext)] bg-[var(--p-subtext)]/10'
-                          : 'border-theme-divider text-theme-muted'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
+                  <div key={opt.value} className="flex-1 flex flex-col gap-1">
+                    <IconButtonModal
+                      tipo="button"
+                      icon={ativo ? Check : opt.icon}
+                      label={opt.label}
+                      showLabel={true}
+                      onClick={() => !bloqueado && setPapel(opt.value)}
+                      disabled={isSubmitting || bloqueado}
+                      title={bloqueado ? 'Este setor já tem uma câmera frontal' : undefined}
+                      variant="toggle"
+                      colorVariant={ativo ? 'default' : 'cancel'}
+                      className={`w-full border-2 transition-all ${
+                        ativo 
+                          ? 'border-[var(--p-subtext)] bg-[var(--p-subtext)]/15 font-bold shadow-lg scale-[1]' 
+                          : 'border-theme-divider opacity-70'
+                      } ${bloqueado ? 'opacity-30 cursor-not-allowed pointer-events-none' : ''}`}
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -217,7 +218,6 @@ export function ButtonAddCam({
             <IconButtonModal
               tipo="submit"
               icon={isSubmitting ? Loader2 : Plus}
-              iconClassName={isSubmitting ? "animate-spin" : ""}
               disabled={isSubmitting}
               label={isSubmitting ? "Salvando..." : "Adicionar Câmera"}
               colorVariant="success"

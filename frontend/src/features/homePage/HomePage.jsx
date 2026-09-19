@@ -11,12 +11,13 @@ import {
   OperationalRadar,
   ResourceMonitor,
 } from "../../components/graficos";
-import { BasePanelModal } from "../../components/shared";
-import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw, Cpu } from "lucide-react";
-import { colunasLogs, radarData, lineLogs, composedLogs } from "../../mocks/logsPageMocks/test";
+import { BasePanelModal, ThreadSelector } from "../../components/shared";
+import { Shield, Camera, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 import detectionService from "../../services/detectionService";
 import cameraService from "../../services/cameraService";
 import { teamMembers } from "../../mocks/indexPageMocks/test";
+import { classifyDetection } from "../../utils/detectionStatus";
+import { getThreadLabel, getThreadMetricsConfig } from "../../utils/threadOptions";
 
 function HomePage() {
   const currentTheme = useUiStore((s) => s.theme);
@@ -34,14 +35,7 @@ function HomePage() {
   // 1. Estado para controlar qual thread está sendo exibida no card de recursos
   const [currentThread, setCurrentThread] = useState("backend_processor");
 
-  // 2. Função para alternar entre "backend_processor" e "renderFrontend_pages"
-  const handleToggleThread = () => {
-    setCurrentThread((prev) =>
-      prev === "backend_processor" ? "renderFrontend_pages" : "backend_processor"
-    );
-  };
-
-  // 3. Hook alimentado dinamicamente pelo estado da thread selecionada
+  // 2. Hook alimentado dinamicamente pelo estado da thread selecionada
   const { data: performanceData, refetch: refetchMetrics } = useResourceMetrics(currentThread, 30);
 
   const fetchCameras = async () => {
@@ -76,14 +70,8 @@ function HomePage() {
       const map = {};
       filtered.forEach((it) => {
         const label = it.label || "Desconhecido";
-        const conf = typeof it.confidence !== "undefined" ? parseFloat(it.confidence) : 1;
         if (!map[label]) map[label] = { detectado: 0, naoDetectado: 0 };
-
-        if (!isNaN(conf) && conf < 0.6) {
-          map[label].naoDetectado += 1;
-        } else {
-          map[label].detectado += 1;
-        }
+        map[label][classifyDetection(it)] += 1;
       });
 
       const result = Object.keys(map).map((label) => ({
@@ -180,90 +168,10 @@ function HomePage() {
   const alertasPendentes = reportData?.accuracy?.erros ?? "---";
 
 // Configuração dinâmica das linhas e eixos do gráfico baseada na thread ativa
-  const homeMetricsConfig =
-    currentThread === "renderFrontend_pages"
-      ? [
-          {
-            key: "cpu",
-            name: "% HeapJS",
-            stroke: "var(--chart-line-1)",
-            yAxisId: "left",
-          },
-          {
-            key: "paginas",
-            name: "Páginas Carregadas",
-            stroke: "var(--chart-line-2)",
-            yAxisId: "right",
-          },
-        ]
-      : [
-          {
-            key: "cpu",
-            name: "% CPU",
-            stroke: "var(--chart-line-1)",
-            yAxisId: "left",
-          },
-          {
-            key: "paginas",
-            name: "Quantidade de Processos",
-            stroke: "var(--chart-line-2)",
-            yAxisId: "right",
-          },
-        ];
+  const homeMetricsConfig = getThreadMetricsConfig(currentThread);
 
   // Componente visual do botão para trocar a origem dos dados
-  const ThreadToggleButton = (
-    <button
-      onClick={handleToggleThread}
-      title="Alternar origem das métricas de monitoramento"
-      className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-md border border-white/10 bg-neutral-800/80 hover:bg-neutral-700 text-emerald-400 hover:text-emerald-300 transition-all duration-200 shadow-sm active:scale-95 z-30"
-    >
-      <Cpu size={12} className="shrink-0" />
-      <span>{currentThread === "backend_processor" ? "Backend" : "Frontend"}</span>
-    </button>
-  );
-
-  const chartsForCarousel = [
-    {
-      label: "Detecções por Categoria",
-      component: (
-        <DetectionBarChart
-          data={detectionsLoaded ? detectionsByCategory : colunasLogs}
-          theme={currentTheme}
-        />
-      ),
-    },
-    {
-      label: "Eficiência Operacional",
-      component: <OperationalRadar data={radarData} theme={currentTheme} />,
-    },
-    {
-      label: `Monitoramento de Recursos (${currentThread === "backend_processor" ? "Backend" : "Frontend"})`,
-      headerAction: ThreadToggleButton, // 🚀 O botão aparece quando este card estiver ativo no carrossel
-      component: (
-        <ResourceMonitor
-          data={performanceData}
-          theme={currentTheme}
-          linesConfig={homeMetricsConfig}
-          yAxisLeftDomain={[0, 100]}
-          showRightAxis={true}
-        />
-      ),
-    },
-    {
-      label: "Análise de Eventos Simultâneos",
-      component: <DetectionComposedChart data={composedLogs} theme={currentTheme} />,
-    },
-    {
-      label: "Alertas Mensais",
-      component: (
-        <DetectionLineChart
-          data={monthlyAlertLoaded ? monthlyAlertData : lineLogs}
-          theme={currentTheme}
-        />
-      ),
-    },
-  ];
+  const ThreadToggleButton = <ThreadSelector currentThread={currentThread} onChange={setCurrentThread} />;
 
   return (
     <div className={`panel-theme-${currentTheme} min-h-screen w-full transition-colors duration-300`}>
@@ -271,10 +179,10 @@ function HomePage() {
         {/* Cabeçalho */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl text-[var(--p-text)] uppercase tracking-wider">
+            <h2 className="text-xl sm:text-2xl text-[var(--p-text-title)] font-theme-title">
               Visão geral do sistema de detecção de EPI's
             </h2>
-            <p className="text-xs text-[var(--p-text)] flex items-center gap-2 mt-1">
+            <p className="text-xs text-[var(--p-text-title)] flex items-center gap-2 mt-1">
               {isLoading && <RefreshCw size={12} className="animate-spin text-emerald-500" />}
               {timeSinceUpdate}
             </p>
@@ -331,18 +239,6 @@ function HomePage() {
         {/* SEÇÃO 2: Informações do Projeto */}
         <section className="w-full">
           <ProjectInfo theme={currentTheme} data={teamMembers} />
-        </section>
-
-        {/* SEÇÃO 3: Carrossel / Gráficos */}
-        <section className="w-full h-[500px]">
-          <BasePanelModal
-            title="Análise de Dados"
-            isGraf={true}
-            allowFullScreen={true}
-            availableCharts={chartsForCarousel}
-            className="h-[450px]"
-            theme={currentTheme}
-          />
         </section>
 
         {/* SEÇÃO 4: Histórico */}

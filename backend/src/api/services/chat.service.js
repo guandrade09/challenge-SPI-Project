@@ -20,7 +20,7 @@ import { executeReportTool } from "../utils/prompt/report-tool-executor.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OLLAMA_CLOUD_URL = process.env.OLLAMA_CLOUD_URL || "https://ollama.com/api/chat";
-const OLLAMA_API_KEY = "41b6aba977c5459e9cf7c043122e1a12.5Lm5MYEus9ve1PNU_k3t6Fw6";
+const OLLAMA_API_KEY = "d3afa6c519104f5aab3af48be9c007cf.a6xAHVOiRYTHv3Jfeom4oGpB";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "gpt-oss:120b";
 const MAX_TOOL_ITERATIONS = 100;
 

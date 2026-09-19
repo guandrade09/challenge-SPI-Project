@@ -32,12 +32,22 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
     if (isAiSidebarOpen) {
       window.addEventListener('keydown', handleKeyDown);
       fetchDays();
+      if (activeTab === 'chat') {
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     }
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isAiSidebarOpen]);
+
+  // Mantém o foco no campo assim que o carregamento é finalizado
+  useEffect(() => {
+    if (activeTab === 'chat' && !isLoading) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [isLoading, activeTab]);
 
   useEffect(() => {
     if (activeTab === 'chat' && listRef.current) {
@@ -95,7 +105,56 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
     }
   }
 
+  // Função para simular o efeito de digitação em tempo real
+  function simulateTypewriter(fullText, metadata, onComplete) {
+    let index = 0;
+    const speed = 15; // milissegundos por caractere/chunk
+
+    // Adiciona a mensagem inicial do assistente vazia
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toISOString(),
+        metadata,
+      },
+    ]);
+
+    const timer = setInterval(() => {
+      index += Math.floor(Math.random() * 3) + 1; // Avança de 1 a 3 caracteres por ciclo para um ritmo natural
+
+      if (index >= fullText.length) {
+        index = fullText.length;
+        clearInterval(timer);
+
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: fullText,
+          };
+          return updated;
+        });
+
+        if (onComplete) onComplete();
+      } else {
+        const currentChunk = fullText.slice(0, index);
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: currentChunk,
+          };
+          return updated;
+        });
+      }
+    }, speed);
+  }
+
   async function handleSend() {
+    if (isLoading) return;
+
     const text = input?.trim();
     if (!text) return;
 
@@ -129,14 +188,7 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
       const json = await res.json();
       const data = json.data || {};
       const conversationId = data.conversation_id || activeConversationId;
-
-      const assistantMessage = {
-        role: 'assistant',
-        content: data.content || '',
-        timestamp: data.timestamp || new Date().toISOString(),
-      };
-
-      setMessages((m) => [...m, assistantMessage]);
+      const fullContent = data.content || '';
 
       if (conversationId) {
         setSelectedConversationId(conversationId);
@@ -144,13 +196,17 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
         setSelectedDay(data.started_at ? data.started_at.slice(0, 10) : selectedDay || new Date().toISOString().slice(0, 10));
       }
 
-      await fetchDays();
+      // Executa a animação de digitação e finaliza o loading apenas quando terminar
+      simulateTypewriter(fullContent, data.metadata, () => {
+        setIsLoading(false);
+        fetchDays();
+        setTimeout(() => inputRef.current?.focus(), 50);
+      });
     } catch (err) {
       const errorMsg = { role: 'assistant', content: `Erro: ${err.message}`, timestamp: new Date().toISOString() };
       setMessages((m) => [...m, errorMsg]);
-    } finally {
       setIsLoading(false);
-      inputRef.current?.focus();
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
   }
 
@@ -243,9 +299,6 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
     setDeleteConfirmation(null);
   }
 
-  // Baixa o arquivo via fetch (blob) em vez de abrir em nova aba.
-  // Evita o "flicker" de abrir/fechar aba enquanto o backend gera o arquivo
-  // (perceptível principalmente no PDF, que demora mais que o Excel).
   function guessFileName(url, fallback) {
     try {
       const { pathname } = new URL(url);
@@ -257,9 +310,6 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
     return fallback;
   }
 
-  // Detecta o tipo de arquivo pela URL (extensão ou palavras-chave no path)
-  // e monta sempre o rótulo "Baixar {tipo}", ignorando o texto que a IA
-  // escreveu no link markdown.
   function getDownloadLabel(url) {
     const lower = (url || '').toLowerCase();
 
@@ -303,12 +353,6 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
     }
   }
 
-  // Detecta links markdown [texto](url) dentro do conteúdo da mensagem e
-  // os transforma em botões de download, mantendo o texto ao redor intacto.
-  // Ex: "Aqui está o link ... [Download do Relatório Excel](http://...)"
-  // vira: texto normal + botão "Download do Relatório Excel".
-  // Interpreta marcações simples de markdown dentro de um trecho de texto:
-  // **negrito** vira <strong>, sem deixar os asteriscos visíveis.
   function parseInlineMarkdown(text, keyPrefix) {
     const boldRegex = /\*\*([^*]+)\*\*/g;
     const nodes = [];
@@ -334,10 +378,6 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
   function renderMessageContent(content) {
     if (!content) return null;
 
-    // Aceita variações que a IA às vezes retorna:
-    // - formato padrão markdown [texto](http://...)
-    // - espaço entre ] e ( → [texto] (http://...)
-    // - prefixo dentro dos parênteses → [texto](_url_: http://...)
     const linkRegex = /\[([^\]]+)\]\s*\(([^)]+)\)/g;
     const parts = [];
     let lastIndex = 0;
@@ -349,8 +389,6 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
       const urlMatch = rawInside.match(/https?:\/\/[^\s)]+/);
 
       if (!urlMatch) {
-        // Não achou uma URL válida ali dentro, então trata como texto normal
-        // e não interrompe o parsing.
         continue;
       }
 
@@ -401,6 +439,9 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
 
   function renderMessage(msg, idx) {
     const isUser = msg.role === 'user';
+    const isAssistant = msg.role === 'assistant';
+    const isLastAssistantMessage = isAssistant && idx === messages.length - 1;
+
     return (
       <div key={`${msg.role}-${idx}-${msg.timestamp || idx}`} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
         <div
@@ -410,7 +451,13 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
               : 'panel-subcard bg-[var(--p-chat-bg-ia)] border border-[var(--p-border)] text-[var(--p-text)] rounded-tl-none'
           }`}
         >
-          <div className="flex flex-col gap-1">{renderMessageContent(msg.content)}</div>
+          <div className="flex flex-col gap-1">
+            {renderMessageContent(msg.content)}
+            {/* Cursor piscante simulando a digitação ativa */}
+            {isLoading && isLastAssistantMessage && (
+              <span className="inline-block w-1.5 h-3.5 bg-[var(--p-toggle-accent)] ml-1 animate-pulse align-middle" />
+            )}
+          </div>
           {msg.metadata?.attachments && msg.metadata.attachments.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {msg.metadata.attachments.map((att, i) => (
@@ -441,9 +488,6 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
         }`}
       />
 
-      {/* transform inline em vez de translate-x-0/translate-x-full: essas classes do Tailwind v4
-          não fecham o painel aqui — a variável --tw-translate-x fica resetada por outra camada
-          do CSS, então o valor computado nunca muda mesmo com a classe certa aplicada. */}
       <aside
         className={`panel-theme-${theme} fixed top-0 right-0 h-screen w-full sm:w-[420px] z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out`}
         style={{ transform: isAiSidebarOpen ? 'translateX(0)' : 'translateX(100%)' }}
@@ -553,6 +597,13 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
 
                   <div className="flex flex-col gap-3">
                     {messages.map((m, idx) => renderMessage(m, idx))}
+                    {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+                      <div className="flex justify-start">
+                        <div className="p-3 rounded-2xl max-w-[85%] text-xs leading-relaxed panel-subcard bg-[var(--p-chat-bg-ia)] border border-[var(--p-border)] text-[var(--p-text)] rounded-tl-none animate-pulse">
+                          Pensando...
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -675,8 +726,8 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   type="text"
-                  placeholder={isLoading ? 'Aguarde a resposta...' : 'Digite sua dúvida...'}
-                  className="flex-1 text-xs bg-[var(--p-bg)] border border-[var(--p-border)] text-[var(--p-text)] placeholder:text-theme-muted rounded-xl px-3 py-2.5 outline-none focus:border-[var(--p-toggle-accent)] transition-colors disabled:opacity-50"
+                  placeholder={isLoading ? 'Escrevendo resposta...' : 'Digite sua dúvida...'}
+                  className="flex-1 text-xs bg-[var(--p-bg)] border border-[var(--p-border)] text-[var(--p-text)] placeholder:text-theme-muted rounded-xl px-3 py-2.5 outline-none focus:border-[var(--p-toggle-accent)] transition-colors disabled:opacity-50 cursor-text"
                 />
                 <IconButtonModal
                   tipo="submit"
@@ -684,8 +735,8 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
                   icon={Send}
                   variant="ghost"
                   colorVariant="default"
-                  title={isLoading ? 'Aguardando resposta...' : 'Enviar mensagem'}
-                  className="!p-2.5 !rounded-xl disabled:opacity-50"
+                  title={isLoading ? 'Escrevendo...' : 'Enviar mensagem'}
+                  className="!p-2.5 !rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </form>
             </div>

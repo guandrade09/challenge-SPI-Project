@@ -1,4 +1,3 @@
-// src/components/graficos/ResourceMonitor.jsx
 import {
   LineChart,
   Line,
@@ -10,57 +9,21 @@ import {
   Legend,
 } from "recharts";
 
-const CustomTooltip = ({ active, payload }) => {
-  if (active && payload && payload.length) {
-    const dataItem = payload[0].payload;
-
-    return (
-      <div className="p-3 bg-gray-900 border border-gray-700 text-white rounded-xl shadow-xl text-xs space-y-1 z-50">
-        <p className="font-bold border-b border-gray-700 pb-1 text-emerald-400">
-          {dataItem?.fullDate || `Horário: ${dataItem?.time}`}
-        </p>
-
-        {dataItem?.threadName && (
-          <p className="text-gray-400 italic text-[10px]">
-            {`Thread: ${dataItem.threadName}`}
-          </p>
-        )}
-
-        {payload.map((entry, index) => (
-          <p key={`item-${index}`} style={{ color: entry.color }} className="font-medium">
-            {`${entry.name}: ${entry.value}${entry.dataKey === "cpu" ? "%" : ""}`}
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
-
-// Configuração padrão apontando para as variáveis CSS dinâmicas do Design System
-const defaultConfig = [
-  { 
-    key: "cpu", 
-    name: "Consumo CPU / Heap (%)", 
-    stroke: "var(--chart-line-1)", 
-    yAxisId: "left" 
-  },
-  { 
-    key: "paginas", 
-    name: "Carga de Processos / Páginas", 
-    stroke: "var(--chart-line-2)", 
-    yAxisId: "right" 
-  },
-];
+import { CustomTooltip } from "./utils/Tooltip";
+import { defaultConfigResourceMonitor } from "./utils/Config";
+import { formatXAxisTick, getResolvedKey } from "./utils/Formatters";
 
 export const ResourceMonitor = ({
   data = [],
   theme = "dynamic",
-  linesConfig = defaultConfig,
+  linesConfig = defaultConfigResourceMonitor,
   showRightAxis = true,
   yAxisLeftDomain = [0, 100],
   title = "",
+  xDataKey,
 }) => {
+  const resolvedKey = getResolvedKey(data, xDataKey);
+
   return (
     <div className={`panel-theme-${theme} flex flex-col h-full w-full p-1`}>
       <ResponsiveContainer width="100%" height="100%">
@@ -68,7 +31,8 @@ export const ResourceMonitor = ({
           <CartesianGrid strokeDasharray="3 3" vertical={true} stroke="var(--chart-grid)" />
 
           <XAxis
-            dataKey="time"
+            dataKey={resolvedKey}
+            tickFormatter={formatXAxisTick}
             tick={{ fill: "var(--chart-text)", fontSize: 9 }}
             axisLine={false}
             tickLine={false}
