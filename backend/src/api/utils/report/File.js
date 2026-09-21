@@ -8,6 +8,19 @@ const __dirname = path.dirname(__filename);
 const reportDir = path.resolve(__dirname);
 
 
+// O label de cada detecção vem do orquestrador já como motivo(s) do alerta —
+// ex. "CAPACETE - AUSENTE" ou, quando mais de uma coisa dispara junto,
+// "CAPACETE - AUSENTE, ergonomia_reba_médio_4" (vários motivos juntados por vírgula).
+// Por isso a contagem tem que casar por trecho/substring, não por igualdade exata
+// com "capacete"/"colete"/etc — igualdade exata nunca bate com o formato real
+// salvo no banco, e a contagem sempre dava zero.
+const CATEGORY_PATTERNS = {
+    capacete: /capacete/i,
+    colete: /colete/i,
+    mascara: /m[aá]scara/i,
+    oculos: /[oó]culos/i,
+};
+
 export async function OrganizeDataForReport(data) {
     const counts = {
         capacete: 0,
@@ -18,10 +31,14 @@ export async function OrganizeDataForReport(data) {
     };
 
     data.forEach(element => {
-        if (counts[element.label] !== undefined) {
-            counts[element.label]++;
-            counts.total++;
-        }
+        const reasons = String(element.label || "").split(",");
+        reasons.forEach(reason => {
+            const category = Object.keys(CATEGORY_PATTERNS).find((key) => CATEGORY_PATTERNS[key].test(reason));
+            if (category) {
+                counts[category]++;
+                counts.total++;
+            }
+        });
     });
 
     return counts;

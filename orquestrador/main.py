@@ -278,26 +278,43 @@ def _post_worker():
 
 
 # ── Zona ───────────────────────────────────────────────────────────────────────
+# Intervalo do recheck periódico de zona (editar/apagar no frontend reflete sem
+# precisar reiniciar o orquestrador — ver chamada em _run_sector).
+ZONA_RECHECK_INTERVAL_S = 15
+
+
 def _fetch_zona_from_backend(camera_id: str) -> dict | None:
     try:
         r = requests.get(f"{BACKEND_ZONAS_URL}/{camera_id}", timeout=2)
         if r.status_code == 200:
-            data = r.json()
-            print(f"[ZONA] Carregada do backend: '{data.get('nome')}'")
-            return data
+            return r.json()
     except Exception:
         pass
     return None
 
 def _load_zona(zone_checker, camera_id: str, setor: str = "") -> bool:
+    """Busca a zona atual (backend, com fallback pro arquivo local) e aplica no
+    zone_checker. Chamada tanto na inicialização do setor quanto periodicamente
+    (ZONA_RECHECK_INTERVAL_S) — só loga/reconfigura quando o conteúdo muda, pra
+    não spammar o console nem recriar o polígono a cada recheck sem necessidade.
+    """
     config = _fetch_zona_from_backend(camera_id)
+    origem = "backend"
     if config is None:
         config = config_server.load_config()
-        if config:
-            print(f"[ZONA] Carregada do arquivo local: '{config.get('nome')}'")
+        origem = "arquivo local"
+
+    existing = zone_checker.get(camera_id)
+
     if config is None:
-        print(f"[ZONA] Nenhuma zona para {camera_id}")
+        if existing is not None:
+            zone_checker.delete(camera_id)
+            print(f"[ZONA] Removida para {camera_id} (não configurada mais)")
         return False
+
+    if existing is not None and existing.get("pontos") == config.get("pontos") and existing.get("nome") == config.get("nome"):
+        return True  # sem mudanças desde o último load — nada a fazer
+
     try:
         zone_checker.configure(
             camera_id,
@@ -306,6 +323,8 @@ def _load_zona(zone_checker, camera_id: str, setor: str = "") -> bool:
             epis_obrigatorios=config.get("epis_obrigatorios", []),
             epis_certo_labels=config.get("epis_certo_labels", []),
         )
+        acao = "Atualizada" if existing is not None else "Carregada"
+        print(f"[ZONA] {acao} do {origem}: '{config.get('nome')}'")
         send_zone(camera_id, config["pontos"], setor=setor)
         return True
     except Exception as e:
@@ -502,6 +521,7 @@ def _run_sector(
         "running": False, "dirty": False,
     }
     _verdict_cooldown = 0
+    _last_zona_check_t = time.perf_counter()
 
     zona_info = zone_checker.get(camera_id)
     print(f"[SETOR] '{setor}': pipeline ativo | camera_id={camera_id} | "
@@ -510,6 +530,11 @@ def _run_sector(
           f"zona={'configurada' if zona_info else 'não configurada'}")
 
     while not stop_event.is_set():
+        _now_zona_t = time.perf_counter()
+        if _now_zona_t - _last_zona_check_t >= ZONA_RECHECK_INTERVAL_S:
+            _last_zona_check_t = _now_zona_t
+            _load_zona(zone_checker, camera_id, setor=setor)
+
         try:
             frame = frame_queue.get(timeout=0.5)
         except queue.Empty:
@@ -570,16 +595,21 @@ def _run_sector(
             _epi_state["cache"]         = []
             _epi_state_lateral["cache"] = []
 
-        # Une detecções de ambas as câmeras (OR: se qualquer câmera vê, conta)
-        epi_dets_raw = _epi_state["cache"] + (
-            _epi_state_lateral["cache"] if has_lateral else []
+        # Detecções por câmera (mantidas separadas pra rotular a origem certa no
+        # registro do incidente — ver _epi_entry/_epi_details abaixo)
+        def _epi_passes(d):
+            return (
+                d.label.startswith("PESSOA")
+                or _prefixes is None
+                or any(d.label.startswith(p) for p in _prefixes)
+            )
+
+        epi_dets_frontal = [d for d in _epi_state["cache"] if _epi_passes(d)]
+        epi_dets_lateral = (
+            [d for d in _epi_state_lateral["cache"] if _epi_passes(d)] if has_lateral else []
         )
-        epi_dets = [
-            d for d in epi_dets_raw
-            if d.label.startswith("PESSOA")
-            or _prefixes is None
-            or any(d.label.startswith(p) for p in _prefixes)
-        ]
+        # Une detecções de ambas as câmeras (OR: se qualquer câmera vê, conta)
+        epi_dets = epi_dets_frontal + epi_dets_lateral
 
         epi_incidents  = epi_detector.incidents(epi_dets)
         epi_confirmed  = epi_debouncer.update(epi_incidents)
@@ -728,28 +758,43 @@ def _run_sector(
             _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
             img_b64   = base64.b64encode(buffer).decode("utf-8")
 
+            def _epi_entry(d, source):
+                return {
+                    "label":      d.label,
+                    "confidence": round(float(d.confidence), 4),
+                    "bbox":       [int(d.x1), int(d.y1), int(d.x2), int(d.y2)],
+                    "source":     source,  # câmera de origem — usado pra desenhar na imagem certa
+                }
+
+            if epi_dets_frontal or epi_dets_lateral:
+                _epi_details = (
+                    [_epi_entry(d, "frontal") for d in epi_dets_frontal]
+                    + [_epi_entry(d, "lateral") for d in epi_dets_lateral]
+                )
+            else:
+                _epi_details = [_epi_entry(d, "frontal") for d in epi_confirmed]
+
+            def _ergo_entry(p, source):
+                return {
+                    "pessoa_id":  p.get("pessoa_id"),
+                    "reba_score": p.get("reba_score"),
+                    "reba_level": p.get("reba_level"),
+                    "confianca":  round(float(p.get("confianca_deteccao", 0)), 4),
+                    "queda":      p.get("queda", False),
+                    "bbox":       p.get("bbox"),
+                    "keypoints":  p.get("keypoints"),
+                    "source":     source,  # câmera de origem — usado pra desenhar na imagem certa
+                }
+
+            _ergo_details = (
+                [_ergo_entry(p, "frontal") for p in _pose_state["pessoas_frontal"]]
+                + [_ergo_entry(p, "lateral") for p in _pose_state["pessoas_lateral"]]
+            )
+
             details = {
                 "status": confirmed_verdict.status,
-                "epi": [
-                    {
-                        "label":      d.label,
-                        "confidence": round(float(d.confidence), 4),
-                        "bbox":       [int(d.x1), int(d.y1), int(d.x2), int(d.y2)],
-                    }
-                    for d in (epi_dets or epi_confirmed)
-                ],
-                "ergonomia": [
-                    {
-                        "pessoa_id":  p.get("pessoa_id"),
-                        "reba_score": p.get("reba_score"),
-                        "reba_level": p.get("reba_level"),
-                        "confianca":  round(float(p.get("confianca_deteccao", 0)), 4),
-                        "queda":      p.get("queda", False),
-                        "bbox":       p.get("bbox"),
-                        "keypoints":  p.get("keypoints"),
-                    }
-                    for p in ergo_pessoas
-                ],
+                "epi": _epi_details,
+                "ergonomia": _ergo_details,
                 "zona": [
                     {
                         "pessoa_id": p.get("pessoa_id"),

@@ -94,8 +94,9 @@ function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
     const fontSize = Math.max(12, canvas.width * 0.018);
     ctx.font = `bold ${fontSize}px monospace`;
 
-    // ── EPI bboxes — só na câmera frontal ──
-    if (source === 'frontal') (details.epi || []).forEach(({ label, confidence, bbox }) => {
+    // ── EPI bboxes — desenha na câmera de onde a detecção veio (fallback: frontal,
+    // pra registros antigos que ainda não tinham o campo `source` por detecção) ──
+    (details.epi || []).filter((e) => (e.source ?? 'frontal') === source).forEach(({ label, confidence, bbox }) => {
       if (!bbox || bbox.length < 4) return;
       const [x1, y1, x2, y2] = bbox;
       const isAusente = label?.toLowerCase().includes('ausente');
@@ -112,8 +113,9 @@ function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
       ctx.fillText(text, x1 + 4, y1 - 4);
     });
 
-    // ── Esqueleto + bbox de pessoa — só na câmera lateral ──
-    if (source === 'lateral') (details.ergonomia || []).forEach(({ pessoa_id, reba_score, reba_level, queda, bbox, keypoints }) => {
+    // ── Esqueleto + bbox de pessoa — desenha na câmera de onde a leitura veio
+    // (fallback: lateral, pra registros antigos que ainda não tinham `source`) ──
+    (details.ergonomia || []).filter((p) => (p.source ?? 'lateral') === source).forEach(({ pessoa_id, reba_score, reba_level, queda, bbox, keypoints }) => {
       const rebaColor = (reba_score ?? 0) >= 7 ? '#ef4444' : (reba_score ?? 0) >= 4 ? '#f59e0b' : '#10b981';
 
       // bbox da pessoa
@@ -157,7 +159,7 @@ function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
       ctx.fillStyle = '#fff';
       ctx.fillText(text, 8, canvas.height - 6);
     });
-  }, [details]);
+  }, [details, source]);
 
   useEffect(() => {
     const img = imgRef.current;

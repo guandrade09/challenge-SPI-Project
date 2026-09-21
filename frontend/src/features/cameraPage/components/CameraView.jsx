@@ -2,7 +2,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Maximize2, Minimize2, Cpu, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
+import { useCameraStore } from '../../../store/useCameraStore';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
+import zonaService from '../../../services/zonaService';
+
+// O orquestrador Python identifica a zona pelo id da câmera FRONTAL do setor
+// (ver orquestrador/main.py: camera_id = f"cam_{cam_frontal['id']}") — mesmo
+// quando a área é desenhada em cima do feed da lateral (que é o frame que
+// realmente é checado quando o setor tem as duas câmeras).
+function resolveZoneCameraId(camera) {
+  if (!camera) return null;
+  const cameras = useCameraStore.getState().cameras || [];
+  const siblings = cameras.filter((c) => c.setor === camera.setor);
+  const frontal = siblings.find((c) => c.papel === 'frontal') || camera;
+  return `cam_${frontal.id}`;
+}
 
 const WS_URL = 'ws://127.0.0.1:8765';
 
@@ -103,12 +117,6 @@ export function CameraView({
     }
   }, [camera?.id]);
 
-  useEffect(() => {
-    const handleClearEvent = () => handleDeleteRiskBox();
-    window.addEventListener('clear_risk_area', handleClearEvent);
-    return () => window.removeEventListener('clear_risk_area', handleClearEvent);
-  }, [camera?.id]);
-
   const handleEnableMock = () => {
     setUseMockStream(true);
     if (imgRef.current) {
@@ -118,17 +126,45 @@ export function CameraView({
 
   const handleSaveRiskBox = (newBox) => {
     setRiskBox(newBox);
-    
+
     if (camera?.id) {
       setRiskAreaForCamera(camera.id, newBox);
     }
-    
+
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'set_risk_area',
         cameraId: camera?.id,
         riskArea: newBox
       }));
+    }
+
+    // Persiste no backend em pixels reais do frame — é isso que o zone_checker
+    // do orquestrador Python realmente lê. O que está acima (store local +
+    // WS) só atualiza a UI; o servidor de WebSocket do orquestrador nem lê
+    // mensagens do cliente, então sem isso a zona nunca chegava no Python.
+    const img = imgRef.current;
+    const zoneCameraId = resolveZoneCameraId(camera);
+    if (zoneCameraId && img?.naturalWidth && img?.naturalHeight) {
+      const { naturalWidth: w, naturalHeight: h } = img;
+      const x1 = (newBox.x / 100) * w;
+      const y1 = (newBox.y / 100) * h;
+      const x2 = ((newBox.x + newBox.width) / 100) * w;
+      const y2 = ((newBox.y + newBox.height) / 100) * h;
+      zonaService
+        .saveZona({
+          cameraId: zoneCameraId,
+          nome: `Área de risco - ${camera?.setor || camera?.nome || zoneCameraId}`,
+          pontos: [
+            { x: x1, y: y1 },
+            { x: x2, y: y1 },
+            { x: x2, y: y2 },
+            { x: x1, y: y2 },
+          ],
+        })
+        .catch((err) => console.error('[ZONA] Falha ao salvar no backend:', err));
+    } else {
+      console.warn('[ZONA] Não foi possível salvar a zona no backend — imagem ainda sem frame carregado.');
     }
   };
 
@@ -145,7 +181,18 @@ export function CameraView({
         cameraId: camera?.id
       }));
     }
+
+    const zoneCameraId = resolveZoneCameraId(camera);
+    if (zoneCameraId) {
+      zonaService.deleteZona(zoneCameraId).catch((err) => console.error('[ZONA] Falha ao remover no backend:', err));
+    }
   };
+
+  useEffect(() => {
+    const handleClearEvent = () => handleDeleteRiskBox();
+    window.addEventListener('clear_risk_area', handleClearEvent);
+    return () => window.removeEventListener('clear_risk_area', handleClearEvent);
+  }, [camera?.id]);
 
   // Limpa imagem ao trocar de câmera
   // Se o setor não mudou, o WS continua vivo — não derruba o connected
