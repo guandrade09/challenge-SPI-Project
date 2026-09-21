@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { normalizeEpiList } from '../utils/epiConfig';
 
 const DEFAULT_PRESET = { selectedEpis: [], riskArea: null };
 
@@ -40,7 +41,7 @@ export const useCameraPresetsStore = create(
             ...state.presets,
             [cameraId]: {
               ...currentPreset,
-              selectedEpis: Array.isArray(episList) ? episList : []
+              selectedEpis: normalizeEpiList(episList)
             }
           }
         };

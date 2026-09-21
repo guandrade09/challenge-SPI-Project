@@ -6,20 +6,14 @@ import imgNotFound from '../../../assets/Codexis/img-not-found.jpg';
 // Importando as lógicas de esqueleto do seu arquivo utilitário
 import { drawSkeleton, KP_CONF_THRESHOLD } from '../utils/skeletonUtils';
 
-export function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
+function IncidentCanvasImage({ imgUrl, details, source }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [currentSrc, setCurrentSrc] = useState(imgUrl);
+  const [currentSrc, setCurrentSrc] = useState(imgUrl || imgNotFound);
 
   // Referências para a imagem e o canvas
   const imgRef = useRef(null);
   const canvasRef = useRef(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(false);
-    setCurrentSrc(imgUrl || imgNotFound);
-  }, [imgUrl]);
 
   // ── LÓGICA DE DESENHO NO CANVAS ──
   const draw = useCallback(() => {
@@ -100,22 +94,31 @@ export function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
     }
 
     // 3. DESENHO DA ZONA DE RISCO INVADIDA
-    const zonaInvadida = (details.zona || []).find((z) => z.invadiu);
-    if (zonaInvadida) {
+    const zonaInvadida = (details.zona || []).find((z) => z.invadiu && (!z.source || z.source === source));
+    const zonaConfig = zonaInvadida || details.zona_config;
+    const zonePoints = zonaConfig?.source && zonaConfig.source !== source ? [] : (zonaConfig?.pontos || []);
+    if (zonaInvadida && zonePoints.length >= 3) {
       ctx.strokeStyle = '#f97316'; // Laranja
-      ctx.lineWidth = 6;
+      ctx.fillStyle = 'rgba(249,115,22,0.14)';
+      ctx.lineWidth = Math.max(3, canvas.width * 0.006);
       ctx.setLineDash([15, 10]);
-      ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+      ctx.beginPath();
+      ctx.moveTo(zonePoints[0].x, zonePoints[0].y);
+      zonePoints.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
       ctx.setLineDash([]);
       
-      const text = `⚠ ZONA INVADIDA P${zonaInvadida.pessoa_id ?? 0}`;
+      const text = `⚠ ${zonaConfig?.nome || 'ZONA DE RISCO'} — P${zonaInvadida.pessoa_id ?? 0}`;
       ctx.font = `bold ${fontSize + 4}px monospace`;
       const tw = ctx.measureText(text).width;
-      
+      const labelX = Math.max(4, Math.min(zonePoints[0].x, canvas.width - tw - 24));
+      const labelY = Math.max(fontSize + 20, Math.min(zonePoints[0].y, canvas.height - 8));
       ctx.fillStyle = 'rgba(249,115,22,0.9)';
-      ctx.fillRect(10, canvas.height - fontSize - 20, tw + 16, fontSize + 12);
+      ctx.fillRect(labelX, labelY - fontSize - 16, tw + 16, fontSize + 12);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(text, 18, canvas.height - 12);
+      ctx.fillText(text, labelX + 8, labelY - 8);
     }
   }, [details, source, error]);
 
@@ -177,6 +180,17 @@ export function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
         }`}
       />
     </div>
+  );
+}
+
+export function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
+  return (
+    <IncidentCanvasImage
+      key={`${source}:${imgUrl || 'sem-imagem'}`}
+      imgUrl={imgUrl}
+      details={details}
+      source={source}
+    />
   );
 }
 

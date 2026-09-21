@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Maximize2, Minimize2, ChevronLeft, ChevronRight, LayoutGrid, Square } from 'lucide-react';
-import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { Maximize2, Minimize2, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, Square, RefreshCw } from 'lucide-react';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
+import { makeStreamKey, useCameraStreamStore } from '../../../store/useCameraStreamStore';
+import { cameraSocketManager } from '../../../services/websocket/CameraSocketManager';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
-import { processWsStreamMessage } from '../../../utils/websocketStream';
+import { DetectionsOverlay } from "../components/DetectionsOverlay";
 
-const WS_URL = 'ws://127.0.0.1:8765';
 const DEFAULT_TEST_FRAME = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="100%" height="100%" fill="%23121212"/><grid width="100%" height="100%" stroke="%23333" stroke-width="1"/><circle cx="640" cy="360" r="100" fill="none" stroke="%2300ff88" stroke-width="2"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%2300ff88" font-family="monospace" font-size="28" font-weight="bold">FRAME DE TESTE CAM - SIMULAÇÃO LOCAL</text></svg>`;
 
 const CORNER_CLASSES = [
@@ -15,9 +15,8 @@ const CORNER_CLASSES = [
   'bottom-2 right-2 border-b-2 border-r-2',
 ];
 
-export function CameraView({ 
-  camera, 
-  activeEpi, 
+export function CameraView({
+  camera,
   onToggleMaximize,
   isEditingRiskArea,
   onNextCamera,
@@ -27,47 +26,40 @@ export function CameraView({
   layoutMode,
   setLayoutMode,
   onNextSlotCamera,
-  onPrevSlotCamera
+  onPrevSlotCamera,
+  showDetections = true,
+  onToggleDetections,
 }) {
-  const containerRef   = useRef(null);
-  const imgRef         = useRef(null);
-  const wsRef          = useRef(null);
-  const reconnectRef   = useRef(null);
-  const timeoutRef     = useRef(null);
-  const lastImgUrlRef  = useRef(null);
-  const cameraRef      = useRef(camera);
+  const containerRef = useRef(null);
 
-  useEffect(() => {
-    cameraRef.current = camera;
-  }, [camera]);
-
-  const [connected, setConnected] = useState(false);
   const [useMockStream, setUseMockStream] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
+  const [reconnectError, setReconnectError] = useState('');
 
   const setRiskAreaForCamera = useCameraPresetsStore((s) => s.setRiskAreaForCamera);
-
-  const riskBox = useCameraPresetsStore((s) => 
+  const riskBox = useCameraPresetsStore((s) =>
     camera?.id ? s.presets[camera.id]?.riskArea || camera?.riskArea || null : null
   );
 
-  const handleToggleFullscreen = async () => {
-    if (onToggleMaximize) onToggleMaximize();
-    try {
-      if (!document.fullscreenElement) {
-        if (containerRef.current?.requestFullscreen) {
-          await containerRef.current.requestFullscreen();
-        }
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        }
-      }
-    } catch (err) {
-      console.warn("Erro ao alternar modo tela cheia:", err);
-    }
-  };
+  // ── Conexão: assina o gerenciador único de WebSocket (não abre socket próprio) ──
+  useEffect(() => {
+    cameraSocketManager.subscribe();
+    return () => cameraSocketManager.unsubscribe();
+  }, []);
+
+  // chave desta câmera específica no stream compartilhado
+  const setor  = camera?.setor;
+  const source = camera?.papel || 'frontal'; // 'frontal' | 'lateral'
+  const cameraId = camera?.id;
+  const streamKey = makeStreamKey(cameraId, setor, source);
+
+  const frameUrl  = useCameraStreamStore((s) => s.getFrame(cameraId, setor, source));
+  const wsConnected = useCameraStreamStore((s) => s.connected);
+  const streamStatus = useCameraStreamStore((s) => s.streamStatus[streamKey]);
+  // disponíveis para painéis irmãos (AlertPanel/DetectionPanel) lerem pelo mesmo setor;
+  // aqui só usamos o que o próprio card precisa renderizar
+  // const pose = useCameraStreamStore((s) => s.pose[setor]?.[source] ?? []);
 
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -80,99 +72,54 @@ export function CameraView({
     return () => clearInterval(timer);
   }, []);
 
-  const handleEnableMock = () => {
-    setUseMockStream(true);
-    if (imgRef.current) imgRef.current.src = DEFAULT_TEST_FRAME;
+  const handleToggleFullscreen = async () => {
+    if (onToggleMaximize) onToggleMaximize();
+    try {
+      if (!document.fullscreenElement) {
+        if (containerRef.current?.requestFullscreen) {
+          await containerRef.current.requestFullscreen();
+        }
+      } else if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn("Erro ao alternar modo tela cheia:", err);
+    }
   };
 
-  const handleSaveRiskBox = (newBox) => {
-    if (camera?.id) setRiskAreaForCamera(camera.id, newBox);
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'set_risk_area', cameraId: camera?.id, riskArea: newBox }));
+  const handleEnableMock = () => setUseMockStream(true);
+  const isReconnecting = streamStatus?.status === 'reconnecting';
+
+  const handleReconnect = async () => {
+    if (cameraId === null || cameraId === undefined || isReconnecting) return;
+    setReconnectError('');
+    try {
+      await cameraSocketManager.reconnectStream({ cameraId, setor, source });
+    } catch (error) {
+      setReconnectError(error.message || 'Não foi possível solicitar a reconexão.');
     }
   };
 
-  useEffect(() => {
-    let isSubscribed = true;
-
-    function resetFrameTimeout() {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => {
-        if (isSubscribed) setConnected(false);
-        if (imgRef.current && !useMockStream) imgRef.current.src = '';
-      }, 2500);
+  const handleSaveRiskBox = useCallback(async (newBox) => {
+    const previousBox = riskBox;
+    if (cameraId) setRiskAreaForCamera(cameraId, newBox);
+    try {
+      await cameraSocketManager.sendRequest({
+        type: 'set_risk_area', cameraId, setor, source, riskArea: newBox,
+      });
+    } catch (error) {
+      if (cameraId) setRiskAreaForCamera(cameraId, previousBox);
+      console.warn('Não foi possível atualizar a área de risco:', error);
     }
+  }, [cameraId, riskBox, setor, setRiskAreaForCamera, source]);
 
-    function connect() {
-      if (reconnectRef.current) clearTimeout(reconnectRef.current);
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.onerror = null;
-        wsRef.current.close();
-      }
+  // fonte real do stream (mock tem prioridade só quando ativado manualmente)
+  const displaySrc = useMockStream ? DEFAULT_TEST_FRAME : (frameUrl || null);
+  const isStreamActive = useMockStream || (!!frameUrl && wsConnected);
 
-      const ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
-
-      ws.onmessage = async (event) => {
-        if (!isSubscribed) return;
-        try {
-          if (event.data instanceof Blob) {
-            const streamData = await processWsStreamMessage(event, cameraRef.current);
-            if (streamData && isSubscribed) {
-              resetFrameTimeout();
-              setConnected(true);
-              if (imgRef.current) {
-                if (lastImgUrlRef.current) URL.revokeObjectURL(lastImgUrlRef.current);
-                lastImgUrlRef.current = streamData.imageUrl;
-                imgRef.current.src = streamData.imageUrl;
-              }
-            }
-            return;
-          }
-          const msg = JSON.parse(event.data);
-          if (msg.setor && msg.setor !== cameraRef.current?.setor) return;
-          const store = useMonitoramentoStore.getState();
-          if (msg.type === 'alert') store.addAlerta(msg);
-          else if (msg.type === 'detections') store.setLiveDetections(msg.data);
-          else if (msg.type === 'pose') store.setLivePose(msg.pessoas ?? []);
-          else if (msg.type === 'verdict') store.setVerdict(msg);
-        } catch {}
-      };
-
-      ws.onerror = () => {
-        if (isSubscribed) {
-          setConnected((prev) => (prev ? false : prev));
-        }
-      };
-
-      ws.onclose = () => {
-        if (isSubscribed) {
-          setConnected((prev) => (prev ? false : prev));
-          if (imgRef.current) imgRef.current.src = '';
-          reconnectRef.current = setTimeout(connect, 5000);
-        }
-      };
-    }
-
-    connect();
-
-    return () => {
-      isSubscribed = false;
-      if (reconnectRef.current) clearTimeout(reconnectRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.onerror = null;
-        wsRef.current.close();
-      }
-    };
-  }, [camera?.id, useMockStream]);
-
-  const isStreamActive = connected || useMockStream;
   const handlePrev = onPrevSlotCamera || onPrevCamera;
   const handleNext = onNextSlotCamera || onNextCamera;
-  const showSlotArrows = totalCameras > 4 && handlePrev && handleNext;
+  const showSlotArrows = totalCameras > 1 && handlePrev && handleNext;
 
   const handleToggleLayout = () => {
     if (layoutMode === "grid2x2" && onExpand) {
@@ -183,7 +130,7 @@ export function CameraView({
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={`w-full h-full flex flex-col bg-neutral-950 overflow-hidden relative ${
         isFullscreen ? 'bg-black p-0 border-none' : ''
@@ -194,13 +141,25 @@ export function CameraView({
           <div key={i} className={`absolute w-3 h-3 z-20 pointer-events-none ${isStreamActive ? 'border-[var(--p-subtext)]' : 'border-[var(--p-border)]'} ${classes}`} />
         ))}
 
-        {/* CABEÇALHO DENTRO DO CARD DA CÂMERA */}
         <div className="absolute top-2 left-2 right-2 z-30 flex items-center justify-between pointer-events-none">
           <div className="px-2 py-1 rounded bg-black/70 backdrop-blur-md border border-white/20 font-mono text-[10px] text-white uppercase tracking-wider truncate max-w-[65%] pointer-events-auto">
             {camera?.nome || 'CÂMERA'}
           </div>
 
           <div className="flex items-center gap-1 pointer-events-auto">
+            {onToggleDetections && (
+              <button
+                type="button"
+                onClick={() => onToggleDetections(cameraId)}
+                aria-pressed={showDetections}
+                className={`p-1.5 rounded bg-black/80 hover:bg-emerald-600 text-white border backdrop-blur-md transition-all active:scale-95 cursor-pointer shadow-lg ${showDetections ? 'border-emerald-400/60' : 'border-white/20'}`}
+                title={showDetections ? 'Ocultar detecções' : 'Exibir detecções'}
+              >
+                {showDetections
+                  ? <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                  : <EyeOff className="w-3.5 h-3.5 text-white/70" />}
+              </button>
+            )}
             <button
               type="button"
               onClick={handleToggleLayout}
@@ -218,46 +177,53 @@ export function CameraView({
 
         {showSlotArrows && (
           <>
-            <button
-              type="button"
-              onClick={handlePrev}
-              className="absolute left-2 z-30 p-1.5 rounded bg-black/60 hover:bg-black/90 text-white border border-white/20 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-              title="Câmera Anterior"
-            >
+            <button type="button" onClick={handlePrev} className="absolute left-2 z-30 p-1.5 rounded bg-black/60 hover:bg-black/90 text-white border border-white/20 opacity-0 group-hover:opacity-100 transition-all cursor-pointer" title="Câmera Anterior">
               <ChevronLeft className="w-4 h-4" />
             </button>
-
-            <button
-              type="button"
-              onClick={handleNext}
-              className="absolute right-2 z-30 p-1.5 rounded bg-black/60 hover:bg-black/90 text-white border border-white/20 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-              title="Próxima Câmera"
-            >
+            <button type="button" onClick={handleNext} className="absolute right-2 z-30 p-1.5 rounded bg-black/60 hover:bg-black/90 text-white border border-white/20 opacity-0 group-hover:opacity-100 transition-all cursor-pointer" title="Próxima Câmera">
               <ChevronRight className="w-4 h-4" />
             </button>
           </>
         )}
 
-        <img
-          ref={imgRef}
-          className={`w-full h-full object-cover select-none transition-opacity duration-300 ${isStreamActive ? 'opacity-100 block' : 'opacity-0 hidden'}`}
-          alt=""
-        />
+        {isStreamActive && displaySrc ? (
+          <img
+            key={`${cameraId}:${setor}:${source}`}
+            src={displaySrc}
+            className="w-full h-full object-cover select-none transition-opacity duration-300 opacity-100 block"
+            alt=""
+          />
+        ) : null}
 
         {isStreamActive && (
-          <RiskAreaOverlay initialBox={riskBox} isEditing={isEditingRiskArea} onSaveBox={handleSaveRiskBox} />
+          <>
+            {showDetections && <DetectionsOverlay cameraId={cameraId} setor={setor} source={source} />}
+            <RiskAreaOverlay initialBox={riskBox} isEditing={isEditingRiskArea} onSaveBox={handleSaveRiskBox} />
+          </>
         )}
 
         {!isStreamActive && (
-          <div className="relative z-10 text-center select-none p-2 rounded bg-[var(--p-bg)] border border-[var(--p-border)] shadow-xl backdrop-blur-sm mx-2 flex flex-col items-center gap-1">
-            <p className="font-mono text-[9px] font-bold tracking-widest text-[var(--p-text)] animate-pulse">SEM SINAL</p>
-            <button onClick={handleEnableMock} className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-[10px] font-bold uppercase transition-all cursor-pointer">
-              Simular
+          <div className="relative z-10 text-center select-none p-3 rounded bg-[var(--p-bg)] border border-[var(--p-border)] shadow-xl backdrop-blur-sm mx-2 flex flex-col items-center gap-2">
+            <p className="font-mono text-[9px] font-bold tracking-widest text-[var(--p-text)]">
+              {isReconnecting ? 'RECONECTANDO...' : 'SEM SINAL'}
+            </p>
+            <button
+              type="button"
+              onClick={handleReconnect}
+              disabled={!wsConnected || isReconnecting}
+              className="px-2.5 py-1.5 rounded bg-amber-600 hover:bg-amber-500 disabled:bg-neutral-700 disabled:text-neutral-400 text-white font-mono text-[10px] font-bold uppercase transition-all cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              <RefreshCw className={`w-3 h-3 ${isReconnecting ? 'animate-spin' : ''}`} />
+              Tentar conexão novamente
             </button>
+            <button onClick={handleEnableMock} className="text-[9px] font-mono text-[var(--p-subtext)] hover:text-emerald-400 cursor-pointer underline underline-offset-2">
+              Usar simulação
+            </button>
+            {reconnectError && <p className="max-w-56 text-[9px] text-red-400">{reconnectError}</p>}
           </div>
         )}
 
-        <button 
+        <button
           onClick={handleToggleFullscreen}
           className="absolute bottom-2 right-2 z-30 p-1.5 rounded bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main opacity-80 group-hover:opacity-100 transition-all cursor-pointer"
           title="Tela Cheia"

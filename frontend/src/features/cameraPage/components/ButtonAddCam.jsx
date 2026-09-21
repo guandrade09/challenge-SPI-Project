@@ -22,6 +22,9 @@ export function ButtonAddCam({
   const setorJaTemFrontal = setor.trim()
     ? cameras.some((c) => c.setor?.trim().toLowerCase() === setor.trim().toLowerCase() && c.papel === 'frontal')
     : false;
+  const setorJaTemLateral = setor.trim()
+    ? cameras.some((c) => c.setor?.trim().toLowerCase() === setor.trim().toLowerCase() && c.papel === 'lateral')
+    : false;
 
   const handleClose = () => {
     if (isSubmitting) return;
@@ -62,13 +65,7 @@ export function ButtonAddCam({
       streamUrl,
       papel,
       status: "online",
-      epis: [
-        { id: "1", nome: "Capacete" },
-        { id: "2", nome: "Óculos" },
-        { id: "3", nome: "Colete" },
-        { id: "4", nome: "Máscara" },
-        { id: "5", nome: "Luvas" }
-      ]
+      epis: []
     };
 
     try {
@@ -177,7 +174,7 @@ export function ButtonAddCam({
                 { value: 'frontal', label: 'Frontal (EPI)', icon: Camera },
                 { value: 'lateral', label: 'Lateral (Ergonomia)', icon: ShieldAlert },
               ].map((opt) => {
-                const bloqueado = opt.value === 'frontal' && setorJaTemFrontal;
+                const bloqueado = opt.value === 'frontal' ? setorJaTemFrontal : setorJaTemLateral;
                 const ativo = papel === opt.value;
 
                 return (
@@ -189,7 +186,7 @@ export function ButtonAddCam({
                       showLabel={true}
                       onClick={() => !bloqueado && setPapel(opt.value)}
                       disabled={isSubmitting || bloqueado}
-                      title={bloqueado ? 'Este setor já tem uma câmera frontal' : undefined}
+                      title={bloqueado ? `Este setor já tem uma câmera ${opt.value}` : undefined}
                       variant="toggle"
                       colorVariant={ativo ? 'default' : 'cancel'}
                       className={`w-full border-2 transition-all ${

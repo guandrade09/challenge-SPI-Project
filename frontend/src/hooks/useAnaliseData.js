@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import analiseService from '../services/analiseService';
 import { classifyDetection, isDetectionConfirmed } from '../utils/detectionStatus';
+import { formatDetectionLabel } from '../utils/detectionLabels';
 
 const LABEL_COLORS = [
   '#B59481', '#6366f1', '#71ff5e', '#ef4444', '#f59e0b',
@@ -11,7 +12,8 @@ const LABEL_COLORS = [
 
 function buildPizzaData(items) {
   const map = {};
-  items.forEach(({ label }) => {
+  items.forEach(({ label: rawLabel }) => {
+    const label = formatDetectionLabel(rawLabel);
     if (!label) return;
     map[label] = (map[label] || 0) + 1;
   });
@@ -25,7 +27,7 @@ function buildPizzaData(items) {
 function buildBarData(items) {
   const map = {};
   items.forEach((item) => {
-    const { label } = item;
+    const label = formatDetectionLabel(item.label);
     if (!label) return;
     if (!map[label]) map[label] = { detectado: 0, naoDetectado: 0 };
     map[label][classifyDetection(item)] += 1;
@@ -78,7 +80,7 @@ function buildAnomalyData(items) {
   return items
     .filter((d) => d.confidence != null && d.label)
     .map((d) => ({
-      categoria: d.label,
+      categoria: formatDetectionLabel(d.label),
       confianca: Math.round(parseFloat(d.confidence) * 100),
       importancia: isDetectionConfirmed(d) ? 8 : 20,
     }))

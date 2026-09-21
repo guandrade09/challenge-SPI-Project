@@ -7,7 +7,7 @@ export async function createCamera(req, res) {
     return res.status(201).json({ message: 'Câmera criada com sucesso', data: camera });
   } catch (error) {
     console.error("ERRO EXATO DO SERVIDOR:", error);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       message: 'Erro ao criar a câmera',
       error: error.message
     });
@@ -45,7 +45,7 @@ export async function updateCameraById(req, res) {
     }
     return res.status(200).json({ message: 'Câmera atualizada com sucesso', data: updatedCamera });
   } catch (error) {
-    return res.status(500).json({ message: 'Erro ao atualizar a câmera', error: error.message });
+    return res.status(error.statusCode || 500).json({ message: 'Erro ao atualizar a câmera', error: error.message });
   }
 }
 

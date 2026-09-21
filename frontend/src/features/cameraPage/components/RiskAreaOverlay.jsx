@@ -26,6 +26,7 @@ export const RiskAreaOverlay = ({
   useEffect(() => {
     // Função que será executada quando o evento customizado 'clear_risk_area' for detectado
     const handleClearEvent = () => {
+      if (!isEditing) return;
       setBox(null); // Limpa o retângulo visualmente
       setIsDrawing(false); // Reseta fluxo de desenho
       setStartPos(null);
@@ -42,7 +43,7 @@ export const RiskAreaOverlay = ({
     return () => {
       window.removeEventListener('clear_risk_area', handleClearEvent);
     };
-  }, [onSaveBox]);
+  }, [isEditing, onSaveBox]);
 
   const getRelativeCoords = (e) => {
     if (!containerRef.current) return { x: 0, y: 0 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 import { DetectionPanel } from './components';
@@ -8,8 +8,11 @@ import { MonitoramentoSkeleton } from './components/MonitoramentoSkeleton';
 
 import { useCameraStore } from '../../store/useCameraStore';
 import { useCameraPresetsStore } from '../../store/useCameraPresetsStore';
+import { useCameraStreamStore } from '../../store/useCameraStreamStore';
 import { useUiStore } from '../../store/useUiStore';
 import { DETECTION_CONFIG } from '../../enums/enums';
+import { cameraSocketManager } from '../../services/websocket/CameraSocketManager';
+import { normalizeEpiList } from '../../utils/epiConfig';
 
 const EMPTY_ARRAY = [];
 
@@ -23,18 +26,41 @@ export const CameraPage = () => {
   const deleteCamera = useCameraStore((state) => state.deleteCamera);
   const updateCamera = useCameraStore((state) => state.updateCamera);
 
-  const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
+  const setSelectedEpisForCamera = useCameraPresetsStore((state) => state.setSelectedEpisForCamera);
   const lastCameraId = useCameraPresetsStore((state) => state.lastCameraId);
   const setLastCameraId = useCameraPresetsStore((state) => state.setLastCameraId);
+  const wsConnected = useCameraStreamStore((state) => state.connected);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isEditingRiskArea, setIsEditingRiskArea] = useState(false);
   const [activeTab, setActiveTab] = useState('epis');
   const [layoutMode, setLayoutMode] = useState('single');
+  const [detectionsVisibility, setDetectionsVisibility] = useState({});
+  const [updatingEpiId, setUpdatingEpiId] = useState(null);
+  const [epiConfigError, setEpiConfigError] = useState('');
+  const initializedEpiCamerasRef = useRef(new Set());
 
   useEffect(() => {
     fetchCameras();
   }, [fetchCameras]);
+
+  useEffect(() => {
+    if (!wsConnected || cameras.length === 0) return;
+    cameras.forEach((camera) => {
+      if (initializedEpiCamerasRef.current.has(camera.id)) return;
+      initializedEpiCamerasRef.current.add(camera.id);
+      const epis = [];
+      setSelectedEpisForCamera(camera.id, epis);
+      cameraSocketManager.sendRequest({
+        type: 'set_epi_config', cameraId: camera.id, setor: camera.setor || '', epis,
+      }).then(() => {
+        if (normalizeEpiList(camera.epis).length > 0) {
+          return updateCamera(camera.id, { epis: [] });
+        }
+        return null;
+      }).catch((error) => console.warn(`Falha ao inicializar EPIs da câmera ${camera.id}:`, error));
+    });
+  }, [cameras, setSelectedEpisForCamera, updateCamera, wsConnected]);
 
   useEffect(() => {
     if (cameras.length > 0 && lastCameraId) {
@@ -45,6 +71,49 @@ export const CameraPage = () => {
 
   const currentCamera = cameras[currentIndex] || cameras[0];
   const currentCameraId = currentCamera?.id;
+
+  const toggleDetectionsForCamera = (cameraId) => {
+    if (cameraId === null || cameraId === undefined) return;
+    setDetectionsVisibility((state) => ({
+      ...state,
+      [cameraId]: state[cameraId] === false,
+    }));
+  };
+
+  const handleToggleEpi = async (cameraId, epiId) => {
+    if (!cameraId || updatingEpiId) return;
+    const camera = cameras.find((item) => item.id === cameraId);
+    if (!camera) return;
+    const savedPreset = useCameraPresetsStore.getState().presets[cameraId];
+    const previousEpis = normalizeEpiList(Array.isArray(savedPreset)
+      ? savedPreset
+      : (savedPreset?.selectedEpis ?? []));
+    const nextEpis = previousEpis.includes(epiId)
+      ? previousEpis.filter((item) => item !== epiId)
+      : [...previousEpis, epiId];
+
+    setUpdatingEpiId(epiId);
+    setEpiConfigError('');
+    setSelectedEpisForCamera(cameraId, nextEpis);
+    let runtimeUpdated = false;
+    try {
+      await cameraSocketManager.sendRequest({
+        type: 'set_epi_config', cameraId, setor: camera.setor || '', epis: nextEpis,
+      });
+      runtimeUpdated = true;
+      await updateCamera(cameraId, { epis: nextEpis });
+    } catch (error) {
+      setSelectedEpisForCamera(cameraId, previousEpis);
+      if (runtimeUpdated) {
+        cameraSocketManager.sendRequest({
+          type: 'set_epi_config', cameraId, setor: camera.setor || '', epis: previousEpis,
+        }).catch(() => {});
+      }
+      setEpiConfigError(error.message || 'Não foi possível atualizar a análise de EPI.');
+    } finally {
+      setUpdatingEpiId(null);
+    }
+  };
 
   const handleSelectCamera = (target) => {
     setIsEditingRiskArea(false);
@@ -64,13 +133,17 @@ export const CameraPage = () => {
   const handleNextCamera = () => {
     if (cameras.length === 0) return;
     const nextIdx = (currentIndex + 1) % cameras.length;
-    handleSelectCamera(nextIdx);
+    setCurrentIndex(nextIdx);
+    setLastCameraId(cameras[nextIdx].id);
+    setIsEditingRiskArea(false);
   };
 
   const handlePrevCamera = () => {
     if (cameras.length === 0) return;
     const prevIdx = (currentIndex - 1 + cameras.length) % cameras.length;
-    handleSelectCamera(prevIdx);
+    setCurrentIndex(prevIdx);
+    setLastCameraId(cameras[prevIdx].id);
+    setIsEditingRiskArea(false);
   };
 
   const presetData = useCameraPresetsStore(
@@ -111,12 +184,13 @@ export const CameraPage = () => {
                   setLayoutMode={setLayoutMode}
                   cameras={cameras}
                   currentCamera={currentCamera}
-                  onExpand={() => handleExpandCamera(cam.id)}
                   activeEpiName={activeEpiName}
                   isEditingRiskArea={isEditingRiskArea}
                   onSelectCamera={handleSelectCamera}
                   onNextCamera={handleNextCamera}
                   onPrevCamera={handlePrevCamera}
+                  detectionsVisibility={detectionsVisibility}
+                  onToggleDetections={toggleDetectionsForCamera}
                 />
               </div>
             </div>
@@ -133,13 +207,9 @@ export const CameraPage = () => {
                   onSelectCamera={handleSelectCamera}
                   isEditingRiskArea={isEditingRiskArea}
                   setIsEditingRiskArea={setIsEditingRiskArea}
-                  onToggleEpi={(arg1, arg2) => {
-                    if (arg2 !== undefined) {
-                      toggleEpiForCamera(arg1, arg2);
-                    } else {
-                      toggleEpiForCamera(currentCameraId, arg1);
-                    }
-                  }}
+                  onToggleEpi={handleToggleEpi}
+                  updatingEpiId={updatingEpiId}
+                  epiConfigError={epiConfigError}
                   onAddCamera={addCamera}
                   onDeleteCamera={deleteCamera}
                   onEditCamera={updateCamera}

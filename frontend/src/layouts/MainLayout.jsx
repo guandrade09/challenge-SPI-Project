@@ -8,6 +8,7 @@ import { AiToggleButton } from '../features/chatAi/AiToggleButton';
 import { useInactivityLogout } from '../hooks/useInactivityLogout';
 import { useUiStore } from '../store/useUiStore';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { GlobalFallAlert } from '../components/alerts/GlobalFallAlert';
 
 export const MainLayout = () => {
   const currentTheme = useUiStore((s) => s.theme);
@@ -37,6 +38,7 @@ export const MainLayout = () => {
         <AiChatSidebar theme={currentTheme} isMobile={isMobile} />
         <AiToggleButton theme={currentTheme} isMobile={isMobile} />
       </div>
+      <GlobalFallAlert />
     </div>
   );
 };

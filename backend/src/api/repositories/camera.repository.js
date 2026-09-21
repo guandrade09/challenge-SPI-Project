@@ -101,3 +101,17 @@ export async function deleteCamera(id) {
   const db = await connect();
   await db.run("DELETE FROM cameras WHERE id = ?", [id]);
 }
+
+export async function getCameraBySectorAndRole(setor, papel, excludeId = null) {
+  const db = await connect();
+  const params = [String(setor).trim().toLowerCase(), papel || 'frontal'];
+  let query = `SELECT id, nome, setor, ip, streamUrl, status, epis, papel, createdAt, updatedAt
+               FROM cameras
+               WHERE lower(trim(setor)) = ? AND coalesce(papel, 'frontal') = ?`;
+  if (excludeId !== null && excludeId !== undefined) {
+    query += ' AND id <> ?';
+    params.push(excludeId);
+  }
+  const camera = await db.get(query, params);
+  return camera ? new Camera({ ...camera, epis: parseEpis(camera.epis) }) : null;
+}

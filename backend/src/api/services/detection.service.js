@@ -33,8 +33,13 @@ function stripAccents(value)
 const ERGONOMIA_REGEX = /^ergonomia_reba_(.+)$/i;
 
 
-function processRawLabel(rawLabel)
+export function processRawLabel(rawLabel)
 {
+  if (/^zona[_\s]+perigo$/i.test(stripAccents(rawLabel.trim())))
+  {
+    return { label: "Zona de Risco", epi_ausente: null, reba_nivel: null };
+  }
+
   const ergonomiaMatch = rawLabel.match(ERGONOMIA_REGEX);
   if (ergonomiaMatch)
   {
