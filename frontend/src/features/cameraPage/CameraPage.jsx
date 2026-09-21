@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { formatLabel } from '../../utils/formatLabel';
 
@@ -16,13 +16,6 @@ import { useMonitoramentoStore } from '../../store/useMonitoramentoStore';
 import { useUiStore } from '../../store/useUiStore';
 
 const EMPTY_ARRAY = [];
-
-const DETECTION_CONFIG = [
-  { id: 'colete',   label: 'Detectar Colete'   },
-  { id: 'oculos',   label: 'Detectar Óculos'   },
-  { id: 'capacete', label: 'Detectar Capacete' },
-  { id: 'mascara',  label: 'Detectar Máscara'  },
-];
 
 const LABEL_PT = {
   'CAPACETE - AUSENTE': 'Sem Capacete',
@@ -82,7 +75,13 @@ export const CameraPage = () => {
   const removePresetForCamera = useCameraPresetsStore((state) => state.removePresetForCamera);
   const toggleEpiForCamera = useCameraPresetsStore((state) => state.toggleEpiForCamera);
 
-  const { alertaAtivo, limparAlertaAtivo, liveDetections, livePose, verdict } = useMonitoramentoStore();
+  const { alertaAtivo, limparAlertaAtivo, liveDetections, livePose, verdict, epiOptions, loadEpiOptions } = useMonitoramentoStore();
+
+  // Toggles gerados a partir das labels configuradas no orquestrador (GET /config/epis)
+  const detectionOptions = useMemo(
+    () => epiOptions.map(({ id, label }) => ({ id, label: `${label}` })),
+    [epiOptions]
+  );
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isEditingRiskArea, setIsEditingRiskArea] = useState(false);
@@ -91,6 +90,10 @@ export const CameraPage = () => {
   useEffect(() => {
     fetchCameras();
   }, [fetchCameras]);
+
+  useEffect(() => {
+    loadEpiOptions();
+  }, [loadEpiOptions]);
 
   useEffect(() => {
     if (!alertaAtivo) return;
@@ -126,9 +129,9 @@ export const CameraPage = () => {
   useEffect(() => {
     if (!currentCameraId) return;
 
-    const novoEstadoDetections = {
-      colete: false, oculos: false, capacete: false, mascara: false, luvas: false,
-    };
+    // um flag por label configurada (antes eram 5 chaves fixas, sem auricular/botas)
+    const todasOff = Object.fromEntries(epiOptions.map((o) => [o.id, false]));
+    const novoEstadoDetections = { ...todasOff };
 
     activeEpisForVisuals.forEach((epi) => {
       if (novoEstadoDetections[epi] !== undefined) {
@@ -147,14 +150,11 @@ export const CameraPage = () => {
       .filter((c) => c.setor === setor && c.id !== currentCameraId)
       .forEach((cam) => presetsState.getEpiForCamera(cam.id).forEach((e) => sectorEpisUnion.add(e)));
 
-    const sectorDetections = {
-      colete: false, oculos: false, capacete: false, mascara: false,
-      luvas: false, auricular: false, botas: false, ergonomia: true,
-    };
+    const sectorDetections = { ...todasOff, ergonomia: true };
     sectorEpisUnion.forEach((epi) => { if (epi in sectorDetections) sectorDetections[epi] = true; });
 
     useMonitoramentoStore.getState().syncToOrquestrador(setor, sectorDetections);
-  }, [currentCameraId, activeEpisForVisuals]);
+  }, [currentCameraId, activeEpisForVisuals, epiOptions]);
 
   const handleToggleEpi = (epiId) => {
     if (!currentCameraId) return;
@@ -356,7 +356,7 @@ export const CameraPage = () => {
 
               <div className="flex-1 min-h-0 flex flex-col">
                 <DetectionPanel
-                  options={DETECTION_CONFIG}
+                  options={detectionOptions}
                   theme={currentTheme}
                   cameras={cameras}
                   currentCamera={currentCamera}

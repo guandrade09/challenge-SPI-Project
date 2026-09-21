@@ -2,10 +2,23 @@ import { create } from 'zustand';
 import { CAMERA_STATUS } from '../enums/enums';
 
 const CONFIG_URL = 'http://127.0.0.1:5050/config/analise';
-const EPI_KEYS = ['auricular', 'botas', 'capacete', 'colete', 'mascara', 'oculos'];
+const EPIS_URL   = 'http://127.0.0.1:5050/config/epis';
+
+// Fallback (mesmas 6 chaves de EPI_KEY_TO_PREFIX no orquestrador) usado enquanto a lista
+// oficial não chega — ou se o orquestrador estiver fora do ar.
+export const DEFAULT_EPI_OPTIONS = [
+  { id: 'colete',    label: 'Colete'    },
+  { id: 'oculos',    label: 'Óculos'    },
+  { id: 'capacete',  label: 'Capacete'  },
+  { id: 'mascara',   label: 'Máscara'   },
+  { id: 'auricular', label: 'Auricular' },
+  { id: 'botas',     label: 'Botas'     },
+];
 
 function syncOrquestrador(detections, setor = '') {
-  const epis = EPI_KEYS.filter((k) => detections[k]);
+  const epis = useMonitoramentoStore.getState().epiOptions
+    .map((o) => o.id)
+    .filter((k) => detections[k]);
   fetch(CONFIG_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -43,6 +56,7 @@ export const useMonitoramentoStore = create((set, get) => ({
     ergonomia: true,
     zona:      true,
   },
+  epiOptions:     DEFAULT_EPI_OPTIONS,   // labels de EPI exibidas nos toggles ({ id, label })
   alertas:        [],
   alertaAtivo:    null,
   liveDetections: [],
@@ -58,6 +72,20 @@ export const useMonitoramentoStore = create((set, get) => ({
     const next = { ...get().detections, [key]: !get().detections[key] };
     set({ detections: next });
     syncOrquestrador(next, setor);
+  },
+
+  // Busca no orquestrador a lista de labels configuradas; em falha mantém o fallback
+  loadEpiOptions: async () => {
+    try {
+      const res = await fetch(EPIS_URL);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const { epis } = await res.json();
+      if (Array.isArray(epis) && epis.length > 0) {
+        set({ epiOptions: epis.map(({ id, label }) => ({ id, label })) });
+      }
+    } catch (e) {
+      console.warn('[SPI] lista de EPIs indisponível, usando padrão:', e.message);
+    }
   },
 
   syncToOrquestrador: (setor = '', overrideDetections = null) =>

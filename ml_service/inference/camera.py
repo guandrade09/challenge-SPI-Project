@@ -1,23 +1,16 @@
 import cv2
 
-from ml_service.inference.vlc_camera import VLCCamera
 
 class Camera:
     def __init__(self, source=0):
         # CAP_DSHOW só se aplica a índices de dispositivo local (Windows).
-        # Streams de rede (URL do IP Webcam do celular, RTSP, etc.) usam o backend padrão —
-        # exceto RTSP, que usa VLC (ver vlc_camera.py: o FFmpeg do OpenCV rejeita o SETUP
-        # de algumas câmeras, mesmo com URL/credenciais corretas — o VLC tem parser mais
-        # tolerante). Existe também pyav_camera.py (decode por hardware/NVDEC, bem mais
-        # leve de CPU) mas está desativado: produziu frames corrompidos em teste real,
-        # precisa investigar antes de usar de novo (ver comentário no próprio arquivo).
+        # RTSP usa o FFmpeg do OpenCV (CAP_FFMPEG); demais streams de rede (URL do IP
+        # Webcam do celular etc.) usam o backend padrão. Não há dependência de VLC:
+        # vlc_camera.py e pyav_camera.py (decode por hardware/NVDEC, desativado por ter
+        # produzido frames corrompidos em teste real) não são importados por este módulo.
         if isinstance(source, int):
             self.cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
         elif isinstance(source, str) and source.startswith("rtsp://"):
-            # PyAV/NVDEC (pyav_camera.py) fica desativado por ora: reduz CPU mas produziu
-            # frames com qualidade ruim/corrompida em teste real — provável falta do
-            # extradata (SPS/PPS) no CodecContext manual do decoder de hardware. VLC é
-            # mais lento de CPU mas visualmente correto — usar até resolver o NVDEC.
             self.cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
         else:
             self.cap = cv2.VideoCapture(source)

@@ -9,6 +9,10 @@ import logMonitorService from "../services/log-monitor.service.js";
 const numCPUs = os.cpus().length;
 const PORT = 3000;
 
+const WORKER_MIN_UPTIME_MS = 10000;
+const MAX_QUICK_DEATHS = 5;
+const RESTART_DELAY_MS = 1000;
+
 // NO_CLUSTER=1: roda um único processo (sem cluster.fork()). Útil pra teste local
 // onde o orquestrador de ML e o navegador já disputam CPU — um Node por núcleo
 // só pra servir uma API local de dev soma pressão desnecessária.
@@ -55,8 +59,16 @@ async function startPrimary() {
     console.log(`Iniciando serviço de detecções em tempo real`);
     console.log(`Iniciando monitoramento de métricas de threads`);
 
+    const forkTimes = new Map(); // pid → instante do fork
+    let quickDeaths = 0;
+
+    const forkWorker = () => {
+      const worker = cluster.fork();
+      forkTimes.set(worker.process.pid, Date.now());
+    };
+
     for (let i = 0; i < numCPUs; i++) {
-      cluster.fork();
+      forkWorker();
     }
 
     cluster.on("message", (worker, message) => {
@@ -66,8 +78,20 @@ async function startPrimary() {
     });
 
     cluster.on("exit", (worker) => {
-      console.log(`Worker ${worker.process.pid} morreu. Recriando...`);
-      cluster.fork();
+      const pid = worker.process.pid;
+      const lived = Date.now() - (forkTimes.get(pid) ?? 0);
+      forkTimes.delete(pid);
+
+      // Worker que morre logo após subir (porta ocupada, erro de import...) reiniciaria
+      // em loop infinito, consumindo CPU. Depois de várias mortes rápidas seguidas, desiste.
+      quickDeaths = lived < WORKER_MIN_UPTIME_MS ? quickDeaths + 1 : 0;
+      if (quickDeaths >= MAX_QUICK_DEATHS) {
+        console.error(`Workers morrendo logo após iniciar (${quickDeaths}x seguidas). Abortando para evitar loop de restart.`);
+        process.exit(1);
+      }
+
+      console.log(`Worker ${pid} morreu. Recriando...`);
+      setTimeout(forkWorker, RESTART_DELAY_MS);
     });
 
     await realtimeService.start();

@@ -1,10 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Maximize2, Minimize2, Cpu, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Maximize2, Minimize2, Cpu, ChevronLeft, ChevronRight, ScanSearch } from 'lucide-react';
 import { useMonitoramentoStore } from '../../../store/useMonitoramentoStore';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
+import { DetectionBoxesOverlay } from "./DetectionBoxesOverlay";
 
 const WS_URL = 'ws://127.0.0.1:8765';
+const SHOW_BOXES_KEY = 'spi-show-detection-boxes';
+
+// Lembra a preferência do usuário; localStorage pode falhar (modo privado etc.)
+const loadShowBoxes = () => {
+  try { return localStorage.getItem(SHOW_BOXES_KEY) !== '0'; } catch { return true; }
+};
 
 const DEFAULT_TEST_FRAME = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="100%" height="100%" fill="%23121212"/><grid width="100%" height="100%" stroke="%23333" stroke-width="1"/><circle cx="640" cy="360" r="100" fill="none" stroke="%2300ff88" stroke-width="2"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%2300ff88" font-family="monospace" font-size="28" font-weight="bold">FRAME DE TESTE CAM - SIMULAÇÃO LOCAL</text><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="%23888888" font-family="monospace" font-size="18">Desenhe a Área de Risco sobre este quadro</text></svg>`;
 
@@ -40,6 +47,20 @@ export function CameraView({
   const [connected, setConnected] = useState(false);
   const [useMockStream, setUseMockStream] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Bounding boxes do detector (EPI) — locais a esta view, pois o store é global e
+  // várias câmeras/setores podem estar na tela ao mesmo tempo
+  const [showBoxes, setShowBoxes] = useState(loadShowBoxes);
+  const [boxes, setBoxes] = useState([]);
+  const [frameSize, setFrameSize] = useState(null);
+
+  const toggleBoxes = () => {
+    setShowBoxes((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(SHOW_BOXES_KEY, next ? '1' : '0'); } catch { /* ignora */ }
+      return next;
+    });
+  };
 
   // ESTADO PARA O RELÓGIO EM TEMPO REAL
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
@@ -155,6 +176,7 @@ export function CameraView({
     prevSetorRef.current = camera?.setor;
     console.log(`[CAM] id mudou → id=${camera?.id} nome=${camera?.nome} papel=${camera?.papel} setor=${camera?.setor} setorMudou=${setorMudou}`);
     if (setorMudou) setConnected(false);
+    setBoxes([]);
     if (imgRef.current) imgRef.current.src = '';
     if (lastImgUrlRef.current) { URL.revokeObjectURL(lastImgUrlRef.current); lastImgUrlRef.current = null; }
   }, [camera?.id]);
@@ -211,6 +233,9 @@ export function CameraView({
             store.addAlerta(msg);
           } else if (msg.type === 'detections') {
             store.setLiveDetections(msg.data);
+            // só as caixas desta câmera (as coordenadas são do frame dela)
+            const expected = cameraRef.current?.papel ?? 'frontal';
+            setBoxes((msg.data ?? []).filter((d) => (d.source ?? 'frontal') === expected));
           } else if (msg.type === 'pose') {
             store.setLivePose(msg.pessoas ?? []);
           } else if (msg.type === 'verdict') {
@@ -228,6 +253,7 @@ export function CameraView({
       ws.onclose = (e) => {
         console.warn(`[WS] fechou | camera="${camera?.nome}" code=${e.code} wasClean=${e.wasClean}`);
         setConnected(false);
+        setBoxes([]);
         if (imgRef.current && !useMockStream) imgRef.current.src = '';
         if (lastImgUrlRef.current) { URL.revokeObjectURL(lastImgUrlRef.current); lastImgUrlRef.current = null; }
         reconnectRef.current = setTimeout(connect, 3000);
@@ -323,10 +349,20 @@ export function CameraView({
 
         <img
           ref={imgRef}
+          onLoad={(e) => {
+            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+            if (!w || !h) return;
+            // evita re-render a cada frame: só atualiza se a resolução mudou
+            setFrameSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+          }}
           className={`w-full h-full object-cover select-none transition-opacity duration-300 ${
             isStreamActive ? 'opacity-100 block' : 'opacity-0 hidden'
           }`}
         />
+
+        {isStreamActive && showBoxes && !useMockStream && (
+          <DetectionBoxesOverlay boxes={boxes} frameSize={frameSize} />
+        )}
 
         {isStreamActive && (
           <RiskAreaOverlay
@@ -354,8 +390,20 @@ export function CameraView({
           </div>
         )}
 
+        {/* Botão de Bounding Boxes */}
+        <button
+          onClick={toggleBoxes}
+          className={`absolute bottom-2 right-12 sm:bottom-4 sm:right-16 z-30 p-2 sm:p-2.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider hover:border-[var(--p-subtext)] opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-lg active:scale-95 cursor-pointer ${
+            showBoxes ? 'text-emerald-400' : 'text-theme-muted'
+          }`}
+          title={showBoxes ? 'Ocultar caixas de detecção' : 'Mostrar caixas de detecção'}
+          aria-pressed={showBoxes}
+        >
+          <ScanSearch className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        </button>
+
         {/* Botão de Fullscreen */}
-        <button 
+        <button
           onClick={handleToggleFullscreen}
           className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-30 p-2 sm:p-2.5 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-theme-muted hover:text-theme-main hover:border-[var(--p-subtext)] opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-lg active:scale-95 cursor-pointer"
           title={isFullscreen ? "Sair da Tela Cheia" : "Expandir Visualização"}

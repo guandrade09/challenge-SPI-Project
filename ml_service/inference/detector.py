@@ -62,14 +62,20 @@ class EPIDetector:
         self.model = load_yolo_with_engine_fallback(model_path, imgsz=imgsz)
         print(f"[EPI] Modelo local carregado: {model_path} (fallback)")
 
-    def run(self, frame: np.ndarray) -> list[Detection]:
+    def run(self, frame: np.ndarray, lock=None) -> list[Detection]:
+        """`lock` (opcional): lock de inferência compartilhado. Só é segurado durante a
+        inferência local na GPU — a chamada HTTP do Roboflow roda sem ele, pra não
+        bloquear os outros setores enquanto espera a rede."""
         if self._mode == "roboflow":
             try:
                 return self._run_roboflow(frame)
             except Exception as e:
                 print(f"[EPI] Roboflow falhou ({e}) — alternando para modelo local.")
                 self._mode = "local"
-        return self._run_local(frame)
+        if lock is None:
+            return self._run_local(frame)
+        with lock:
+            return self._run_local(frame)
 
     def _run_roboflow(self, frame: np.ndarray) -> list[Detection]:
         """Envia frame como JPEG base64 para a API REST do Roboflow."""

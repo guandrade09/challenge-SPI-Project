@@ -1,9 +1,10 @@
 export default class Detection {
-  constructor({ timestamp, label, confidence, img_Path, img_Frame, img_Frame_lateral, source, camera_id, setor, details }) {
+  constructor({ timestamp, label, confidence, img_Frame, img_Frame_lateral, source, camera_id, setor, details }) {
     this.timestamp = timestamp;
     this.label = label;
     this.confidence = confidence;
-    this.img_Path = img_Path;
+    this.img_path = null;          // preenchido pelo service após gravar a imagem em disco
+    this.img_path_lateral = null;  // idem, só quando há 2ª câmera
     this.img_Frame = img_Frame;
     this.img_Frame_lateral = img_Frame_lateral ?? null;
     this.source = source ?? null;

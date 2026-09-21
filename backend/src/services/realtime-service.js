@@ -17,7 +17,13 @@ class RealtimeDetectionService {
     await this.initializeLastId();
 
     this.intervalId = setInterval(async () => {
-      await this.checkForNewDetections();
+      if (this.checking) return; // evita empilhar consultas se a anterior ainda não terminou
+      this.checking = true;
+      try {
+        await this.checkForNewDetections();
+      } finally {
+        this.checking = false;
+      }
     }, 150);
   }
 
@@ -33,8 +39,6 @@ class RealtimeDetectionService {
       const db = await connect();
       const result = await db.get("SELECT id FROM detections ORDER BY id DESC LIMIT 1");
       this.lastId = result ? result.id : 0;
-      await db.close();
-
     } catch (error) {
       console.error("Erro ao inicializar ID:", error);
     }
@@ -47,7 +51,6 @@ class RealtimeDetectionService {
       const params = [this.lastId];
 
       const newDetections = await db.all(query, params);
-      await db.close();
 
       for (const detection of newDetections) {
         this.sendRealtimeUpdate(detection.label);

@@ -314,14 +314,17 @@ def _load_zona(zone_checker, camera_id: str, setor: str = "") -> bool:
 
 
 # ── Resolve functions ──────────────────────────────────────────────────────────
-def _resolve_sectors() -> dict[str, list[dict]]:
-    """Agrupa câmeras cadastradas por setor. Sem câmeras → setor 'default' vazio."""
+def _resolve_sectors() -> dict[str, list[dict]] | None:
+    """Agrupa câmeras cadastradas por setor. Sem câmeras → setor 'default' vazio.
+    Retorna None se o backend não respondeu — quem chama deve manter o estado atual
+    (falha transitória de rede não pode derrubar os pipelines ativos)."""
     try:
         resp = requests.get(CAMERAS_API_URL, timeout=2)
+        resp.raise_for_status()
         cameras = resp.json().get("data", [])
     except Exception as e:
-        print(f"[SETORES] Não foi possível buscar câmeras: {e}")
-        cameras = []
+        print(f"[SETORES] Não foi possível buscar câmeras: {e} — mantendo setores atuais.")
+        return None
 
     if not cameras:
         return {"default": []}
@@ -333,8 +336,13 @@ def _resolve_sectors() -> dict[str, list[dict]]:
     return sectors
 
 
+# Sentinela: o backend não respondeu — o capture loop deve manter a câmera atual como está.
+_KEEP_SOURCE = object()
+
+
 def _make_resolve_fn(setor: str, papel: str, env_var: str | None = None, default=None):
-    """Retorna uma função que resolve a URL atual da câmera com o papel dado no setor."""
+    """Retorna uma função que resolve a URL atual da câmera com o papel dado no setor.
+    Devolve _KEEP_SOURCE se o backend estiver indisponível (não reconectar à toa)."""
     def resolve():
         if env_var:
             val = os.environ.get(env_var)
@@ -342,13 +350,14 @@ def _make_resolve_fn(setor: str, papel: str, env_var: str | None = None, default
                 return int(val) if val.isdigit() else (val or default)
         try:
             resp = requests.get(CAMERAS_API_URL, timeout=2)
+            resp.raise_for_status()
             cameras = resp.json().get("data", [])
-            sector_cams = [c for c in cameras if (c.get("setor") or "default") == setor]
-            cam = next((c for c in sector_cams if c.get("papel") == papel), None)
-            if cam:
-                return cam["streamUrl"]
         except Exception:
-            pass
+            return _KEEP_SOURCE
+        sector_cams = [c for c in cameras if (c.get("setor") or "default") == setor]
+        cam = next((c for c in sector_cams if c.get("papel") == papel), None)
+        if cam:
+            return cam["streamUrl"]
         return default
     return resolve
 
@@ -393,7 +402,7 @@ def _capture_loop(
         if now - last_check >= RECHECK_CAMERA_INTERVAL_S or (camera is None and last_check == 0.0):
             last_check = now
             new_source = resolve_source_fn()
-            if new_source != current_source:
+            if new_source is not _KEEP_SOURCE and new_source != current_source:
                 if current_source is not None:
                     print(f"[CAMERA] {label}: cadastro mudou ({current_source} → {new_source}), reconectando...")
                 _reconnect(new_source)
@@ -547,10 +556,13 @@ def _run_sector(
                 _epi_state["running"]  = True
                 _frame_snap = frame.copy()
                 def _epi_bg(snap=_frame_snap):
-                    with inference_lock:
-                        result = epi_detector.run(snap)
-                    _epi_state["cache"]   = result
-                    _epi_state["running"] = False
+                    try:
+                        # o detector só segura o lock na inferência local (não durante o HTTP do Roboflow)
+                        _epi_state["cache"] = epi_detector.run(snap, inference_lock)
+                    except Exception as e:
+                        print(f"[EPI] {setor}: falha na inferência: {e}")
+                    finally:
+                        _epi_state["running"] = False
                 threading.Thread(target=_epi_bg, daemon=True).start()
 
             # EPI na câmera lateral (quando disponível) — ângulo complementar
@@ -561,25 +573,30 @@ def _run_sector(
                     _epi_state_lateral["running"] = True
                     _frame_lat_snap = _last_lateral_frame["frame"].copy()
                     def _epi_lat_bg(snap=_frame_lat_snap):
-                        with inference_lock:
-                            result = epi_detector.run(snap)
-                        _epi_state_lateral["cache"]   = result
-                        _epi_state_lateral["running"] = False
+                        try:
+                            _epi_state_lateral["cache"] = epi_detector.run(snap, inference_lock)
+                        except Exception as e:
+                            print(f"[EPI] {setor}/lateral: falha na inferência: {e}")
+                        finally:
+                            _epi_state_lateral["running"] = False
                     threading.Thread(target=_epi_lat_bg, daemon=True).start()
         else:
             _epi_state["cache"]         = []
             _epi_state_lateral["cache"] = []
 
         # Une detecções de ambas as câmeras (OR: se qualquer câmera vê, conta)
-        epi_dets_raw = _epi_state["cache"] + (
-            _epi_state_lateral["cache"] if has_lateral else []
+        def _keep_epi(d, _prefixes=_prefixes):
+            return (
+                d.label.startswith("PESSOA")
+                or _prefixes is None
+                or any(d.label.startswith(p) for p in _prefixes)
+            )
+
+        epi_dets_frontal = [d for d in _epi_state["cache"] if _keep_epi(d)]
+        epi_dets_lateral = (
+            [d for d in _epi_state_lateral["cache"] if _keep_epi(d)] if has_lateral else []
         )
-        epi_dets = [
-            d for d in epi_dets_raw
-            if d.label.startswith("PESSOA")
-            or _prefixes is None
-            or any(d.label.startswith(p) for p in _prefixes)
-        ]
+        epi_dets = epi_dets_frontal + epi_dets_lateral
 
         epi_incidents  = epi_detector.incidents(epi_dets)
         epi_confirmed  = epi_debouncer.update(epi_incidents)
@@ -691,11 +708,14 @@ def _run_sector(
             elif frame is not None:
                 # Câmera única no setor (sem frontal dedicada) → envia como frontal
                 send_tagged_frame(frame, setor=setor, source="frontal")
-            # detecções EPI junto com o frame
+            # detecções EPI junto com o frame — cada caixa leva a câmera de origem
+            # ("frontal"/"lateral"), pois as coordenadas são do frame daquela câmera
             send_detections(
                 [{"label": d.label, "confidence": round(float(d.confidence), 4),
-                  "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
-                 for d in epi_dets],
+                  "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2),
+                  "source": src}
+                 for src, dets in (("frontal", epi_dets_frontal), ("lateral", epi_dets_lateral))
+                 for d in dets],
                 setor=setor,
             )
             # pose junto com o frame — evita saturar WS a cada iteração
@@ -803,6 +823,9 @@ def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: 
 
     while True:
         sectors = _resolve_sectors()
+        if sectors is None:
+            time.sleep(SECTOR_CHECK_INTERVAL_S)
+            continue
 
         with _active_sectors_lock:
             # Iniciar setores novos ou com câmeras diferentes

@@ -18,5 +18,15 @@
       "colete"
     ],
     "ergonomia": true
+  },
+  "KzaMAY": {
+    "epis": [
+      "colete",
+      "oculos",
+      "capacete",
+      "mascara",
+      "auricular"
+    ],
+    "ergonomia": true
   }
 }

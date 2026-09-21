@@ -54,6 +54,28 @@ EPI_KEY_TO_PREFIX = {
     "oculos":    "OCULOS",
 }
 
+# Nome de exibição (ordem = ordem na tela). Chaves de EPI_KEY_TO_PREFIX que não estiverem
+# aqui aparecem no fim, com o nome capitalizado — assim uma label nova nunca some da UI.
+EPI_LABELS_PT = {
+    "colete":    "Colete",
+    "oculos":    "Óculos",
+    "capacete":  "Capacete",
+    "mascara":   "Máscara",
+    "auricular": "Auricular",
+    "botas":     "Botas",
+}
+
+
+def listar_epis() -> list[dict]:
+    """Todas as labels de EPI configuradas (fonte única para a UI dos toggles)."""
+    ordem = [k for k in EPI_LABELS_PT if k in EPI_KEY_TO_PREFIX]
+    ordem += [k for k in EPI_KEY_TO_PREFIX if k not in EPI_LABELS_PT]
+    return [
+        {"id": k, "label": EPI_LABELS_PT.get(k, k.capitalize()), "prefixo": EPI_KEY_TO_PREFIX[k]}
+        for k in ordem
+    ]
+
+
 def epi_prefixes_ativos(setor: str = "") -> list[str] | None:
     """Retorna lista de prefixos ativos para o setor.
     None  → setor sem config, detecta todos os EPIs.
@@ -138,6 +160,10 @@ def _build_app(zone_checker, camera_id: str) -> Flask:
             delete_config()
             print("[ZONA] Removida")
         return jsonify({"ok": removed, "camera_id": camera_id})
+
+    @app.route("/config/epis", methods=["GET"])
+    def get_epis():
+        return jsonify({"epis": listar_epis()})
 
     @app.route("/config/analise", methods=["GET"])
     def get_analise():
