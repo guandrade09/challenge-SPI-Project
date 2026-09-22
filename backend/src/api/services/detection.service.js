@@ -8,9 +8,6 @@ import {
 import { base64ToImage, normalizeBrasiliaTimestamp } from "../utils/convert.js";
 import { createFolderByTimestamp } from "../utils/folder.js";
 
-<<<<<<< Updated upstream
-export async function createDetection(data) 
-=======
 function splitRawLabels(rawLabel)
 {
   if (!rawLabel) return [];
@@ -68,40 +65,63 @@ export function processRawLabel(rawLabel)
 // linhas com o mesmo `img_path` (é assim que a página de Incidentes volta a mostrar 1 cartão por
 // incidente). O retorno é a lista de linhas gravadas.
 export async function createDetection(data)
->>>>>>> Stashed changes
 {
   const timestamp = normalizeBrasiliaTimestamp(new Date().toISOString());
-  const detection = new Detection({ ...data, timestamp });
 
-  if (!detection.label || !detection.confidence ||
-      !detection.img_Frame || !detection.timestamp) 
+  const rawLabels = [...new Set(splitRawLabels(data.label))];
+  const criticidade = data.details?.status ?? null;
+
+  if (rawLabels.length === 0 || !data.confidence ||
+      !data.img_Frame || !timestamp)
   {
       throw new Error("Dados inválidos");
   }
 
-  const folderPath = await createFolderByTimestamp(detection.timestamp);
-  const imagePath = await base64ToImage(detection.img_Frame, folderPath);
+  const folderPath = await createFolderByTimestamp(timestamp);
+  const imagePath = await base64ToImage(data.img_Frame, folderPath);
 
-  // Imagem da câmera lateral (2ª câmera da mesma unidade) — só existe quando a unidade tem dupla câmera
-  const imagePathLateral = detection.img_Frame_lateral
-    ? await base64ToImage(detection.img_Frame_lateral, folderPath)
+  const imagePathLateral = data.img_Frame_lateral
+    ? await base64ToImage(data.img_Frame_lateral, folderPath)
     : null;
 
-  detection.img_path = imagePath;
-  detection.img_path_lateral = imagePathLateral;
-  detection.timestamp = normalizeBrasiliaTimestamp(detection.timestamp);
+  const detections = [];
+  for (const rawLabel of rawLabels)
+  {
+    const { label, epi_ausente, reba_nivel } = processRawLabel(rawLabel);
 
-  await saveDetection(detection);
+    const detection = new Detection({
+      ...data,
+      label,
+      timestamp,
+      epi_ausente,
+      criticidade,
+      reba_nivel,
+    });
+    detection.img_path = imagePath;
+    detection.img_path_lateral = imagePathLateral;
 
-<<<<<<< Updated upstream
-  return detection;
-=======
     await saveDetection(detection);
     detections.push(detection);
   }
 
+  // const onedriveToken = await findOnedriveAccessToken();
+
+  // if (onedriveToken) {
+  //     const remoteFolder = await createOneDriveFolderByTimestamp(
+  //         timestamp,
+  //         onedriveToken,
+  //         "detections"
+  //     );
+
+  //     await uploadBase64ImageToOneDrive(
+  //         data.img_Frame,
+  //         onedriveToken,
+  //         remoteFolder,
+  //         `frame_${Date.now()}.jpg`
+  //     );
+  // }
+
   return detections;
->>>>>>> Stashed changes
 }
 
 export async function viewDetection() 

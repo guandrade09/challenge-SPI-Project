@@ -1,7 +1,5 @@
 import cv2
 
-<<<<<<< Updated upstream
-=======
 
 def _load_vlc_camera():
     """Importa o VLCCamera só quando uma câmera RTSP realmente precisa dele.
@@ -22,21 +20,10 @@ def _load_vlc_camera():
         ) from exc
     return VLCCamera
 
->>>>>>> Stashed changes
 
 class Camera:
     def __init__(self, source=0):
         # CAP_DSHOW só se aplica a índices de dispositivo local (Windows).
-<<<<<<< Updated upstream
-        # RTSP usa o FFmpeg do OpenCV (CAP_FFMPEG); demais streams de rede (URL do IP
-        # Webcam do celular etc.) usam o backend padrão. Não há dependência de VLC:
-        # vlc_camera.py e pyav_camera.py (decode por hardware/NVDEC, desativado por ter
-        # produzido frames corrompidos em teste real) não são importados por este módulo.
-        if isinstance(source, int):
-            self.cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
-        elif isinstance(source, str) and source.startswith("rtsp://"):
-            self.cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
-=======
         # Streams HTTP/MJPEG usam OpenCV/FFmpeg; RTSP usa VLC (ver vlc_camera.py:
         # o FFmpeg do OpenCV rejeita o SETUP
         # de algumas câmeras, mesmo com URL/credenciais corretas — o VLC tem parser mais
@@ -63,7 +50,6 @@ class Camera:
                 [cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 8000,
                  cv2.CAP_PROP_READ_TIMEOUT_MSEC, 8000],
             )
->>>>>>> Stashed changes
         else:
             self.cap = cv2.VideoCapture(source)
 
@@ -81,6 +67,6 @@ class Camera:
 
     def release(self):
         self.cap.release()
-    
+
     def is_opened(self) -> bool:
         return self.cap.isOpened()

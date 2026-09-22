@@ -16,11 +16,11 @@ export async function create(req, res)
       return res.status(400).json({ error: "Body não enviado" });
     }
 
-  const detection = await createDetection(req.body);
+  const detections = await createDetection(req.body);
 
   return res.status(201).json({
-      message: "Detection criada com sucesso",
-      data: detection,
+      message: `${detections.length} detection(s) criada(s) com sucesso`,
+      data: detections,
     });
   } 
   catch (error) 

@@ -6,48 +6,71 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts';
+  Legend,
+} from "recharts";
+import { CustomTooltip } from "./utils/Tooltip";
+import { formatXAxisTick, getResolvedKey } from "./utils/Formatters";
 
-export const DetectionLineChart = ({ data, theme = "dynamic" }) => {
+export const DetectionLineChart = ({
+  data = [],
+  theme = "dynamic",
+  title = "",
+  xDataKey,
+}) => {
+  const resolvedKey = getResolvedKey(data, xDataKey);
+
   return (
-    <div className={`panel-theme-${theme} w-full h-full`}>
+    <div className={`panel-theme-${theme} flex flex-col h-full w-full p-1`}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
+        <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={true} stroke="var(--chart-grid)" />
+
           <XAxis
-            dataKey="hora"
+            dataKey={resolvedKey}
+            tickFormatter={formatXAxisTick}
+            tick={{ fill: "var(--chart-text)", fontSize: 9 }}
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'var(--chart-text)', fontSize: 10 }}
-            dy={10}
           />
+
           <YAxis
+            tick={{ fill: "var(--chart-text)", fontSize: 9 }}
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'var(--chart-text)', fontSize: 10 }}
-            dx={-5}
           />
-          <Tooltip
-            contentStyle={{ 
-              backgroundColor: 'var(--chart-tooltip-bg)',
-              borderColor: 'var(--chart-tooltip-border)',
-              color: 'var(--chart-text)',
-              borderRadius: '15px', 
-              border: 'none', 
-              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', 
-              fontSize: '12px' 
+
+          <Tooltip content={<CustomTooltip />} />
+
+          <Legend
+            verticalAlign="top"
+            align="right"
+            iconType="circle"
+            wrapperStyle={{
+              fontSize: "9px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              paddingBottom: "10px",
+              color: "var(--chart-text)",
             }}
           />
+
           <Line
             type="monotone"
             dataKey="alertas"
-            stroke={theme === 'dynamic' ? 'var(--chart-normal-node)' : '#d84d4d'}
-            strokeWidth={4}
-            dot={{ fill: 'var(--chart-alertas)', r: 4, strokeWidth: 2, stroke: 'var(--p-bg)' }}
-            activeDot={{ r: 7, strokeWidth: 0 }}
+            name="Alertas Detectados"
+            stroke={theme === "dynamic" ? "var(--chart-normal-node)" : "var(--chart-alertas)"}
+            strokeWidth={2}
+            dot={{ stroke: "var(--chart-alertas)", fill: "var(--chart-alertas)", r: 3 }}
+            activeDot={{ r: 5 }}
           />
         </LineChart>
       </ResponsiveContainer>
+
+      {title && (
+        <div className="text-[8px] font-bold text-center mt-2 uppercase tracking-widest panel-text-sub">
+          {title}
+        </div>
+      )}
     </div>
   );
 };

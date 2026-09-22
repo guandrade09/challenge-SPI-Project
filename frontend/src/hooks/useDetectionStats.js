@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import detectionService from '../services/detectionService';
+import { classifyDetection, isDetectionConfirmed } from '../utils/detectionStatus';
 
 const LABEL_COLORS = [
   '#B59481', '#6366f1', '#71ff5e', '#ef4444', '#f59e0b',
@@ -21,12 +22,11 @@ function buildPizzaData(items) {
 
 function buildBarData(items) {
   const map = {};
-  items.forEach(({ label, confidence }) => {
+  items.forEach((item) => {
+    const { label } = item;
     if (!label) return;
-    const conf = parseFloat(confidence);
     if (!map[label]) map[label] = { detectado: 0, naoDetectado: 0 };
-    if (!isNaN(conf) && conf < 0.6) map[label].naoDetectado += 1;
-    else map[label].detectado += 1;
+    map[label][classifyDetection(item)] += 1;
   });
   return Object.keys(map).map((name) => ({ name, ...map[name] }));
 }
@@ -78,7 +78,7 @@ function buildAnomalyData(items) {
     .map((d) => ({
       categoria: d.label,
       confianca: Math.round(parseFloat(d.confidence) * 100),
-      importancia: parseFloat(d.confidence) < 0.6 ? 20 : 8,
+      importancia: isDetectionConfirmed(d) ? 8 : 20,
     }))
     .slice(-200);
 }

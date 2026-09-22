@@ -6,10 +6,11 @@ import { PerformanceObserver } from './components/shared/PerformanceObserver'; /
 
 // Importações das Features
 import { Login, Register, ForgotPassword, Logout } from './features/auth/registerUserPage';
-import LogsPage from './features/logsPage/LogsPage';
 import HomePage from './features/homePage/HomePage';
 import { CameraPage } from './features/cameraPage/CameraPage';
 import IncidentesPage from './features/incidentesPage/IncidentesPage';
+import EventosPage from './features/eventosPage/EventosPage';
+import AnalisePage from './features/analisePage/AnalisePage';
 
 export function App() {
   return (
@@ -28,14 +29,10 @@ export function App() {
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/" element={<HomePage />} />
-            <Route path="/logs" element={<LogsPage />} />
             <Route path="/incidentes" element={<IncidentesPage />} />
-<Route path="/camera" element={<CameraPage />} />
-            <Route path="/settings" element={
-              <div className="flex min-h-screen items-center justify-center">
-                <h1 className='text-white font-bold text-3xl'>Configurações (Em breve)</h1>
-              </div>
-            } />
+            <Route path="/eventos" element={<EventosPage />} />
+            <Route path="/camera" element={<CameraPage />} />
+            <Route path="/analise" element={<AnalisePage />} />
           </Route>
         </Route>
 

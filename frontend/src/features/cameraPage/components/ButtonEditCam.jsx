@@ -21,6 +21,9 @@ export function ButtonEditCam({
   const setorJaTemFrontal = camera
     ? cameras.some((c) => c.id !== camera.id && c.setor?.trim().toLowerCase() === setor.trim().toLowerCase() && c.papel === 'frontal')
     : false;
+  const setorJaTemLateral = camera
+    ? cameras.some((c) => c.id !== camera.id && c.setor?.trim().toLowerCase() === setor.trim().toLowerCase() && c.papel === 'lateral')
+    : false;
 
   // Preenche o formulário com os dados atuais da câmera sempre que ela mudar ou o modal abrir
   useEffect(() => {
@@ -158,14 +161,14 @@ export function ButtonEditCam({
                 { value: 'frontal', label: 'Frontal (EPI)' },
                 { value: 'lateral', label: 'Lateral (Ergonomia/Zona)' },
               ].map((opt) => {
-                const bloqueado = opt.value === 'frontal' && setorJaTemFrontal;
+                const bloqueado = opt.value === 'frontal' ? setorJaTemFrontal : setorJaTemLateral;
                 return (
                   <button
                     key={opt.value}
                     type="button"
                     disabled={isSubmitting || bloqueado}
                     onClick={() => !bloqueado && setPapel(opt.value)}
-                    title={bloqueado ? 'Este setor já tem uma câmera frontal' : undefined}
+                    title={bloqueado ? `Este setor já tem uma câmera ${opt.value}` : undefined}
                     className={`flex-1 p-2 rounded-lg border text-xs transition-colors ${
                       bloqueado
                         ? 'border-theme-divider text-theme-muted opacity-40 cursor-not-allowed'

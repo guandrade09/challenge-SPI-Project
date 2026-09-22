@@ -11,9 +11,6 @@ export const PANEL_STATUS = {
   ALERTA:          'alerta',
   ALERTA_CRITICO:  'alerta_critico',
   ALERTA_MULTIPLO: 'alerta_multiplo',
-<<<<<<< Updated upstream
-}
-=======
 };
 
 // Fallback dos toggles de EPI (mesmas 6 chaves de EPI_KEY_TO_PREFIX no orquestrador). A lista
@@ -26,4 +23,3 @@ export const DETECTION_CONFIG = [
   { id: 'auricular', label: 'Auricular' },
   { id: 'botas',     label: 'Botas'     },
 ];
->>>>>>> Stashed changes

@@ -45,8 +45,8 @@ def load_yolo_with_engine_fallback(
             print(f"[MODEL] Falha ao carregar engine existente {engine_path} ({e}) — tentando recompilar.")
 
     if os.path.exists(failed_marker):
-        print(f"[MODEL] Export TensorRT já falhou antes para {pt_path} "
-              f"(apague {failed_marker} para tentar de novo) — usando .pt.")
+        print(f"[MODEL][INFO] TensorRT indisponível para {os.path.basename(pt_path)}; "
+              f"fallback .pt ativo. Para tentar novo export, remova {failed_marker}.")
         return YOLO(pt_path)
 
     try:

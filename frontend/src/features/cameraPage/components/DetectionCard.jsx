@@ -1,15 +1,18 @@
 import React from 'react';
 import { Check, ShieldCheck, ScanEye } from 'lucide-react';
 
-export const DetectionCard = ({ label, isChecked, onToggle }) => {
+export const DetectionCard = ({ label, isChecked, onToggle, isUpdating = false, disabled = false }) => {
   return (
-    <div 
+    <button
+      type="button"
       onClick={onToggle} 
+      disabled={disabled}
+      aria-pressed={isChecked}
       className={`detection-card ${
         isChecked 
           ? 'detection-card--checked bg-[var(--p-header-bg)] border-[var(--p-subtext)] shadow-md ring-1 ring-[var(--p-subtext)]/40' 
           : 'detection-card--unchecked bg-[var(--p-bg)] border-theme-divider hover:border-[var(--p-border)]'
-      }`}
+      } ${disabled ? 'cursor-wait opacity-70' : ''}`}
     >
       {/* 1. Indicador Neon Lateral */}
       <div
@@ -55,10 +58,10 @@ export const DetectionCard = ({ label, isChecked, onToggle }) => {
           }`}
         >
           <span className={`w-1.5 h-1.5 rounded-full ${isChecked ? 'bg-[var(--p-subtext)] animate-pulse' : 'bg-neutral-500'}`} />
-          {isChecked ? 'ON' : 'OFF'}
+          {isUpdating ? '...' : (isChecked ? 'ON' : 'OFF')}
         </span>
       </div>
-    </div>
+    </button>
   );
 };
 

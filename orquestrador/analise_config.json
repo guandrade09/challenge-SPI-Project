@@ -1,22 +1,10 @@
 {
-  "": {
-    "epis": [
-      "capacete",
-      "mascara"
-    ],
+  "camera:21": {
+    "epis": [],
     "ergonomia": true
   },
-  "Celular": {
-    "epis": [
-      "capacete",
-      "mascara"
-    ],
-    "ergonomia": true
-  },
-  "Quarto": {
-    "epis": [
-      "colete"
-    ],
+  "camera:22": {
+    "epis": [],
     "ergonomia": true
   },
   "KzaMAY": {

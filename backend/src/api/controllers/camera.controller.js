@@ -1,10 +1,6 @@
 // src/controllers/camera.controller.js
 import * as cameraService from "../services/camera.service.js";
 
-<<<<<<< Updated upstream
-// Detalhe do erro fica só no log do servidor — a resposta não expõe mensagens internas (SQL, caminhos...)
-function internalError(res, error, message) {
-=======
 // Erros de negócio deliberados (ex.: 409 "o setor já possui uma câmera frontal", lançado pelo
 // camera.service) trazem `statusCode` 4xx e uma mensagem própria para o cliente — repassados
 // com o status e o texto originais. Qualquer outro erro é interno: o detalhe fica só no log do
@@ -14,7 +10,6 @@ function internalError(res, error, message) {
   if (status >= 400 && status < 500) {
     return res.status(status).json({ message, error: error.message });
   }
->>>>>>> Stashed changes
   console.error(`[CAMERAS] ${message}:`, error);
   return res.status(500).json({ message, error: 'Erro interno do servidor' });
 }

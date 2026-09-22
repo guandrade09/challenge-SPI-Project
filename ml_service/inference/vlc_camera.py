@@ -75,16 +75,29 @@ class VLCCamera:
                 break
             time.sleep(0.1)
 
+        if not self._has_frame:
+            self.release()
+            raise RuntimeError(f"Nenhum frame recebido de {url} em {open_timeout_s}s")
+
     def _on_lock(self, opaque, planes):
+        # Guard: _buf pode ainda não existir durante init race condition
+        if not hasattr(self, '_buf_p'):
+            return None
         planes[0] = self._buf_p
         return None
 
     def _on_unlock(self, opaque, picture, planes):
-        arr = np.ctypeslib.as_array(self._buf).reshape((self.height, self.width, 4))
-        with self._frame_lock:
-            self._frame = arr[:, :, :3].copy()  # BGRA -> BGR
-            self._has_frame = True
-            self._last_frame_at = time.time()
+        # Guard: evita AttributeError se callback disparar antes de _buf estar pronto
+        if not hasattr(self, '_buf') or not hasattr(self, '_frame_lock'):
+            return
+        try:
+            arr = np.ctypeslib.as_array(self._buf).reshape((self.height, self.width, 4))
+            with self._frame_lock:
+                self._frame = arr[:, :, :3].copy()  # BGRA -> BGR
+                self._has_frame = True
+                self._last_frame_at = time.time()
+        except Exception:
+            pass  # silencia erros de reshape durante transições de estado
 
     def _on_display(self, opaque, picture):
         pass

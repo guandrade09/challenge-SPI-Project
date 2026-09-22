@@ -38,7 +38,7 @@ export const MLConfusionMatrix = ({ data, theme = "dynamic" }) => {
       {/* Container de Grid adaptado para ler variações de cor de borda nativas */}
       <div className="grid grid-cols-[50px_1fr_1fr_1fr] gap-2 items-center flex-1 h-full w-full">
         {/* Canto superior esquerdo morto da matriz */}
-        <div className="text-[7px] font-mono uppercase opacity-40 text-center panel-text-title leading-none">
+        <div className="text-[8px] font-mono uppercase opacity-80 text-center panel-text-title leading-none">
           Predito
         </div>
         
