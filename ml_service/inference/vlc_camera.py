@@ -46,7 +46,14 @@ class VLCCamera:
         # avcodec-hw=any: decodifica H.264/H.265 na GPU (DXVA2/D3D11VA no Windows) em vez
         # de gastar CPU — com 2 streams RTSP decodificando em software, o CPU desse note
         # (i5, 8GB RAM) satura fácil e trava o resto (browser, inferência).
+        self._released = False
+        self._player = None
         self._instance = vlc.Instance("--quiet", "--no-audio", "--avcodec-hw=any")
+        if self._instance is None:
+            raise RuntimeError(
+                "O libvlc não conseguiu inicializar (vlc.Instance() retornou None). "
+                "Verifique se o VLC está instalado e se seus plugins estão acessíveis."
+            )
         self._player = self._instance.media_player_new()
         media = self._instance.media_new(url)
         self._player.set_media(media)
@@ -86,13 +93,13 @@ class VLCCamera:
         return self._has_frame and (time.time() - self._last_frame_at) > self.STALE_FRAME_TIMEOUT_S
 
     def read(self):
-        if not self._has_frame or self._is_stale():
+        if self._released or not self._has_frame or self._is_stale():
             return False, None
         with self._frame_lock:
             return True, self._frame.copy()
 
     def isOpened(self) -> bool:
-        if self._is_stale():
+        if self._released or self._is_stale():
             return False
         if self._has_frame:
             return True
@@ -103,7 +110,26 @@ class VLCCamera:
         pass
 
     def release(self):
-        try:
-            self._player.stop()
-        except Exception:
-            pass
+        # Idempotente. Além de parar o player, libera o player e a instância do libvlc:
+        # com reconexão automática, cada tentativa cria uma Instance nova — sem liberar,
+        # elas (e suas threads/plugins) se acumulariam a cada queda de rede.
+        if self._released:
+            return
+        self._released = True
+        player, instance = self._player, self._instance
+        self._player = None
+        self._instance = None
+        if player is not None:
+            try:
+                player.stop()
+            except Exception:
+                pass
+            try:
+                player.release()
+            except Exception:
+                pass
+        if instance is not None:
+            try:
+                instance.release()
+            except Exception:
+                pass

@@ -75,6 +75,37 @@ export function CameraView({
     return getRiskAreaForCamera(camera?.id) || camera?.riskArea || null;
   });
 
+<<<<<<< Updated upstream
+=======
+  // chave desta câmera específica no stream compartilhado
+  const setor  = camera?.setor;
+  const source = camera?.papel || 'frontal'; // 'frontal' | 'lateral'
+  const cameraId = camera?.id;
+  const streamKey = makeStreamKey(cameraId, setor, source);
+
+  const frameUrl  = useCameraStreamStore((s) => s.getFrame(cameraId, setor, source));
+  const wsConnected = useCameraStreamStore((s) => s.connected);
+  const streamStatus = useCameraStreamStore((s) => s.streamStatus[streamKey]);
+  // resolução real do frame (vem no cabeçalho de cada frame) — necessária para mapear a
+  // área de risco no espaço da imagem, já que o <img> usa object-cover (escala + crop).
+  // Seletores primitivos: o objeto de meta muda a cada frame.
+  const metaWidth  = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.width);
+  const metaHeight = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.height);
+  // disponíveis para painéis irmãos (AlertPanel/DetectionPanel) lerem pelo mesmo setor;
+  // aqui só usamos o que o próprio card precisa renderizar
+  // const pose = useCameraStreamStore((s) => s.pose[setor]?.[source] ?? []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString('pt-BR')), 1000);
+    return () => clearInterval(timer);
+  }, []);
+>>>>>>> Stashed changes
 
   // GERENCIADOR DE TELA CHEIA (Fullscreen API)
   const handleToggleFullscreen = async () => {
@@ -365,11 +396,24 @@ export function CameraView({
         )}
 
         {isStreamActive && (
+<<<<<<< Updated upstream
           <RiskAreaOverlay
             initialBox={riskBox}
             isEditing={isEditingRiskArea}
             onSaveBox={handleSaveRiskBox}
           />
+=======
+          <>
+            {showDetections && <DetectionsOverlay cameraId={cameraId} setor={setor} source={source} />}
+            <RiskAreaOverlay
+              initialBox={riskBox}
+              isEditing={isEditingRiskArea}
+              onSaveBox={handleSaveRiskBox}
+              frameWidth={useMockStream ? 1280 : (metaWidth || null)}
+              frameHeight={useMockStream ? 720 : (metaHeight || null)}
+            />
+          </>
+>>>>>>> Stashed changes
         )}
 
         {!isStreamActive && (

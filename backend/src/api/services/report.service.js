@@ -9,8 +9,8 @@ import {
   GetPredictionData,
   OrganizeDataForReport,
   calculateAccuracy,
-} from "../utils/report/file.js";
-import { generateExcelReport, getExcelBuffer } from "../utils/report/excel.js";
+} from "../utils/report/File.js";
+import { generateExcelReport, getExcelBuffer } from "../utils/report/Excel.js";
 import { savePdfToUploads, saveExcel } from "../utils/folder.js";
 import fs from "fs";
 import path from "path";

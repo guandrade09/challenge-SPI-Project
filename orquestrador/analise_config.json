@@ -28,5 +28,26 @@
       "auricular"
     ],
     "ergonomia": true
+  },
+  "KzaMAY": {
+    "epis": [
+      "colete",
+      "oculos",
+      "capacete",
+      "mascara",
+      "auricular"
+    ],
+    "ergonomia": true
+  },
+  "camera:1": {
+    "epis": [
+      "auricular",
+      "mascara",
+      "capacete",
+      "oculos",
+      "colete",
+      "botas"
+    ],
+    "ergonomia": true
   }
 }

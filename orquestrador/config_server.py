@@ -76,7 +76,49 @@ def listar_epis() -> list[dict]:
     ]
 
 
+<<<<<<< Updated upstream
 def epi_prefixes_ativos(setor: str = "") -> list[str] | None:
+=======
+def normalize_epis(epis) -> list[str]:
+    if not isinstance(epis, list):
+        raise ValueError("epis deve ser uma lista")
+    normalized = []
+    invalid = []
+    for item in epis:
+        key = _normalize_epi_key(item)
+        if key is None:
+            invalid.append(str(item))
+        elif key not in normalized:
+            normalized.append(key)
+    if invalid:
+        raise ValueError(f"EPIs inválidos: {', '.join(invalid)}")
+    return normalized
+
+
+# Nome de exibição (ordem = ordem na tela). Chaves de EPI_KEY_TO_PREFIX que não estiverem
+# aqui aparecem no fim, com o nome capitalizado — assim uma label nova nunca some da UI.
+EPI_LABELS_PT = {
+    "colete":    "Colete",
+    "oculos":    "Óculos",
+    "capacete":  "Capacete",
+    "mascara":   "Máscara",
+    "auricular": "Auricular",
+    "botas":     "Botas",
+}
+
+
+def listar_epis() -> list[dict]:
+    """Todas as labels de EPI configuradas (fonte única para a UI dos toggles)."""
+    ordem = [k for k in EPI_LABELS_PT if k in EPI_KEY_TO_PREFIX]
+    ordem += [k for k in EPI_KEY_TO_PREFIX if k not in EPI_LABELS_PT]
+    return [
+        {"id": k, "label": EPI_LABELS_PT.get(k, k.capitalize()), "prefixo": EPI_KEY_TO_PREFIX[k]}
+        for k in ordem
+    ]
+
+
+def epi_prefixes_ativos(setor: str = "", camera_id=None) -> list[str] | None:
+>>>>>>> Stashed changes
     """Retorna lista de prefixos ativos para o setor.
     None  → setor sem config, detecta todos os EPIs.
     []    → config existe mas epis vazio, pula inferência EPI.

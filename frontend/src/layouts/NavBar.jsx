@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggleButton } from '../components/ui/ThemeToggleButton';
 import { useAuthStore } from '../store/useAuthStore';
-import logoCodexis from '../assets/codexis/logo_codexis.svg';
+import logoCodexis from '../assets/Codexis/logo_codexis.svg';
 
 export const NavBar = ({ theme }) => {
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false); // Menu Navegação Mobile

@@ -14,6 +14,13 @@ import { useCameraStore } from '../../store/useCameraStore';
 import { useCameraPresetsStore } from '../../store/useCameraPresetsStore';
 import { useMonitoramentoStore } from '../../store/useMonitoramentoStore';
 import { useUiStore } from '../../store/useUiStore';
+<<<<<<< Updated upstream
+=======
+import { DETECTION_CONFIG } from '../../enums/enums';
+import { cameraSocketManager } from '../../services/websocket/CameraSocketManager';
+import { epiConfigService } from '../../services/epiConfigService';
+import { normalizeEpiList } from '../../utils/epiConfig';
+>>>>>>> Stashed changes
 
 const EMPTY_ARRAY = [];
 
@@ -86,14 +93,55 @@ export const CameraPage = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isEditingRiskArea, setIsEditingRiskArea] = useState(false);
   const [activeTab, setActiveTab] = useState('epis');
+<<<<<<< Updated upstream
+=======
+  const [layoutMode, setLayoutMode] = useState('single');
+  const [detectionsVisibility, setDetectionsVisibility] = useState({});
+  const [updatingEpiId, setUpdatingEpiId] = useState(null);
+  const [epiConfigError, setEpiConfigError] = useState('');
+  const hydratedEpiCamerasRef = useRef(new Set());   // câmeras cujo estado real já foi lido
+  const editedEpiCamerasRef = useRef(new Set());     // câmeras que o usuário alterou nesta sessão
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+>>>>>>> Stashed changes
 
   useEffect(() => {
     fetchCameras();
   }, [fetchCameras]);
 
+  // Carrega (SOMENTE LEITURA) a configuração de EPI existente. A fonte da verdade é o
+  // orquestrador; se ele não responder, mantém o preset local e, na falta dele, usa o que
+  // está salvo no banco (camera.epis). Abrir a página nunca escreve nada — só o toggle escreve.
   useEffect(() => {
+<<<<<<< Updated upstream
     loadEpiOptions();
   }, [loadEpiOptions]);
+=======
+    if (cameras.length === 0) return;
+    cameras.forEach((camera) => {
+      if (hydratedEpiCamerasRef.current.has(camera.id)) return;
+      hydratedEpiCamerasRef.current.add(camera.id);
+      epiConfigService.getCameraEpis({ cameraId: camera.id, setor: camera.setor || '' })
+        .then((epis) => {
+          // resposta atrasada não pode sobrescrever uma alteração feita pelo usuário
+          if (!mountedRef.current || editedEpiCamerasRef.current.has(camera.id)) return;
+          setSelectedEpisForCamera(camera.id, epis);
+        })
+        .catch((error) => {
+          // libera para nova tentativa (ex.: quando o WebSocket/orquestrador voltar)
+          hydratedEpiCamerasRef.current.delete(camera.id);
+          if (!mountedRef.current) return;
+          const localPreset = useCameraPresetsStore.getState().presets[camera.id];
+          if (!localPreset) setSelectedEpisForCamera(camera.id, normalizeEpiList(camera.epis));
+          console.warn(`Orquestrador indisponível para ler EPIs da câmera ${camera.id}:`, error.message);
+        });
+    });
+  }, [cameras, setSelectedEpisForCamera, wsConnected]);
+>>>>>>> Stashed changes
 
   useEffect(() => {
     if (!alertaAtivo) return;
@@ -117,6 +165,7 @@ export const CameraPage = () => {
     })
   );
 
+<<<<<<< Updated upstream
   const activeEpisForVisuals = useCameraPresetsStore(
     useShallow((state) => {
       if (!currentCameraId) return EMPTY_ARRAY;
@@ -136,6 +185,25 @@ export const CameraPage = () => {
     activeEpisForVisuals.forEach((epi) => {
       if (novoEstadoDetections[epi] !== undefined) {
         novoEstadoDetections[epi] = true;
+=======
+    editedEpiCamerasRef.current.add(cameraId);
+    setUpdatingEpiId(epiId);
+    setEpiConfigError('');
+    setSelectedEpisForCamera(cameraId, nextEpis);
+    let runtimeUpdated = false;
+    try {
+      await cameraSocketManager.sendRequest({
+        type: 'set_epi_config', cameraId, setor: camera.setor || '', epis: nextEpis,
+      });
+      runtimeUpdated = true;
+      await updateCamera(cameraId, { epis: nextEpis });
+    } catch (error) {
+      setSelectedEpisForCamera(cameraId, previousEpis);
+      if (runtimeUpdated) {
+        cameraSocketManager.sendRequest({
+          type: 'set_epi_config', cameraId, setor: camera.setor || '', epis: previousEpis,
+        }).catch(() => {});
+>>>>>>> Stashed changes
       }
     });
 

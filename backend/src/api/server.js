@@ -13,6 +13,11 @@ const WORKER_MIN_UPTIME_MS = 10000;
 const MAX_QUICK_DEATHS = 5;
 const RESTART_DELAY_MS = 1000;
 
+<<<<<<< Updated upstream
+=======
+const backendCores = computeBackendCores();
+
+>>>>>>> Stashed changes
 // NO_CLUSTER=1: roda um único processo (sem cluster.fork()). Útil pra teste local
 // onde o orquestrador de ML e o navegador já disputam CPU — um Node por núcleo
 // só pra servir uma API local de dev soma pressão desnecessária.
@@ -59,12 +64,25 @@ async function startPrimary() {
     console.log(`Iniciando serviço de detecções em tempo real`);
     console.log(`Iniciando monitoramento de métricas de threads`);
 
+<<<<<<< Updated upstream
     const forkTimes = new Map(); // pid → instante do fork
     let quickDeaths = 0;
 
     const forkWorker = () => {
       const worker = cluster.fork();
       forkTimes.set(worker.process.pid, Date.now());
+=======
+    const workerCores = new Map(); // worker.id → núcleo em que ele fica fixado
+    const forkTimes = new Map();   // worker.id → instante do fork
+    let quickDeaths = 0;
+
+    const forkWorker = (core) => {
+      const worker = cluster.fork();
+      workerCores.set(worker.id, core);
+      forkTimes.set(worker.id, Date.now());
+      worker.on("online", () => pinProcessToCore(worker.process.pid, core));
+      return worker;
+>>>>>>> Stashed changes
     };
 
     for (let i = 0; i < numCPUs; i++) {
@@ -78,9 +96,16 @@ async function startPrimary() {
     });
 
     cluster.on("exit", (worker) => {
+<<<<<<< Updated upstream
       const pid = worker.process.pid;
       const lived = Date.now() - (forkTimes.get(pid) ?? 0);
       forkTimes.delete(pid);
+=======
+      const core = workerCores.get(worker.id) ?? backendCores[0];
+      workerCores.delete(worker.id);
+      const lived = Date.now() - (forkTimes.get(worker.id) ?? 0);
+      forkTimes.delete(worker.id);
+>>>>>>> Stashed changes
 
       // Worker que morre logo após subir (porta ocupada, erro de import...) reiniciaria
       // em loop infinito, consumindo CPU. Depois de várias mortes rápidas seguidas, desiste.
@@ -90,8 +115,13 @@ async function startPrimary() {
         process.exit(1);
       }
 
+<<<<<<< Updated upstream
       console.log(`Worker ${pid} morreu. Recriando...`);
       setTimeout(forkWorker, RESTART_DELAY_MS);
+=======
+      console.log(`Worker ${worker.process.pid} morreu. Recriando no núcleo ${core}...`);
+      setTimeout(() => forkWorker(core), RESTART_DELAY_MS);
+>>>>>>> Stashed changes
     });
 
     await realtimeService.start();

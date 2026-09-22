@@ -3,7 +3,12 @@ import { createPortal } from 'react-dom';
 import { Search, X, ChevronLeft, ChevronRight, AlertTriangle, Shield, Activity, MapPin, Filter } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import detectionService from '../../services/detectionService';
+<<<<<<< Updated upstream
 import { formatLabel, formatIncidentLabel } from '../../utils/formatLabel';
+=======
+import { IncidentCard, IncidentFilters, IncidentModal } from './components';
+import { groupIncidentRows } from './utils/groupIncidents';
+>>>>>>> Stashed changes
 
 const BACKEND = 'http://localhost:3000';
 const PAGE_SIZE = 20;
@@ -381,7 +386,17 @@ export default function IncidentesPage() {
     (async () => {
       try {
         const payload = await detectionService.list();
+<<<<<<< Updated upstream
         const items = (payload?.data || []).slice().reverse();
+=======
+        // Trata se payload for o array direto OU se vier dentro de .data / .incidents
+        const rawItems = Array.isArray(payload) 
+          ? payload 
+          : payload?.data || payload?.incidents || [];
+          
+        // o backend grava 1 incidente como 1 linha por causa: reagrupa para mostrar 1 cartão por incidente
+        const items = groupIncidentRows(rawItems.slice().reverse());
+>>>>>>> Stashed changes
         setAll(items);
       } finally {
         setLoading(false);

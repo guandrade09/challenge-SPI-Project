@@ -6,9 +6,12 @@ import numpy as np
 from core.entities import Detection
 from ml_service.inference.model_loader import load_yolo_with_engine_fallback
 
-ROBOFLOW_API_KEY = "jeWHRTzYcXTuBLZjd90v"
-ROBOFLOW_MODEL   = "spi-challenge/9"
-ROBOFLOW_URL     = f"https://serverless.roboflow.com/{ROBOFLOW_MODEL}?api_key={ROBOFLOW_API_KEY}"
+ROBOFLOW_API_KEY  = "jeWHRTzYcXTuBLZjd90v"
+ROBOFLOW_MODEL    = "spi-challenge/9"
+# Permite apontar para um Inference Server local (ex.: http://localhost:9001) sem mudar
+# código — mesmo projeto/versão do modelo, só troca onde a inferência roda.
+ROBOFLOW_BASE_URL = os.environ.get("ROBOFLOW_BASE_URL", "https://serverless.roboflow.com")
+ROBOFLOW_URL      = f"{ROBOFLOW_BASE_URL}/{ROBOFLOW_MODEL}?api_key={ROBOFLOW_API_KEY}"
 
 
 class IncidentDebouncer:
@@ -47,7 +50,7 @@ class IncidentDebouncer:
 class EPIDetector:
     """
     Detecta EPIs usando Roboflow REST API como primário.
-    Cai automaticamente para o modelo local (best10.pt) se o Roboflow falhar.
+    Cai automaticamente para o modelo local (best2.pt) se o Roboflow falhar.
     """
 
     def __init__(self, model_path: str, conf: float = 0.5, imgsz: int = 320):
