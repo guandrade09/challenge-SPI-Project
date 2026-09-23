@@ -61,6 +61,14 @@ CONFIG_SERVER_PORT = 5050
 SECTOR_CHECK_INTERVAL_S  = 30
 RECHECK_CAMERA_INTERVAL_S = 15
 
+# Rotação configurável por câmera (graus → constante cv2.rotate). Aplicada em _capture_loop,
+# antes de qualquer resize/inferência — o resto do pipeline nunca sabe que o frame foi girado.
+_ROTATE_CV2 = {
+    90:  cv2.ROTATE_90_CLOCKWISE,
+    180: cv2.ROTATE_180,
+    270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+}
+
 # Frames consecutivos necessários para confirmar cada tipo de risco
 FRAMES_EPI   = 10
 FRAMES_ERGO  = 8
@@ -89,23 +97,23 @@ class Verdict:
 # ── Debouncer simples ──────────────────────────────────────────────────────────
 class SimpleDebouncer:
     def __init__(self, required_frames: int, cooldown_frames: int):
-        self._counter  = 0
-        self._cooldown = 0
-        self.required  = required_frames
-        self.cooldown  = cooldown_frames
+        self._counter = 0
+        self._active  = False  # já confirmado, aguardando a infração sumir
+        self.required = required_frames
+        self.cooldown = cooldown_frames  # mantido pela API; não usado no latch (ver update)
 
     def update(self, is_risk: bool) -> bool:
-        if self._cooldown > 0:
-            self._cooldown -= 1
-            return False
-        if is_risk:
-            self._counter += 1
-            if self._counter >= self.required:
-                self._counter  = 0
-                self._cooldown = self.cooldown
-                return True
-        else:
+        if not is_risk:
+            self._active  = False
             self._counter = 0
+            return False
+        if self._active:
+            return False
+        self._counter += 1
+        if self._counter >= self.required:
+            self._active  = True
+            self._counter = 0
+            return True
         return False
 
 
@@ -243,6 +251,7 @@ def _calc_pck(results, threshold: float = 0.5) -> float | None:
 
 # ── Beep ───────────────────────────────────────────────────────────────────────
 def _beep():
+    print("[REALTIME] beep")
     try:
         import winsound
         winsound.Beep(1000, 300)
@@ -356,8 +365,9 @@ def _make_ws_message_handler(zone_checker):
                 raise ValueError("cameraId é obrigatório")
             setor = payload.get("setor") or ""
             epis = payload.get("epis")
+            rotation = payload.get("rotation")
             cfg = await asyncio.to_thread(
-                config_server.set_analise_config, setor, epis, raw_camera_id
+                config_server.set_analise_config, setor, epis, raw_camera_id, None, rotation
             )
             return {
                 "type": "epi_config_updated", "ok": True,
@@ -608,6 +618,10 @@ def _capture_loop(
                 _drop_camera("falha_de_leitura", "leitura falhou; nova tentativa automática agendada.")
                 continue
 
+            rotation = config_server.camera_rotation(setor, camera_id)
+            if rotation in _ROTATE_CV2:
+                frame = cv2.rotate(frame, _ROTATE_CV2[rotation])
+
             if max_width and frame.shape[1] > max_width:
                 scale = max_width / frame.shape[1]
                 frame = cv2.resize(frame, (max_width, int(frame.shape[0] * scale)))
@@ -823,7 +837,7 @@ def _run_sector(
         epi_dets = primary_epi_dets + lateral_epi_dets
 
         epi_incidents  = epi_detector.incidents(epi_dets)
-        epi_confirmed  = epi_debouncer.update(epi_incidents)
+        epi_confirmed  = epi_debouncer.update(epi_incidents, epi_dets)
         conf_media_epi = (
             round(sum(d.confidence for d in epi_dets) / len(epi_dets), 4)
             if epi_dets else None
@@ -890,7 +904,11 @@ def _run_sector(
         ergo_em_risco  = [p for p in ergo_pessoas if _pessoa_em_risco_ergo(p)]
         ergo_confirmed = ergo_debouncer.update(len(ergo_em_risco) > 0)
 
-        queda_detectada = any(p.get("queda", False) for p in ergo_pessoas)
+        # "queda" é só mais uma chave no mesmo mecanismo de toggle dos EPIs (config_server.
+        # EPI_KEY_TO_PREFIX) — reaproveita _primary_prefixes/_lateral_prefixes já calculados
+        # acima, sem lógica paralela de ativação.
+        queda_ativa = "QUEDA" in _primary_prefixes or "QUEDA" in _lateral_prefixes
+        queda_detectada = queda_ativa and any(p.get("queda", False) for p in ergo_pessoas)
         queda_confirmed = queda_debouncer.update(queda_detectada)
 
         zone_inputs = [(primary_zone_id, _pose_state["raw_frontal"], primary_source, primary_camera_id)]
@@ -935,10 +953,23 @@ def _run_sector(
         if _verdict_key != _last_verdict_key or (_now_t - _last_verdict_t >= 1.0):
             _last_verdict_key = _verdict_key
             _last_verdict_t   = _now_t
+            print("[REALTIME] send_verdict", live_verdict)
             _send_verdict(live_verdict, setor=setor)
 
-        # 4.5 Queda
-        if queda_confirmed:
+        # 4.5 Queda — checagem explícita antes do envio, além do gate já aplicado acima.
+        # Mesmo ponto de decisão usado pro envio: beep só dispara se a label "Queda"
+        # estiver ativa pra essa câmera/setor (Problema 1) e o latch confirmou (Problema 2).
+        print(
+            "[REALTIME][DEBUG] epi_confirmed=", epi_confirmed,
+            "ergo_confirmed=", ergo_confirmed,
+            "zona_confirmed=", zona_confirmed,
+            "queda_confirmed=", queda_confirmed,
+            "queda_ativa=", queda_ativa,
+        )
+        if queda_confirmed and queda_ativa:
+            print("[REALTIME] beep (queda)")
+            threading.Thread(target=_beep, daemon=True).start()
+            print("[REALTIME] send_queda")
             send_queda(
                 pessoas=[p["pessoa_id"] for p in ergo_pessoas if p.get("queda")],
                 timestamp=datetime.now().isoformat(),
@@ -967,6 +998,7 @@ def _run_sector(
             d for d in lateral_epi_dets
             if "AUSENTE" in d.label.upper() or "ERRADO" in d.label.upper()
         ]
+        print("[REALTIME] send_detections", len(primary_missing_epi))
         send_detections(
             [{"label": d.label, "confidence": round(float(d.confidence), 4),
               "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
@@ -974,6 +1006,7 @@ def _run_sector(
             setor=setor, source=primary_source, camera_id=primary_camera_id,
         )
         if has_lateral:
+            print("[REALTIME] send_detections", len(lateral_missing_epi))
             send_detections(
                 [{"label": d.label, "confidence": round(float(d.confidence), 4),
                   "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
@@ -990,6 +1023,13 @@ def _run_sector(
                 send_pose(_pose_state["pessoas_frontal"], source=primary_source, setor=setor)
 
         # 6. Incident confirmado → beep + banco
+        print(
+            "[REALTIME][DEBUG bloco 6] epi_confirmed=", epi_confirmed,
+            "ergo_confirmed=", ergo_confirmed,
+            "zona_confirmed=", zona_confirmed,
+            "queda_confirmed=", queda_confirmed,
+            "queda_ativa=", queda_ativa,
+        )
         if epi_confirmed or ergo_confirmed or zona_confirmed:
             confirmed_verdict = _aggregate(
                 epi_confirmed,

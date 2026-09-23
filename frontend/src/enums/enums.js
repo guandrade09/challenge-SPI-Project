@@ -22,4 +22,5 @@ export const DETECTION_CONFIG = [
   { id: 'mascara',   label: 'Máscara'   },
   { id: 'auricular', label: 'Auricular' },
   { id: 'botas',     label: 'Botas'     },
+  { id: 'queda',     label: 'Queda'     },
 ];

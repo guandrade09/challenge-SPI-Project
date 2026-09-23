@@ -1,5 +1,5 @@
 import React from 'react';
-import { Target, Check, Trash2, Camera, Video, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Target, Check, Trash2, Camera, Video, CheckCircle2, ShieldAlert, RotateCw } from 'lucide-react';
 import { ButtonAddCam } from './ButtonAddCam';
 import { ButtonDeleteCam } from './ButtonDeleteCam';
 import { ButtonEditCam } from './ButtonEditCam';
@@ -25,8 +25,11 @@ export const CameraManagementPanel = ({
   onClearRiskArea,
   onAddCamera,
   onDeleteCamera,
-  onEditCamera
+  onEditCamera,
+  rotation = 0,
+  onSetRotation
 }) => {
+  const ROTATION_OPTIONS = [0, 90, 180, 270];
   const presets = useCameraPresetsStore((state) => state.presets);
   const getRiskAreaForCamera = useCameraPresetsStore((state) => state.getRiskAreaForCamera);
 
@@ -178,7 +181,33 @@ export const CameraManagementPanel = ({
         </div>
       </div>
 
-      {/* SEÇÃO 2: CONTROLE DE ÁREA DE RISCO DA CÂMERA SELECIONADA */}
+      {/* SEÇÃO 2: ROTAÇÃO DA CÂMERA SELECIONADA */}
+      <div className="pt-3 mt-2 border-t border-theme-divider flex flex-col gap-2 shrink-0">
+        <div className="flex items-center justify-between px-0.5">
+          <span className="text-theme-head flex items-center gap-1.5">
+            <RotateCw size={12} className="text-theme-muted" /> Rotação da Câmera
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {ROTATION_OPTIONS.map((deg) => (
+            <button
+              key={deg}
+              type="button"
+              disabled={!currentCamera || !onSetRotation}
+              onClick={() => onSetRotation?.(currentCamera?.id, deg)}
+              className={`py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                rotation === deg
+                  ? 'bg-amber-500/15 border border-amber-500/40 text-amber-400 font-bold shadow-sm'
+                  : 'bg-transparent border border-theme-divider text-theme-muted hover:bg-theme-divider/50 hover:text-theme-main'
+              }`}
+            >
+              {deg}°
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* SEÇÃO 3: CONTROLE DE ÁREA DE RISCO DA CÂMERA SELECIONADA */}
       <div className="pt-3 mt-2 border-t border-theme-divider flex flex-col gap-2 shrink-0">
         <div className="flex items-center justify-between px-0.5">
           <span className="text-theme-head flex items-center gap-1.5">

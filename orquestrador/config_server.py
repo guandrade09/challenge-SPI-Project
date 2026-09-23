@@ -25,7 +25,8 @@ CONFIG_FILE        = os.path.join(os.path.dirname(__file__), "zona_config.json")
 ANALISE_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "analise_config.json")
 
 # ── Config de análise per-setor (lida diretamente pelo main.py via import) ─────
-_DEFAULT_ANALISE = {"epis": [], "ergonomia": True}
+_DEFAULT_ANALISE = {"epis": [], "ergonomia": True, "rotation": 0}
+ROTATIONS_VALIDAS = (0, 90, 180, 270)
 
 def _load_analise_config() -> dict:
     try:
@@ -56,7 +57,10 @@ def get_analise_config(setor: str = "", camera_id=None) -> dict:
         return _analise_config_por_setor[""].copy()
     return _DEFAULT_ANALISE.copy()
 
-# Prefixos dos labels do modelo EPI para cada chave do frontend
+# Prefixos dos labels do modelo EPI para cada chave do frontend.
+# "queda" não vem de bounding box (é calculada em pose_analyzer.detect_fall), então seu
+# "prefixo" é só um marcador interno — nunca bate com label nenhuma, só serve pra reaproveitar
+# o mesmo mecanismo de toggle/ativação por câmera/setor dos EPIs (ver uso em orquestrador/main.py).
 EPI_KEY_TO_PREFIX = {
     "auricular": "AURICULAR",
     "botas":     "BOTAS",
@@ -64,12 +68,14 @@ EPI_KEY_TO_PREFIX = {
     "colete":    "COLETE",
     "mascara":   "MASCARA",
     "oculos":    "OCULOS",
+    "queda":     "QUEDA",
 }
 
 EPI_ALIASES = {
     "1": "capacete", "2": "oculos", "3": "colete", "4": "mascara",
     "auricular": "auricular", "botas": "botas", "capacete": "capacete",
     "colete": "colete", "mascara": "mascara", "oculos": "oculos",
+    "queda": "queda",
 }
 
 
@@ -110,6 +116,7 @@ EPI_LABELS_PT = {
     "mascara":   "Máscara",
     "auricular": "Auricular",
     "botas":     "Botas",
+    "queda":     "Queda",
 }
 
 
@@ -136,13 +143,25 @@ def epi_prefixes_ativos(setor: str = "", camera_id=None) -> list[str] | None:
     return prefixes
 
 
-def set_analise_config(setor: str, epis: list[str], camera_id=None, ergonomia=None) -> dict:
+def set_analise_config(setor: str, epis: list[str], camera_id=None, ergonomia=None, rotation=None) -> dict:
     normalized_epis = normalize_epis(epis)
     key = _analysis_key(setor, camera_id)
     previous = get_analise_config(setor, camera_id)
-    cfg = {"epis": normalized_epis, "ergonomia": previous.get("ergonomia", True)}
+    cfg = {
+        "epis":      normalized_epis,
+        "ergonomia": previous.get("ergonomia", True),
+        "rotation":  previous.get("rotation", 0),
+    }
     if ergonomia is not None:
         cfg["ergonomia"] = bool(ergonomia)
+    if rotation is not None:
+        try:
+            rotation = int(rotation)
+        except (TypeError, ValueError):
+            raise ValueError("rotation deve ser 0, 90, 180 ou 270")
+        if rotation not in ROTATIONS_VALIDAS:
+            raise ValueError("rotation deve ser 0, 90, 180 ou 270")
+        cfg["rotation"] = rotation
     _analise_config_por_setor[key] = cfg
     with open(ANALISE_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(_analise_config_por_setor, f, ensure_ascii=False, indent=2)
@@ -151,6 +170,14 @@ def set_analise_config(setor: str, epis: list[str], camera_id=None, ergonomia=No
 def ergonomia_ativa(setor: str = "") -> bool:
     cfg = _analise_config_por_setor.get(setor, _DEFAULT_ANALISE)
     return bool(cfg.get("ergonomia", True))
+
+
+def camera_rotation(setor: str = "", camera_id=None) -> int:
+    """Graus de rotação (0/90/180/270) configurados para essa câmera/setor —
+    aplicada pelo orquestrador antes da inferência (ver main.py: _capture_loop)."""
+    cfg = get_analise_config(setor, camera_id)
+    rot = cfg.get("rotation", 0)
+    return rot if rot in ROTATIONS_VALIDAS else 0
 
 
 # ── Persistência local ─────────────────────────────────────────────────────────
@@ -237,7 +264,8 @@ def _build_app(zone_checker, camera_id: str) -> Flask:
         setor = data.get("setor", "")
         try:
             cfg = set_analise_config(
-                setor, data.get("epis", []), data.get("camera_id"), data.get("ergonomia")
+                setor, data.get("epis", []), data.get("camera_id"),
+                data.get("ergonomia"), data.get("rotation"),
             )
         except (ValueError, OSError) as e:
             return jsonify({"erro": str(e)}), 400

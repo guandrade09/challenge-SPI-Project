@@ -19,14 +19,11 @@
   },
   "camera:1": {
     "epis": [
-      "auricular",
-      "mascara",
-      "capacete",
-      "oculos",
-      "colete",
-      "botas"
+      "queda",
+      "capacete"
     ],
-    "ergonomia": true
+    "ergonomia": true,
+    "rotation": 180
   },
   "camera:13": {
     "epis": [],

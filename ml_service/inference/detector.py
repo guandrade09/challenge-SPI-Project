@@ -1,4 +1,5 @@
 import os
+import math
 import cv2
 import base64
 import requests
@@ -15,34 +16,84 @@ ROBOFLOW_URL      = f"{ROBOFLOW_BASE_URL}/{ROBOFLOW_MODEL}?api_key={ROBOFLOW_API
 
 
 class IncidentDebouncer:
+    # Não existe tracking real no projeto (sem track_id/ByteTrack/DeepSort) — este é um
+    # pareamento mínimo por proximidade de centro entre frames, só para o debounce não
+    # misturar duas pessoas diferentes. Não é reidentificação de longo prazo.
+    _MAX_MATCH_DIST_PX = 120
+
     def __init__(self, required_frames: int = 10, cooldown_frames: int = 60):
-        self._counters: dict[str, int]  = {}
-        self._cooldowns: dict[str, int] = {}
+        self._counters: dict[tuple[int, str], int] = {}
+        self._active:   set[tuple[int, str]]        = set()  # (pessoa, label) já confirmados, aguardando a infração sumir
         self.required_frames = required_frames
-        self.cooldown_frames = cooldown_frames
+        self.cooldown_frames = cooldown_frames  # mantido pela API; não usado no latch (ver update)
 
-    def update(self, incidents: list) -> list:
-        confirmed = []
-        active_labels = {inc.label for inc in incidents}
+        self._person_centroids: dict[int, tuple[float, float]] = {}
+        self._next_person_id = 0
 
-        for label in list(self._cooldowns):
-            self._cooldowns[label] -= 1
-            if self._cooldowns[label] <= 0:
-                del self._cooldowns[label]
-
-        for label in list(self._counters):
-            if label not in active_labels:
-                self._counters[label] = 0
-
-        for inc in incidents:
-            label = inc.label
-            if label in self._cooldowns:
+    def _match_person(self, center: tuple[float, float], claimed: set[int]) -> int:
+        """Reaproveita o slot de pessoa conhecido mais próximo do centro dado (ainda não
+        reivindicado neste frame); cria um slot novo se nenhum estiver perto o suficiente."""
+        best_id, best_dist = None, self._MAX_MATCH_DIST_PX
+        for pid, prev_center in self._person_centroids.items():
+            if pid in claimed:
                 continue
-            self._counters[label] = self._counters.get(label, 0) + 1
-            if self._counters[label] >= self.required_frames:
+            dist = math.hypot(center[0] - prev_center[0], center[1] - prev_center[1])
+            if dist <= best_dist:
+                best_id, best_dist = pid, dist
+        if best_id is None:
+            best_id = self._next_person_id
+            self._next_person_id += 1
+        self._person_centroids[best_id] = center
+        claimed.add(best_id)
+        return best_id
+
+    def _assign_people(self, all_detections: list) -> list[tuple]:
+        """Retorna [(incidente, pessoa_id), ...], usando as caixas 'PESSOA' do mesmo frame
+        como âncora. Sem nenhuma 'PESSOA' visível, cada item de risco vira seu próprio slot
+        (fallback — evita perder o incidente por falta de âncora)."""
+        pessoas = [d for d in all_detections if d.label.startswith("PESSOA")]
+        riscos  = [d for d in all_detections if d.is_risk]
+        claimed: set[int] = set()
+        pessoa_ids = [self._match_person((p.center_x, p.center_y), claimed) for p in pessoas]
+
+        pares = []
+        for d in riscos:
+            if not pessoas:
+                pares.append((d, self._match_person((d.center_x, d.center_y), claimed)))
+                continue
+            melhor_idx, melhor_dist = None, float("inf")
+            for idx, p in enumerate(pessoas):
+                if p.x1 <= d.center_x <= p.x2 and p.y1 <= d.center_y <= p.y2:
+                    melhor_idx = idx
+                    break
+                dist = math.hypot(d.center_x - p.center_x, d.center_y - p.center_y)
+                if dist < melhor_dist:
+                    melhor_idx, melhor_dist = idx, dist
+            pares.append((d, pessoa_ids[melhor_idx]))
+        return pares
+
+    def update(self, incidents: list, all_detections: list | None = None) -> list:
+        pares = self._assign_people(all_detections if all_detections is not None else incidents)
+        confirmed = []
+        active_keys = {(pid, inc.label) for inc, pid in pares}
+
+        # sumiu deste frame → libera pra confirmar de novo se a infração voltar
+        for key in list(self._active):
+            if key not in active_keys:
+                self._active.discard(key)
+        for key in list(self._counters):
+            if key not in active_keys:
+                self._counters[key] = 0
+
+        for inc, pid in pares:
+            key = (pid, inc.label)
+            if key in self._active:
+                continue
+            self._counters[key] = self._counters.get(key, 0) + 1
+            if self._counters[key] >= self.required_frames:
                 confirmed.append(inc)
-                self._counters[label] = 0
-                self._cooldowns[label] = self.cooldown_frames
+                self._counters[key] = 0
+                self._active.add(key)
 
         return confirmed
 
