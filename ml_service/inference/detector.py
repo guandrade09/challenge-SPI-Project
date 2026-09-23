@@ -7,7 +7,7 @@ from core.entities import Detection
 from ml_service.inference.model_loader import load_yolo_with_engine_fallback
 
 ROBOFLOW_API_KEY  = "jeWHRTzYcXTuBLZjd90v"
-ROBOFLOW_MODEL    = "spi-challenge/9"
+ROBOFLOW_MODEL    = "spi-challenge/10"
 # Permite apontar para um Inference Server local (ex.: http://localhost:9001) sem mudar
 # código — mesmo projeto/versão do modelo, só troca onde a inferência roda.
 ROBOFLOW_BASE_URL = os.environ.get("ROBOFLOW_BASE_URL", "https://serverless.roboflow.com")

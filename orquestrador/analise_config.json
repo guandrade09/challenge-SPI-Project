@@ -17,16 +17,6 @@
     ],
     "ergonomia": true
   },
-  "KzaMAY": {
-    "epis": [
-      "colete",
-      "oculos",
-      "capacete",
-      "mascara",
-      "auricular"
-    ],
-    "ergonomia": true
-  },
   "camera:1": {
     "epis": [
       "auricular",
@@ -36,6 +26,22 @@
       "colete",
       "botas"
     ],
+    "ergonomia": true
+  },
+  "camera:13": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:15": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:10": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:14": {
+    "epis": [],
     "ergonomia": true
   }
 }
