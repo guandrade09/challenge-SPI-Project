@@ -141,6 +141,21 @@ export async function initDatabase() {
     );
   `);
 
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS datalake_ml (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT NOT NULL,
+      label TEXT NOT NULL,
+      img TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      model TEXT NOT NULL,
+      metadata TEXT,
+      conversation_id INTEGER
+    );
+  `);
+
   // papel: identifica o papel da câmera na unidade de detecção ("frontal" p/ EPI, "lateral" p/ ergonomia/zona).
   // O orquestrador busca essas duas câmeras em GET /api/cameras pra saber qual stream usar em cada modelo.
   // (já vem na CREATE TABLE acima, mas o ALTER cobre bancos criados antes desse campo existir)

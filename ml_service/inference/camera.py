@@ -18,6 +18,7 @@ class Camera:
             # frames com qualidade ruim/corrompida em teste real — provável falta do
             # extradata (SPS/PPS) no CodecContext manual do decoder de hardware. VLC é
             # mais lento de CPU mas visualmente correto — usar até resolver o NVDEC.
+<<<<<<< HEAD
             self.cap = VLCCamera(source)
         elif isinstance(source, str) and source.lower().startswith(("http://", "https://")):
             # Streams HTTP/MJPEG (ex.: IP Webcam /video) são suportados diretamente
@@ -28,6 +29,9 @@ class Camera:
                 [cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 8000,
                  cv2.CAP_PROP_READ_TIMEOUT_MSEC, 8000],
             )
+=======
+            self.cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
+>>>>>>> develop
         else:
             self.cap = cv2.VideoCapture(source)
 
