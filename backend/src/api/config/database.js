@@ -152,7 +152,7 @@ export async function initDatabase() {
       content TEXT NOT NULL,
       model TEXT NOT NULL,
       metadata TEXT,
-      conversation_id INTEGER,
+      conversation_id INTEGER
     );
   `);
 
