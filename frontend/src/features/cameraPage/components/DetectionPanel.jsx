@@ -20,11 +20,15 @@ export const DetectionPanel = ({
   hasRiskArea,
   onClearRiskArea,
   onToggleEpi,
+  updatingEpiId,
+  epiConfigError,
   onAddCamera,
   onDeleteCamera,
   onEditCamera,
   activeTab,
   setActiveTab,
+  rotation,
+  onSetRotation,
 }) => {
 
   // ✅ CORREÇÃO COM useShallow E FALLBACK ESTÁTICO:
@@ -33,7 +37,7 @@ export const DetectionPanel = ({
       if (!currentCamera?.id) return EMPTY_ARRAY;
       const data = state.presets[currentCamera.id];
       if (Array.isArray(data)) return data;
-      return data?.selectedEpis || EMPTY_ARRAY;
+      return data?.selectedEpis || currentCamera.epis || EMPTY_ARRAY;
     })
   );
 
@@ -72,6 +76,11 @@ export const DetectionPanel = ({
       {/* ABA 1: DETECÇÃO DE EPIS */}
       {activeTab === 'epis' && (
         <div className="flex flex-col gap-2 w-full flex-1 overflow-y-auto custom-scrollbar pr-1">
+          {epiConfigError && (
+            <p role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+              {epiConfigError}
+            </p>
+          )}
           {options.map((option) => {
             const isChecked = activeEpis.includes(option.id);
 
@@ -81,6 +90,8 @@ export const DetectionPanel = ({
                 label={option.label}
                 isChecked={isChecked}
                 onToggle={() => onToggleEpi(currentCamera?.id, option.id)}
+                isUpdating={updatingEpiId === option.id}
+                disabled={Boolean(updatingEpiId)}
               />
             );
           })}
@@ -102,6 +113,8 @@ export const DetectionPanel = ({
           onAddCamera={onAddCamera}
           onDeleteCamera={onDeleteCamera}
           onEditCamera={onEditCamera}
+          rotation={rotation}
+          onSetRotation={onSetRotation}
         />
       )}
     </div>

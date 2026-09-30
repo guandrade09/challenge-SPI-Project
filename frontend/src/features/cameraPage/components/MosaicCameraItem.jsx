@@ -1,93 +1,35 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { processWsStreamMessage } from '../../../utils/websocketStream';
-
-const WS_URL = 'ws://127.0.0.1:8765';
+import React, { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { makeStreamKey, useCameraStreamStore } from '../../../store/useCameraStreamStore';
+import { cameraSocketManager } from '../../../services/websocket/CameraSocketManager';
 
 export function MosaicCameraItem({ cam, isActive, onClick }) {
-  const imgRef = useRef(null);
-  const wsRef = useRef(null);
-  const reconnectRef = useRef(null);
-  const timeoutRef = useRef(null);
-  const lastImgUrlRef = useRef(null);
-  const camRef = useRef(cam);
+  const [reconnectError, setReconnectError] = useState('');
+  const setor = cam?.setor;
+  const source = cam?.papel || 'frontal';
 
-  const [connected, setConnected] = useState(false);
-
-  // Atualiza a referência da câmera sem disparar re-render do efeito de rede
+  // Assina o WebSocket gerenciado (compartilha a mesma conexão global)
   useEffect(() => {
-    camRef.current = cam;
-  }, [cam]);
+    cameraSocketManager.subscribe();
+    return () => cameraSocketManager.unsubscribe();
+  }, []);
 
-  useEffect(() => {
-    let isMounted = true;
+  const frameUrl = useCameraStreamStore((s) => s.getFrame(cam?.id, setor, source));
+  const wsConnected = useCameraStreamStore((s) => s.connected);
+  const streamStatus = useCameraStreamStore((s) => s.streamStatus[makeStreamKey(cam?.id, setor, source)]);
+  const connected = wsConnected && !!frameUrl;
+  const isReconnecting = streamStatus?.status === 'reconnecting';
 
-    function resetFrameTimeout() {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => {
-        if (isMounted) {
-          setConnected(false);
-          if (imgRef.current) imgRef.current.src = '';
-        }
-      }, 2500);
+  const handleReconnect = async (event) => {
+    event.stopPropagation();
+    if (cam?.id === null || cam?.id === undefined || isReconnecting) return;
+    setReconnectError('');
+    try {
+      await cameraSocketManager.reconnectStream({ cameraId: cam.id, setor, source });
+    } catch (error) {
+      setReconnectError(error.message || 'Falha ao reconectar');
     }
-
-    function connect() {
-      if (reconnectRef.current) clearTimeout(reconnectRef.current);
-
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.onerror = null;
-        wsRef.current.close();
-      }
-
-      const ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
-
-      ws.onmessage = async (event) => {
-        if (!isMounted) return;
-        const streamData = await processWsStreamMessage(event, camRef.current);
-
-        if (streamData && isMounted) {
-          resetFrameTimeout();
-          setConnected(true);
-
-          if (imgRef.current) {
-            if (lastImgUrlRef.current) URL.revokeObjectURL(lastImgUrlRef.current);
-            lastImgUrlRef.current = streamData.imageUrl;
-            imgRef.current.src = streamData.imageUrl;
-          }
-        }
-      };
-
-      ws.onerror = () => {
-        if (isMounted) {
-          setConnected((prev) => (prev ? false : prev)); // Evita re-render se já for false
-        }
-      };
-
-      ws.onclose = () => {
-        if (isMounted) {
-          setConnected((prev) => (prev ? false : prev));
-          if (imgRef.current) imgRef.current.src = '';
-          reconnectRef.current = setTimeout(connect, 5000); // Aumente o intervalo se o servidor estiver offline
-        }
-      };
-    }
-
-    connect();
-
-    return () => {
-      isMounted = false;
-      if (reconnectRef.current) clearTimeout(reconnectRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.onerror = null;
-        wsRef.current.close();
-      }
-      if (lastImgUrlRef.current) URL.revokeObjectURL(lastImgUrlRef.current);
-    };
-  }, [cam?.id]); // Mantém dependência única pelo ID primitivo
+  };
 
   return (
     <div
@@ -98,19 +40,30 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
           : 'border-[var(--p-border)] opacity-85 hover:opacity-100 hover:border-[var(--p-subtext)]/60'
       }`}
     >
-      <img
-        ref={imgRef}
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-0 ${
-          connected ? 'opacity-100' : 'opacity-0'
-        }`}
-        alt=""
-      />
+      {connected && frameUrl ? (
+        <img
+          key={`${cam?.id}:${setor}:${source}`}
+          src={frameUrl}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-0 opacity-100"
+          alt=""
+        />
+      ) : null}
 
       {!connected && (
-        <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 z-0">
-          <span className="font-mono text-[10px] text-neutral-500 uppercase font-bold tracking-widest">
-            {cam?.setor || cam?.nome || 'OFFLINE'}
+        <div className="absolute inset-0 flex flex-col gap-2 items-center justify-center bg-neutral-900 z-0 px-3">
+          <span className="font-mono text-[10px] text-neutral-500 uppercase font-bold tracking-widest text-center">
+            {isReconnecting ? 'RECONECTANDO...' : 'SEM SINAL'}
           </span>
+          <button
+            type="button"
+            onClick={handleReconnect}
+            disabled={!wsConnected || isReconnecting}
+            className="relative z-30 px-2 py-1 rounded bg-amber-600 hover:bg-amber-500 disabled:bg-neutral-700 text-white font-mono text-[9px] font-bold uppercase flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-3 h-3 ${isReconnecting ? 'animate-spin' : ''}`} />
+            Tentar novamente
+          </button>
+          {reconnectError && <span className="text-[8px] text-red-400 text-center">{reconnectError}</span>}
         </div>
       )}
 
@@ -119,7 +72,7 @@ export function MosaicCameraItem({ cam, isActive, onClick }) {
 
       <div className="absolute top-2 left-2.5 right-2.5 flex items-center justify-between gap-2 z-20">
         <span className="font-bold text-xs truncate text-white drop-shadow-md tracking-wide">
-          {cam?.setor || cam?.nome || 'Câmera'}
+          {cam?.nome || cam?.setor || 'Câmera'}
         </span>
         <span
           className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors duration-300 border border-black/40 ${

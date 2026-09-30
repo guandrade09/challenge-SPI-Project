@@ -4,28 +4,45 @@ import cv2
 from ultralytics import YOLO
 from shapely.geometry import Point, Polygon
 
-# Keypoints verificados em ordem de prioridade
-# Se qualquer um deles estiver dentro da zona, considera invasão
-KEYPOINTS_CHECK = {
-    # Corpo inferior
-    "tornozelo_esq": 15,
-    "tornozelo_dir": 16,
-    "joelho_esq":    13,
-    "joelho_dir":    14,
-    "quadril_esq":   11,
-    "quadril_dir":   12,
-    # Corpo superior
-    "ombro_esq":     5,
-    "ombro_dir":     6,
-    "nariz":         0,
-    # Membros superiores — detecta mãos/braços na zona
-    "pulso_esq":     9,
-    "pulso_dir":     10,
-    "cotovelo_esq":  7,
-    "cotovelo_dir":  8,
-}
+# Ponto único que representa a posição da pessoa pra checagem de invasão (não mais
+# "qualquer keypoint dentro conta") — evita falso positivo de braço/mão esticados sobre
+# a zona sem a pessoa estar realmente lá: tornozelos → quadris → centro da bounding box.
+IDX_TORNOZELO_ESQ = 15
+IDX_TORNOZELO_DIR = 16
+IDX_QUADRIL_ESQ   = 11
+IDX_QUADRIL_DIR   = 12
 
 KP_CONF_THRESHOLD = 0.2
+
+
+def _ponto_medio_valido(kps: np.ndarray, idx_a: int, idx_b: int) -> tuple[float, float] | None:
+    """Centro dos dois keypoints se ambos tiverem confiança suficiente; usa só o que
+    tiver se um estiver oculto; None se nenhum — sinaliza pro próximo nível de fallback."""
+    a, b = kps[idx_a], kps[idx_b]
+    a_ok = float(a[2]) >= KP_CONF_THRESHOLD
+    b_ok = float(b[2]) >= KP_CONF_THRESHOLD
+    if a_ok and b_ok:
+        return (float(a[0]) + float(b[0])) / 2, (float(a[1]) + float(b[1])) / 2
+    if a_ok:
+        return float(a[0]), float(a[1])
+    if b_ok:
+        return float(b[0]), float(b[1])
+    return None
+
+
+def _ponto_referencia(kps: np.ndarray, bbox: list) -> tuple[tuple[float, float] | None, str | None]:
+    """Ponto único (x, y) usado pra decidir invasão, e de onde ele veio (informativo).
+    Ordem: tornozelos → quadris → centro da bbox."""
+    ponto = _ponto_medio_valido(kps, IDX_TORNOZELO_ESQ, IDX_TORNOZELO_DIR)
+    if ponto is not None:
+        return ponto, "tornozelos"
+    ponto = _ponto_medio_valido(kps, IDX_QUADRIL_ESQ, IDX_QUADRIL_DIR)
+    if ponto is not None:
+        return ponto, "quadris"
+    if len(bbox) == 4:
+        x1, y1, x2, y2 = bbox
+        return ((x1 + x2) / 2, (y1 + y2) / 2), "bbox"
+    return None, None
 
 
 def decode_frame(frame_b64: str) -> np.ndarray:
@@ -85,25 +102,27 @@ class ZoneChecker:
             return zone["nome"], []
 
         polygon: Polygon = zone["polygon"]
-        kps_all  = results[0].keypoints.data
+        result   = results[0]
+        kps_all  = result.keypoints.data
+        boxes    = result.boxes
         pessoas  = []
 
         epis_certo  = zone.get("epis_certo_labels", [])
         epis_obrig  = zone.get("epis_obrigatorios", [])
 
         for i, kps in enumerate(kps_all.cpu().numpy()):
-            kps_dentro = []
-            for nome_kp, idx in KEYPOINTS_CHECK.items():
-                kp = kps[idx]
-                if float(kp[2]) >= KP_CONF_THRESHOLD:
-                    if polygon.contains(Point(float(kp[0]), float(kp[1]))):
-                        kps_dentro.append(nome_kp)
+            if boxes is not None and i < len(boxes):
+                bbox = list(map(float, boxes[i].xyxy[0].tolist()))
+            else:
+                bbox = []
 
-            invadiu = len(kps_dentro) > 0
+            ponto, origem = _ponto_referencia(kps, bbox)
+            invadiu = ponto is not None and polygon.contains(Point(ponto[0], ponto[1]))
+
             pessoas.append({
                 "pessoa_id":         i,
                 "invadiu":           invadiu,
-                "keypoints_dentro":  kps_dentro,
+                "keypoints_dentro":  [origem] if invadiu else [],
                 "epis_obrigatorios": epis_obrig,    # passa para o orquestrador cruzar com EPI detector
                 "epis_certo_labels": epis_certo,
             })

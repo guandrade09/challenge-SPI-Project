@@ -3,10 +3,10 @@
     "src/api"
   ],
   "ignore": [
-    "logs/**",
-    "uploads/**",
+    "**/logs/**",
+    "**/uploads/**",
     "**/*.sqlite*",
-    "node_modules/**"
+    "**/node_modules/**"
   ],
   "ext": "js,mjs,cjs,json",
   "restartable": "rs",

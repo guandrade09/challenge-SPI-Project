@@ -11,6 +11,8 @@ export function CameraViewContainer({
   onSelectCamera,
   onNextCamera,
   onPrevCamera,
+  detectionsVisibility = {},
+  onToggleDetections,
 }) {
   const currentCameraId = currentCamera?.id;
 
@@ -84,6 +86,7 @@ export function CameraViewContainer({
       <div className="w-full h-full relative overflow-hidden rounded-2xl bg-neutral-950 border border-theme-divider shadow-2xl">
         {currentCamera ? (
           <CameraView
+            key={currentCamera.id}
             camera={currentCamera}
             activeEpi={activeEpiName}
             isEditingRiskArea={isEditingRiskArea}
@@ -92,6 +95,8 @@ export function CameraViewContainer({
             setLayoutMode={setLayoutMode}
             onNextCamera={onNextCamera}
             onPrevCamera={onPrevCamera}
+            showDetections={detectionsVisibility[currentCamera.id] !== false}
+            onToggleDetections={onToggleDetections}
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/60 border border-dashed border-neutral-800 rounded-2xl text-neutral-500 font-mono text-xs">
@@ -112,6 +117,7 @@ export function CameraViewContainer({
           <div key={`slot-${slotIndex}`} className="w-full h-full relative overflow-hidden">
             {cam ? (
               <CameraView
+                key={cam.id}
                 camera={cam}
                 activeEpi={cam.id === currentCameraId ? activeEpiName : null}
                 isEditingRiskArea={cam.id === currentCameraId && isEditingRiskArea}
@@ -121,6 +127,8 @@ export function CameraViewContainer({
                 onExpand={() => handleExpandCamera(cam.id)}
                 onNextSlotCamera={() => handleSlotNavigate(slotIndex, 'next')}
                 onPrevSlotCamera={() => handleSlotNavigate(slotIndex, 'prev')}
+                showDetections={detectionsVisibility[cam.id] !== false}
+                onToggleDetections={onToggleDetections}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/60 border border-dashed border-neutral-800 text-neutral-500 font-mono text-xs">

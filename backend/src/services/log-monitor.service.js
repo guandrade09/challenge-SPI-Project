@@ -6,23 +6,22 @@ class LogMonitorService {
     this.logsDir = path.join(process.cwd(), "logs");
     this.logsFile = path.join(this.logsDir, "realtime-log.json");
     this.maxEntries = 15;
-    this.intervalId = null;
+    this.started = false;
+    // Fila de escritas: serializa read-modify-write dentro do processo (sem perder entradas)
+    this.writeQueue = Promise.resolve();
   }
 
-  async start(intervalMs = 1000) {
-    if (this.intervalId) {
+  async start() {
+    if (this.started) {
       return;
     }
 
     await this.ensureLogFileExists();
-    this.intervalId = setInterval(() => this.trimOldEntries(), intervalMs);
+    this.started = true;
   }
 
   stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
+    this.started = false;
   }
 
   async ensureLogFileExists() {
@@ -44,23 +43,32 @@ class LogMonitorService {
     }
   }
 
+  // Escrita atômica (tmp + rename): um leitor nunca enxerga o JSON pela metade —
+  // antes isso fazia readEntries devolver [] e o próximo append apagar o histórico.
   async writeEntries(entries) {
     await fs.mkdir(this.logsDir, { recursive: true });
-    await fs.writeFile(this.logsFile, JSON.stringify(entries, null, 2), "utf8");
-  }
+    const tmpFile = `${this.logsFile}.${process.pid}.tmp`;
+    const data = JSON.stringify(entries, null, 2);
 
-  async appendEntry(entry) {
-    const entries = await this.readEntries();
-    entries.push(entry);
-    await this.writeEntries(this.trimEntries(entries));
-  }
-
-  async trimOldEntries() {
-    const entries = await this.readEntries();
-    const trimmed = this.trimEntries(entries);
-    if (trimmed.length !== entries.length) {
-      await this.writeEntries(trimmed);
+    await fs.writeFile(tmpFile, data, "utf8");
+    try {
+      await fs.rename(tmpFile, this.logsFile);
+    } catch (error) {
+      // No Windows o rename pode falhar (EPERM/EBUSY) se outro processo está lendo o arquivo
+      await fs.writeFile(this.logsFile, data, "utf8");
+      await fs.rm(tmpFile, { force: true });
     }
+  }
+
+  appendEntry(entry) {
+    const task = this.writeQueue.then(async () => {
+      const entries = await this.readEntries();
+      entries.push(entry);
+      await this.writeEntries(this.trimEntries(entries));
+    });
+    // a fila não pode ficar "envenenada" por uma falha; o chamador ainda recebe o erro
+    this.writeQueue = task.catch(() => {});
+    return task;
   }
 
   trimEntries(entries) {

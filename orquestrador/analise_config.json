@@ -1,38 +1,43 @@
 {
-  "": {
-    "epis": [
-      "capacete",
-      "mascara"
-    ],
-    "ergonomia": true
-  },
-  "Celular": {
-    "epis": [
-      "capacete",
-      "mascara"
-    ],
-    "ergonomia": true
-  },
-  "Quarto": {
-    "epis": [
-      "oculos"
-    ],
-    "ergonomia": true
-  },
-  "Escritorio": {
-    "epis": [
-      "capacete",
-      "colete",
-      "mascara",
-      "oculos"
-    ],
-    "ergonomia": true
-  },
-  "Teste": {
+  "camera:21": {
     "epis": [],
     "ergonomia": true
   },
-  "TESTE": {
+  "camera:22": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "KzaMAY": {
+    "epis": [
+      "colete",
+      "oculos",
+      "capacete",
+      "mascara",
+      "auricular"
+    ],
+    "ergonomia": true
+  },
+  "camera:1": {
+    "epis": [
+      "queda",
+      "capacete"
+    ],
+    "ergonomia": true,
+    "rotation": 180
+  },
+  "camera:13": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:15": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:10": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:14": {
     "epis": [],
     "ergonomia": true
   }

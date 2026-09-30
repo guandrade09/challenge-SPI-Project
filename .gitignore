@@ -42,3 +42,9 @@ backend/src/uploads/
 backend/src/api/uploads/
 ml_service/incidents/
 
+# Arquivos de testes
+tests/
+
+# Arquivos de contextos
+context/
+

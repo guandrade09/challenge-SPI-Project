@@ -4,7 +4,7 @@ import * as cameraRepository from '../repositories/camera.repository.js';
 
 export async function createCamera(cameraData) {
   const camera = new Camera(cameraData);
-  
+  await ensureUniqueStreamKey(camera);
   const savedCamera = await cameraRepository.saveCamera(camera);
   return savedCamera;
 }
@@ -27,6 +27,8 @@ export async function updateCameraById(id, cameraData) {
     updatedAt: new Date().toISOString()
   });
 
+  await ensureUniqueStreamKey(updatedData, id);
+
   return await cameraRepository.updateCamera(id, updatedData);
 }
 
@@ -36,4 +38,14 @@ export async function deleteCameraById(id) {
 
   await cameraRepository.deleteCamera(id);
   return true;
+}
+
+async function ensureUniqueStreamKey(camera, excludeId = null) {
+  if (!camera.setor) return;
+  const papel = camera.papel || 'frontal';
+  const duplicate = await cameraRepository.getCameraBySectorAndRole(camera.setor, papel, excludeId);
+  if (!duplicate) return;
+  const error = new Error(`O setor "${camera.setor}" já possui uma câmera ${papel}`);
+  error.statusCode = 409;
+  throw error;
 }

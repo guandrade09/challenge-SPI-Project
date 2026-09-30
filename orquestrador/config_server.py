@@ -11,12 +11,13 @@ Endpoints de análise:
   POST   /config/analise   — { "epis": ["capacete","colete"], "ergonomia": true }
   GET    /config/analise   — retorna config atual
 
-epis = [] significa "todos ativos" (padrão/backward compat).
+Configuração ausente e lista vazia significam "nenhum EPI ativo".
 """
 
 import json
 import os
 import threading
+import unicodedata
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -24,7 +25,8 @@ CONFIG_FILE        = os.path.join(os.path.dirname(__file__), "zona_config.json")
 ANALISE_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "analise_config.json")
 
 # ── Config de análise per-setor (lida diretamente pelo main.py via import) ─────
-_DEFAULT_ANALISE = {"epis": [], "ergonomia": True}
+_DEFAULT_ANALISE = {"epis": [], "ergonomia": True, "rotation": 0}
+ROTATIONS_VALIDAS = (0, 90, 180, 270)
 
 def _load_analise_config() -> dict:
     try:
@@ -41,10 +43,24 @@ def _load_analise_config() -> dict:
 # chave "" (vazia) é o fallback global (retrocompatibilidade)
 _analise_config_por_setor: dict[str, dict] = _load_analise_config()
 
-def get_analise_config(setor: str = "") -> dict:
-    return _analise_config_por_setor.get(setor, _DEFAULT_ANALISE).copy()
+def _analysis_key(setor: str = "", camera_id=None) -> str:
+    return f"camera:{camera_id}" if camera_id is not None and str(camera_id) != "" else setor
 
-# Prefixos dos labels do modelo EPI para cada chave do frontend
+
+def get_analise_config(setor: str = "", camera_id=None) -> dict:
+    camera_key = _analysis_key(setor, camera_id)
+    if camera_key in _analise_config_por_setor:
+        return _analise_config_por_setor[camera_key].copy()
+    if setor in _analise_config_por_setor:
+        return _analise_config_por_setor[setor].copy()
+    if "" in _analise_config_por_setor:
+        return _analise_config_por_setor[""].copy()
+    return _DEFAULT_ANALISE.copy()
+
+# Prefixos dos labels do modelo EPI para cada chave do frontend.
+# "queda" não vem de bounding box (é calculada em pose_analyzer.detect_fall), então seu
+# "prefixo" é só um marcador interno — nunca bate com label nenhuma, só serve pra reaproveitar
+# o mesmo mecanismo de toggle/ativação por câmera/setor dos EPIs (ver uso em orquestrador/main.py).
 EPI_KEY_TO_PREFIX = {
     "auricular": "AURICULAR",
     "botas":     "BOTAS",
@@ -52,25 +68,116 @@ EPI_KEY_TO_PREFIX = {
     "colete":    "COLETE",
     "mascara":   "MASCARA",
     "oculos":    "OCULOS",
+    "queda":     "QUEDA",
 }
 
-def epi_prefixes_ativos(setor: str = "") -> list[str] | None:
+EPI_ALIASES = {
+    "1": "capacete", "2": "oculos", "3": "colete", "4": "mascara",
+    "auricular": "auricular", "botas": "botas", "capacete": "capacete",
+    "colete": "colete", "mascara": "mascara", "oculos": "oculos",
+    "queda": "queda",
+}
+
+
+def _normalize_epi_key(value) -> str | None:
+    if isinstance(value, dict):
+        value = value.get("key", value.get("nome", value.get("name", value.get("id"))))
+    if value is None:
+        return None
+    normalized = "".join(
+        char for char in unicodedata.normalize("NFD", str(value).strip().lower())
+        if unicodedata.category(char) != "Mn"
+    )
+    return EPI_ALIASES.get(normalized)
+
+
+def normalize_epis(epis) -> list[str]:
+    if not isinstance(epis, list):
+        raise ValueError("epis deve ser uma lista")
+    normalized = []
+    invalid = []
+    for item in epis:
+        key = _normalize_epi_key(item)
+        if key is None:
+            invalid.append(str(item))
+        elif key not in normalized:
+            normalized.append(key)
+    if invalid:
+        raise ValueError(f"EPIs inválidos: {', '.join(invalid)}")
+    return normalized
+
+
+# Nome de exibição (ordem = ordem na tela). Chaves de EPI_KEY_TO_PREFIX que não estiverem
+# aqui aparecem no fim, com o nome capitalizado — assim uma label nova nunca some da UI.
+EPI_LABELS_PT = {
+    "colete":    "Colete",
+    "oculos":    "Óculos",
+    "capacete":  "Capacete",
+    "mascara":   "Máscara",
+    "auricular": "Auricular",
+    "botas":     "Botas",
+    "queda":     "Queda",
+}
+
+
+def listar_epis() -> list[dict]:
+    """Todas as labels de EPI configuradas (fonte única para a UI dos toggles)."""
+    ordem = [k for k in EPI_LABELS_PT if k in EPI_KEY_TO_PREFIX]
+    ordem += [k for k in EPI_KEY_TO_PREFIX if k not in EPI_LABELS_PT]
+    return [
+        {"id": k, "label": EPI_LABELS_PT.get(k, k.capitalize()), "prefixo": EPI_KEY_TO_PREFIX[k]}
+        for k in ordem
+    ]
+
+
+def epi_prefixes_ativos(setor: str = "", camera_id=None) -> list[str] | None:
     """Retorna lista de prefixos ativos para o setor.
-    None  → setor sem config, detecta todos os EPIs.
-    []    → config existe mas epis vazio, pula inferência EPI.
+    None  → detecta todos os EPIs.
     [...]  → apenas esses prefixos.
     """
-    if setor not in _analise_config_por_setor:
-        return None  # sem config → detecta tudo
-    cfg = _analise_config_por_setor[setor]
-    epis = cfg.get("epis", [])
-    if not epis:
-        return []  # configurado explicitamente sem EPIs → pula EPI
-    return [EPI_KEY_TO_PREFIX[k] for k in epis if k in EPI_KEY_TO_PREFIX]
+    cfg = get_analise_config(setor, camera_id)
+    epis = cfg.get("epis")
+    if epis is None:
+        return []
+    prefixes = [EPI_KEY_TO_PREFIX[k.lower()] for k in epis if k.lower() in EPI_KEY_TO_PREFIX]
+    return prefixes
+
+
+def set_analise_config(setor: str, epis: list[str], camera_id=None, ergonomia=None, rotation=None) -> dict:
+    normalized_epis = normalize_epis(epis)
+    key = _analysis_key(setor, camera_id)
+    previous = get_analise_config(setor, camera_id)
+    cfg = {
+        "epis":      normalized_epis,
+        "ergonomia": previous.get("ergonomia", True),
+        "rotation":  previous.get("rotation", 0),
+    }
+    if ergonomia is not None:
+        cfg["ergonomia"] = bool(ergonomia)
+    if rotation is not None:
+        try:
+            rotation = int(rotation)
+        except (TypeError, ValueError):
+            raise ValueError("rotation deve ser 0, 90, 180 ou 270")
+        if rotation not in ROTATIONS_VALIDAS:
+            raise ValueError("rotation deve ser 0, 90, 180 ou 270")
+        cfg["rotation"] = rotation
+    _analise_config_por_setor[key] = cfg
+    with open(ANALISE_CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(_analise_config_por_setor, f, ensure_ascii=False, indent=2)
+    return cfg.copy()
 
 def ergonomia_ativa(setor: str = "") -> bool:
     cfg = _analise_config_por_setor.get(setor, _DEFAULT_ANALISE)
     return bool(cfg.get("ergonomia", True))
+
+
+def camera_rotation(setor: str = "", camera_id=None) -> int:
+    """Graus de rotação (0/90/180/270) configurados para essa câmera/setor —
+    aplicada pelo orquestrador antes da inferência (ver main.py: _capture_loop)."""
+    cfg = get_analise_config(setor, camera_id)
+    rot = cfg.get("rotation", 0)
+    return rot if rot in ROTATIONS_VALIDAS else 0
 
 
 # ── Persistência local ─────────────────────────────────────────────────────────
@@ -139,10 +246,15 @@ def _build_app(zone_checker, camera_id: str) -> Flask:
             print("[ZONA] Removida")
         return jsonify({"ok": removed, "camera_id": camera_id})
 
+    @app.route("/config/epis", methods=["GET"])
+    def get_epis():
+        return jsonify({"epis": listar_epis()})
+
     @app.route("/config/analise", methods=["GET"])
     def get_analise():
         setor = request.args.get("setor", "")
-        return jsonify(get_analise_config(setor))
+        camera_id = request.args.get("camera_id")
+        return jsonify(get_analise_config(setor, camera_id))
 
     @app.route("/config/analise", methods=["POST"])
     def set_analise():
@@ -150,16 +262,13 @@ def _build_app(zone_checker, camera_id: str) -> Flask:
         if not data:
             return jsonify({"erro": "body JSON obrigatório"}), 400
         setor = data.get("setor", "")
-        cfg = _analise_config_por_setor.setdefault(setor, {"epis": [], "ergonomia": True})
-        if "epis" in data:
-            cfg["epis"] = [k for k in data["epis"] if k in EPI_KEY_TO_PREFIX]
-        if "ergonomia" in data:
-            cfg["ergonomia"] = bool(data["ergonomia"])
         try:
-            with open(ANALISE_CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(_analise_config_por_setor, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"[CONFIG] Aviso: não foi possível salvar analise_config.json: {e}")
+            cfg = set_analise_config(
+                setor, data.get("epis", []), data.get("camera_id"),
+                data.get("ergonomia"), data.get("rotation"),
+            )
+        except (ValueError, OSError) as e:
+            return jsonify({"erro": str(e)}), 400
         print(f"[CONFIG] Análise setor='{setor}': epis={cfg['epis']} ergonomia={cfg['ergonomia']}")
         return jsonify({"ok": True, "setor": setor, **cfg})
 

@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { normalizeEpiList } from '../utils/epiConfig';
 
-const DEFAULT_PRESET = { selectedEpis: [], riskArea: null };
+const DEFAULT_PRESET = { selectedEpis: [], riskArea: null, rotation: 0 };
 
 export const useCameraPresetsStore = create(
   persist(
@@ -40,7 +41,7 @@ export const useCameraPresetsStore = create(
             ...state.presets,
             [cameraId]: {
               ...currentPreset,
-              selectedEpis: Array.isArray(episList) ? episList : []
+              selectedEpis: normalizeEpiList(episList)
             }
           }
         };
@@ -55,6 +56,23 @@ export const useCameraPresetsStore = create(
             [cameraId]: {
               ...currentPreset,
               riskArea
+            }
+          }
+        };
+      }),
+
+      setRotationForCamera: (cameraId, rotation) => set((state) => {
+        if (!cameraId) return state;
+        const existing = state.presets[cameraId];
+        const currentPreset = Array.isArray(existing)
+          ? { ...DEFAULT_PRESET, selectedEpis: existing }
+          : (existing || DEFAULT_PRESET);
+        return {
+          presets: {
+            ...state.presets,
+            [cameraId]: {
+              ...currentPreset,
+              rotation
             }
           }
         };
@@ -93,6 +111,13 @@ export const useCameraPresetsStore = create(
         const data = get().presets[cameraId];
         if (Array.isArray(data)) return null;
         return data?.riskArea || null;
+      },
+
+      getRotationForCamera: (cameraId) => {
+        if (!cameraId) return 0;
+        const data = get().presets[cameraId];
+        if (Array.isArray(data)) return 0;
+        return data?.rotation ?? 0;
       },
 
       getPresetForCamera: (cameraId) => {
