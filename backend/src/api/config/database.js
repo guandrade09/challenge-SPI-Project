@@ -144,6 +144,40 @@ export async function initDatabase() {
     ALTER TABLE cameras ADD COLUMN papel TEXT;
   `).catch(() => {});
 
+  // funcionarios: cadastro facial. face_encoding é o embedding (vetor JSON) calculado pelo
+  // orquestrador (ml_facial) a partir de foto_path — o backend só armazena o cache, quem
+  // calcula e compara os vetores é o processador Python.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS funcionarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      matricula TEXT,
+      setor TEXT,
+      cargo TEXT,
+      foto_path TEXT,
+      face_encoding TEXT,
+      status TEXT NOT NULL DEFAULT 'ativo',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  // reconhecimentos_faciais: log de cada reconhecimento reportado pelo orquestrador.
+  // funcionario_id NULL = rosto detectado mas não reconhecido (abaixo do limiar de confiança).
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS reconhecimentos_faciais (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      funcionario_id INTEGER,
+      nome_detectado TEXT,
+      camera_id TEXT,
+      setor TEXT,
+      confidence REAL,
+      timestamp TEXT NOT NULL,
+      img_path TEXT,
+      FOREIGN KEY (funcionario_id) REFERENCES funcionarios(id)
+    );
+  `);
+
   return db;
 }
 

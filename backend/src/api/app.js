@@ -10,6 +10,8 @@ import logRoutes from "./routes/log.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import cameraRoutes from "./routes/camera.routes.js";
 import zonaRoutes from "./routes/zona.routes.js";
+import funcionarioRoutes from "./routes/funcionario.routes.js";
+import reconhecimentoFacialRoutes from "./routes/reconhecimentoFacial.routes.js";
 
 import { ErrorHandler } from "./utils/appError.js";
 
@@ -34,6 +36,8 @@ app.use("/api", logRoutes);
 app.use("/api", chatRoutes);
 app.use("/api", cameraRoutes);
 app.use("/api", zonaRoutes);
+app.use("/api", funcionarioRoutes);
+app.use("/api", reconhecimentoFacialRoutes);
 
 app.use((err, req, res, next) => {
   if (err && (err instanceof SyntaxError || err.type === "entity.parse.failed")) {
