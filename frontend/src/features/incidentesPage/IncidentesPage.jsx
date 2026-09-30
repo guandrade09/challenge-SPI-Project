@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import detectionService from '../../services/detectionService';
 import { IncidentCard, IncidentFilters, IncidentModal } from './components';
+import { groupIncidentRows } from './utils/groupIncidents';
 
 const PAGE_SIZE = 20;
 
@@ -21,11 +22,12 @@ export default function IncidentesPage() {
       try {
         const payload = await detectionService.list();
         // Trata se payload for o array direto OU se vier dentro de .data / .incidents
-        const rawItems = Array.isArray(payload) 
-          ? payload 
+        const rawItems = Array.isArray(payload)
+          ? payload
           : payload?.data || payload?.incidents || [];
-          
-        const items = rawItems.slice().reverse();
+
+        // o backend grava 1 incidente como 1 linha por causa: reagrupa para mostrar 1 cartão por incidente
+        const items = groupIncidentRows(rawItems.slice().reverse());
         setAll(items);
       } catch (err) {
         console.error("Erro ao carregar incidentes:", err);

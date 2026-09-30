@@ -12,6 +12,7 @@ import { useCameraStreamStore } from '../../store/useCameraStreamStore';
 import { useUiStore } from '../../store/useUiStore';
 import { DETECTION_CONFIG } from '../../enums/enums';
 import { cameraSocketManager } from '../../services/websocket/CameraSocketManager';
+import { epiConfigService } from '../../services/epiConfigService';
 import { normalizeEpiList } from '../../utils/epiConfig';
 
 const EMPTY_ARRAY = [];
@@ -27,6 +28,7 @@ export const CameraPage = () => {
   const updateCamera = useCameraStore((state) => state.updateCamera);
 
   const setSelectedEpisForCamera = useCameraPresetsStore((state) => state.setSelectedEpisForCamera);
+  const setRotationForCamera = useCameraPresetsStore((state) => state.setRotationForCamera);
   const lastCameraId = useCameraPresetsStore((state) => state.lastCameraId);
   const setLastCameraId = useCameraPresetsStore((state) => state.setLastCameraId);
   const wsConnected = useCameraStreamStore((state) => state.connected);
@@ -38,29 +40,51 @@ export const CameraPage = () => {
   const [detectionsVisibility, setDetectionsVisibility] = useState({});
   const [updatingEpiId, setUpdatingEpiId] = useState(null);
   const [epiConfigError, setEpiConfigError] = useState('');
-  const initializedEpiCamerasRef = useRef(new Set());
+  const hydratedEpiCamerasRef = useRef(new Set());   // câmeras cujo estado real já foi lido
+  const editedEpiCamerasRef = useRef(new Set());     // câmeras que o usuário alterou nesta sessão
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     fetchCameras();
   }, [fetchCameras]);
 
+  // Carrega (SOMENTE LEITURA) a configuração de EPI existente. A fonte da verdade é o
+  // orquestrador; se ele não responder, mantém o preset local e, na falta dele, usa o que
+  // está salvo no banco (camera.epis). Abrir a página nunca escreve nada — só o toggle escreve.
   useEffect(() => {
-    if (!wsConnected || cameras.length === 0) return;
+    if (cameras.length === 0) return;
     cameras.forEach((camera) => {
-      if (initializedEpiCamerasRef.current.has(camera.id)) return;
-      initializedEpiCamerasRef.current.add(camera.id);
-      const epis = [];
-      setSelectedEpisForCamera(camera.id, epis);
-      cameraSocketManager.sendRequest({
-        type: 'set_epi_config', cameraId: camera.id, setor: camera.setor || '', epis,
-      }).then(() => {
-        if (normalizeEpiList(camera.epis).length > 0) {
-          return updateCamera(camera.id, { epis: [] });
-        }
-        return null;
-      }).catch((error) => console.warn(`Falha ao inicializar EPIs da câmera ${camera.id}:`, error));
+      if (hydratedEpiCamerasRef.current.has(camera.id)) return;
+      hydratedEpiCamerasRef.current.add(camera.id);
+      epiConfigService.getCameraEpis({ cameraId: camera.id, setor: camera.setor || '' })
+        .then((epis) => {
+          // resposta atrasada não pode sobrescrever uma alteração feita pelo usuário
+          if (!mountedRef.current || editedEpiCamerasRef.current.has(camera.id)) return;
+          setSelectedEpisForCamera(camera.id, epis);
+        })
+        .catch((error) => {
+          // libera para nova tentativa (ex.: quando o WebSocket/orquestrador voltar)
+          hydratedEpiCamerasRef.current.delete(camera.id);
+          if (!mountedRef.current) return;
+          const localPreset = useCameraPresetsStore.getState().presets[camera.id];
+          if (!localPreset) setSelectedEpisForCamera(camera.id, normalizeEpiList(camera.epis));
+          console.warn(`Orquestrador indisponível para ler EPIs da câmera ${camera.id}:`, error.message);
+        });
+      epiConfigService.getCameraRotation({ cameraId: camera.id, setor: camera.setor || '' })
+        .then((rotation) => {
+          if (!mountedRef.current || editedEpiCamerasRef.current.has(camera.id)) return;
+          setRotationForCamera(camera.id, rotation);
+        })
+        .catch((error) => {
+          console.warn(`Orquestrador indisponível para ler rotação da câmera ${camera.id}:`, error.message);
+        });
     });
-  }, [cameras, setSelectedEpisForCamera, updateCamera, wsConnected]);
+  }, [cameras, setSelectedEpisForCamera, setRotationForCamera, wsConnected]);
 
   useEffect(() => {
     if (cameras.length > 0 && lastCameraId) {
@@ -92,6 +116,7 @@ export const CameraPage = () => {
       ? previousEpis.filter((item) => item !== epiId)
       : [...previousEpis, epiId];
 
+    editedEpiCamerasRef.current.add(cameraId);
     setUpdatingEpiId(epiId);
     setEpiConfigError('');
     setSelectedEpisForCamera(cameraId, nextEpis);
@@ -112,6 +137,29 @@ export const CameraPage = () => {
       setEpiConfigError(error.message || 'Não foi possível atualizar a análise de EPI.');
     } finally {
       setUpdatingEpiId(null);
+    }
+  };
+
+  const handleSetRotation = async (cameraId, rotation) => {
+    if (!cameraId || updatingEpiId) return;
+    const camera = cameras.find((item) => item.id === cameraId);
+    if (!camera) return;
+    const savedPreset = useCameraPresetsStore.getState().presets[cameraId];
+    const previousRotation = Array.isArray(savedPreset) ? 0 : (savedPreset?.rotation ?? 0);
+    // manda sempre os EPIs atuais junto — set_epi_config substitui a lista inteira, então
+    // enviar rotation sozinho apagaria os EPIs selecionados dessa câmera.
+    const currentEpis = normalizeEpiList(Array.isArray(savedPreset)
+      ? savedPreset
+      : (savedPreset?.selectedEpis ?? []));
+
+    setRotationForCamera(cameraId, rotation);
+    try {
+      await cameraSocketManager.sendRequest({
+        type: 'set_epi_config', cameraId, setor: camera.setor || '', epis: currentEpis, rotation,
+      });
+    } catch (error) {
+      setRotationForCamera(cameraId, previousRotation);
+      setEpiConfigError(error.message || 'Não foi possível atualizar a rotação da câmera.');
     }
   };
 
@@ -164,6 +212,7 @@ export const CameraPage = () => {
   }, [presetData]);
 
   const activeEpiName = activeEpisForVisuals.length > 0 ? activeEpisForVisuals.join(', ').toUpperCase() : null;
+  const currentRotation = !presetData || Array.isArray(presetData) ? 0 : (presetData.rotation ?? 0);
   const isDark = currentTheme === 'dark';
 
   if (isLoading && cameras.length === 0) return <MonitoramentoSkeleton theme={currentTheme} />;
@@ -210,6 +259,8 @@ export const CameraPage = () => {
                   onToggleEpi={handleToggleEpi}
                   updatingEpiId={updatingEpiId}
                   epiConfigError={epiConfigError}
+                  rotation={currentRotation}
+                  onSetRotation={handleSetRotation}
                   onAddCamera={addCamera}
                   onDeleteCamera={deleteCamera}
                   onEditCamera={updateCamera}

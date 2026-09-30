@@ -5,13 +5,8 @@ import {
   getDetectionsByLabel,
   getDetectionsByDay
 } from "../repositories/detection.repository.js";
-import {findOnedriveAccessToken} from "../repositories/auth.repository.js";
 import { base64ToImage, normalizeBrasiliaTimestamp } from "../utils/convert.js";
-import {
-  createFolderByTimestamp,
-  createOneDriveFolderByTimestamp,
-  uploadBase64ImageToOneDrive,
-} from "../utils/folder.js";
+import { createFolderByTimestamp } from "../utils/folder.js";
 
 function splitRawLabels(rawLabel)
 {
@@ -63,6 +58,12 @@ export function processRawLabel(rawLabel)
   return { label: rawLabel, epi_ausente: null, reba_nivel: null };
 }
 
+// Um INCIDENTE confirmado pelo orquestrador chega como um único POST, com `label` composto
+// ("CAPACETE - AUSENTE, zona_perigo") e uma imagem. Aqui ele é gravado como UMA LINHA POR CAUSA
+// (necessário para a análise por label: epi_ausente, reba_nivel...), todas compartilhando o mesmo
+// timestamp e os mesmos arquivos de imagem. Portanto: linha = causa; incidente = conjunto de
+// linhas com o mesmo `img_path` (é assim que a página de Incidentes volta a mostrar 1 cartão por
+// incidente). O retorno é a lista de linhas gravadas.
 export async function createDetection(data)
 {
   const timestamp = normalizeBrasiliaTimestamp(new Date().toISOString());

@@ -1,12 +1,28 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Edit3, Trash2 } from 'lucide-react'; // Import Trash2 para o badge de instrução
+import { useElementSize } from '../../../hooks/useElementSize';
+import {
+  getCoverTransform,
+  containerToFramePercent,
+  framePercentToContainer,
+  frameBoxToContainerRect,
+} from '../../../utils/coverTransform';
 
+// O retângulo (`box`, `startPos`, e o que vai para onSaveBox) é guardado em % do FRAME
+// (0..100 da imagem real), não do container. O <img> usa object-cover (escala + crop), então
+// % do container ≠ % do frame. O orquestrador converte esse % em pixels do frame para gravar
+// a zona; com % do frame a zona fica exatamente onde o usuário viu na imagem.
+// Sem frameWidth/frameHeight (ainda sem frame), cai no comportamento antigo (% do container).
 export const RiskAreaOverlay = ({
   initialBox = null,
   onSaveBox,
   isEditing,
+  frameWidth = null,
+  frameHeight = null,
 }) => {
-  const containerRef = useRef(null);
+  const [containerEl, setContainerEl] = useState(null);
+  const { width: containerW, height: containerH } = useElementSize(containerEl);
+  const transform = getCoverTransform(containerW, containerH, frameWidth, frameHeight);
   const [box, setBox] = useState(initialBox);
   
   // Controla se o usuário já deu o 1º clique para definir a posição inicial
@@ -45,13 +61,22 @@ export const RiskAreaOverlay = ({
     };
   }, [isEditing, onSaveBox]);
 
+  // Ponto do mouse → % do FRAME (desfaz o escala/crop do object-cover). Sem dimensões do
+  // frame, mantém o comportamento antigo (% do container).
   const getRelativeCoords = (e) => {
-    if (!containerRef.current) return { x: 0, y: 0 };
-    const rect = containerRef.current.getBoundingClientRect();
+    if (!containerEl) return { x: 0, y: 0 };
+    const rect = containerEl.getBoundingClientRect();
+    if (transform) {
+      return containerToFramePercent(transform, e.clientX - rect.left, e.clientY - rect.top);
+    }
     const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
     return { x, y };
   };
+
+  // % do frame → posição na tela (a mesma transformação, no sentido inverso)
+  const startPoint = transform && startPos ? framePercentToContainer(transform, startPos.x, startPos.y) : null;
+  const boxRect = transform && box ? frameBoxToContainerRect(transform, box) : null;
 
   // Trata a lógica de 2 cliques no container da câmera
   const handleClick = (e) => {
@@ -107,7 +132,7 @@ export const RiskAreaOverlay = ({
 
   return (
     <div
-      ref={containerRef}
+      ref={setContainerEl}
       onClick={handleClick}
       onMouseMove={handleMouseMove}
       className={`absolute inset-0 z-20 transition-all ${
@@ -119,7 +144,9 @@ export const RiskAreaOverlay = ({
       {/* Ponto Visual do 1º Clique */}
       {isDrawing && startPos && (
         <div
-          style={{ left: `${startPos.x}%`, top: `${startPos.y}%` }}
+          style={startPoint
+            ? { left: `${startPoint.x}px`, top: `${startPoint.y}px` }
+            : { left: `${startPos.x}%`, top: `${startPos.y}%` }}
           className="absolute w-3.5 h-3.5 -ml-1.75 -mt-1.75 bg-[var(--risk-edit-border)] border-2 border-black rounded-full shadow-[0_0_10px_var(--risk-edit-border)] animate-ping pointer-events-none z-30"
         />
       )}
@@ -128,10 +155,19 @@ export const RiskAreaOverlay = ({
       {box && box.width > 0.5 && box.height > 0.5 && (
         <div
           style={{
-            left: `${box.x}%`,
-            top: `${box.y}%`,
-            width: `${box.width}%`,
-            height: `${box.height}%`,
+            ...(boxRect
+              ? {
+                  left: `${boxRect.left}px`,
+                  top: `${boxRect.top}px`,
+                  width: `${boxRect.width}px`,
+                  height: `${boxRect.height}px`,
+                }
+              : {
+                  left: `${box.x}%`,
+                  top: `${box.y}%`,
+                  width: `${box.width}%`,
+                  height: `${box.height}%`,
+                }),
             borderColor: isEditing ? 'var(--risk-edit-border)' : 'var(--risk-alert-border)',
             backgroundColor: isEditing ? 'var(--risk-edit-bg)' : 'var(--risk-alert-bg)',
           }}

@@ -1,12 +1,8 @@
 import { connect } from "../utils/connection.js";
 
 export async function initDatabase() {
+  // PRAGMAs (WAL, busy_timeout...) são aplicados em connect()
   const db = await connect();
-
-  await db.exec("PRAGMA journal_mode = WAL;");
-  await db.exec("PRAGMA synchronous = NORMAL;");
-  await db.exec("PRAGMA busy_timeout = 5000;");
-  await db.exec("PRAGMA temp_store = MEMORY;");
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS detections (

@@ -57,6 +57,11 @@ export function CameraView({
   const frameUrl  = useCameraStreamStore((s) => s.getFrame(cameraId, setor, source));
   const wsConnected = useCameraStreamStore((s) => s.connected);
   const streamStatus = useCameraStreamStore((s) => s.streamStatus[streamKey]);
+  // resolução real do frame (vem no cabeçalho de cada frame) — necessária para mapear a
+  // área de risco no espaço da imagem, já que o <img> usa object-cover (escala + crop).
+  // Seletores primitivos: o objeto de meta muda a cada frame.
+  const metaWidth  = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.width);
+  const metaHeight = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.height);
   // disponíveis para painéis irmãos (AlertPanel/DetectionPanel) lerem pelo mesmo setor;
   // aqui só usamos o que o próprio card precisa renderizar
   // const pose = useCameraStreamStore((s) => s.pose[setor]?.[source] ?? []);
@@ -198,7 +203,13 @@ export function CameraView({
         {isStreamActive && (
           <>
             {showDetections && <DetectionsOverlay cameraId={cameraId} setor={setor} source={source} />}
-            <RiskAreaOverlay initialBox={riskBox} isEditing={isEditingRiskArea} onSaveBox={handleSaveRiskBox} />
+            <RiskAreaOverlay
+              initialBox={riskBox}
+              isEditing={isEditingRiskArea}
+              onSaveBox={handleSaveRiskBox}
+              frameWidth={useMockStream ? 1280 : (metaWidth || null)}
+              frameHeight={useMockStream ? 720 : (metaHeight || null)}
+            />
           </>
         )}
 

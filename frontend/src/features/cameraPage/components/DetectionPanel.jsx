@@ -27,6 +27,8 @@ export const DetectionPanel = ({
   onEditCamera,
   activeTab,
   setActiveTab,
+  rotation,
+  onSetRotation,
 }) => {
 
   // ✅ CORREÇÃO COM useShallow E FALLBACK ESTÁTICO:
@@ -111,6 +113,8 @@ export const DetectionPanel = ({
           onAddCamera={onAddCamera}
           onDeleteCamera={onDeleteCamera}
           onEditCamera={onEditCamera}
+          rotation={rotation}
+          onSetRotation={onSetRotation}
         />
       )}
     </div>

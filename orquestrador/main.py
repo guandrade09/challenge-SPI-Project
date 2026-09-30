@@ -61,6 +61,14 @@ CONFIG_SERVER_PORT = 5050
 SECTOR_CHECK_INTERVAL_S  = 30
 RECHECK_CAMERA_INTERVAL_S = 15
 
+# Rotação configurável por câmera (graus → constante cv2.rotate). Aplicada em _capture_loop,
+# antes de qualquer resize/inferência — o resto do pipeline nunca sabe que o frame foi girado.
+_ROTATE_CV2 = {
+    90:  cv2.ROTATE_90_CLOCKWISE,
+    180: cv2.ROTATE_180,
+    270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+}
+
 # Frames consecutivos necessários para confirmar cada tipo de risco
 FRAMES_EPI   = 10
 FRAMES_ERGO  = 8
@@ -89,23 +97,23 @@ class Verdict:
 # ── Debouncer simples ──────────────────────────────────────────────────────────
 class SimpleDebouncer:
     def __init__(self, required_frames: int, cooldown_frames: int):
-        self._counter  = 0
-        self._cooldown = 0
-        self.required  = required_frames
-        self.cooldown  = cooldown_frames
+        self._counter = 0
+        self._active  = False  # já confirmado, aguardando a infração sumir
+        self.required = required_frames
+        self.cooldown = cooldown_frames  # mantido pela API; não usado no latch (ver update)
 
     def update(self, is_risk: bool) -> bool:
-        if self._cooldown > 0:
-            self._cooldown -= 1
-            return False
-        if is_risk:
-            self._counter += 1
-            if self._counter >= self.required:
-                self._counter  = 0
-                self._cooldown = self.cooldown
-                return True
-        else:
+        if not is_risk:
+            self._active  = False
             self._counter = 0
+            return False
+        if self._active:
+            return False
+        self._counter += 1
+        if self._counter >= self.required:
+            self._active  = True
+            self._counter = 0
+            return True
         return False
 
 
@@ -243,6 +251,7 @@ def _calc_pck(results, threshold: float = 0.5) -> float | None:
 
 # ── Beep ───────────────────────────────────────────────────────────────────────
 def _beep():
+    print("[REALTIME] beep")
     try:
         import winsound
         winsound.Beep(1000, 300)
@@ -332,6 +341,20 @@ def _get_camera_retry_event(camera_id, setor: str, source: str) -> threading.Eve
         return _camera_retry_events.setdefault(key, threading.Event())
 
 
+def _register_camera_retry_event(camera_id, setor: str, source: str) -> threading.Event:
+    """Cria e registra o evento de retry EXCLUSIVO de um loop de captura.
+
+    Diferente de _get_camera_retry_event (setdefault), sempre substitui o registro: quando
+    um setor reinicia, a thread antiga e a nova disputam a mesma chave, e compartilhar o
+    mesmo Event fazia o `finally` da antiga desregistrar o da nova (o botão de reconexão
+    manual parava de funcionar)."""
+    key = _camera_runtime_key(camera_id, setor, source)
+    event = threading.Event()
+    with _camera_retry_lock:
+        _camera_retry_events[key] = event
+    return event
+
+
 def _make_ws_message_handler(zone_checker):
     async def handle(payload: dict):
         message_type = payload.get("type")
@@ -342,8 +365,9 @@ def _make_ws_message_handler(zone_checker):
                 raise ValueError("cameraId é obrigatório")
             setor = payload.get("setor") or ""
             epis = payload.get("epis")
+            rotation = payload.get("rotation")
             cfg = await asyncio.to_thread(
-                config_server.set_analise_config, setor, epis, raw_camera_id
+                config_server.set_analise_config, setor, epis, raw_camera_id, None, rotation
             )
             return {
                 "type": "epi_config_updated", "ok": True,
@@ -396,7 +420,11 @@ def _make_ws_message_handler(zone_checker):
             box_width = float(risk_area["width"]); box_height = float(risk_area["height"])
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError("riskArea inválida") from exc
-        if box_width <= 0 or box_height <= 0 or min(x, y) < 0 or x + box_width > 100 or y + box_height > 100:
+        # tolerância de ponto flutuante: x + largura pode dar 100.00000000000001 quando o
+        # retângulo encosta na borda (o frontend converte pixels do container → % do frame)
+        _eps = 1e-6
+        if (box_width <= 0 or box_height <= 0 or min(x, y) < -_eps
+                or x + box_width > 100 + _eps or y + box_height > 100 + _eps):
             raise ValueError("riskArea deve estar dentro de 0..100%")
 
         x1, y1 = x * width / 100, y * height / 100
@@ -419,14 +447,17 @@ def _make_ws_message_handler(zone_checker):
 
 
 # ── Resolve functions ──────────────────────────────────────────────────────────
-def _resolve_sectors() -> dict[str, list[dict]]:
-    """Agrupa câmeras cadastradas por setor. Sem câmeras → setor 'default' vazio."""
+def _resolve_sectors() -> dict[str, list[dict]] | None:
+    """Agrupa câmeras cadastradas por setor. Sem câmeras → setor 'default' vazio.
+    Retorna None se o backend não respondeu — quem chama deve manter o estado atual
+    (falha transitória de rede não pode derrubar os pipelines ativos)."""
     try:
         resp = requests.get(CAMERAS_API_URL, timeout=2)
+        resp.raise_for_status()
         cameras = resp.json().get("data", [])
     except Exception as e:
-        print(f"[SETORES] Não foi possível buscar câmeras: {e}")
-        cameras = []
+        print(f"[SETORES] Não foi possível buscar câmeras: {e} — mantendo setores atuais.")
+        return None
 
     if not cameras:
         return {"default": []}
@@ -438,8 +469,13 @@ def _resolve_sectors() -> dict[str, list[dict]]:
     return sectors
 
 
+# Sentinela: o backend não respondeu — o capture loop deve manter a câmera atual como está.
+_KEEP_SOURCE = object()
+
+
 def _make_resolve_fn(setor: str, papel: str, env_var: str | None = None, default=None):
-    """Retorna uma função que resolve a URL atual da câmera com o papel dado no setor."""
+    """Retorna uma função que resolve a URL atual da câmera com o papel dado no setor.
+    Devolve _KEEP_SOURCE se o backend estiver indisponível (não reconectar à toa)."""
     def resolve():
         if env_var:
             val = os.environ.get(env_var)
@@ -447,13 +483,14 @@ def _make_resolve_fn(setor: str, papel: str, env_var: str | None = None, default
                 return int(val) if val.isdigit() else (val or default)
         try:
             resp = requests.get(CAMERAS_API_URL, timeout=2)
+            resp.raise_for_status()
             cameras = resp.json().get("data", [])
-            sector_cams = [c for c in cameras if (c.get("setor") or "default") == setor]
-            cam = next((c for c in sector_cams if c.get("papel") == papel), None)
-            if cam:
-                return cam["streamUrl"]
         except Exception:
-            pass
+            return _KEEP_SOURCE
+        sector_cams = [c for c in cameras if (c.get("setor") or "default") == setor]
+        cam = next((c for c in sector_cams if c.get("papel") == papel), None)
+        if cam:
+            return cam["streamUrl"]
         return default
     return resolve
 
@@ -472,19 +509,51 @@ def _capture_loop(
     camera = None
     current_source = None
     last_check = 0.0
-    retry_event = _get_camera_retry_event(camera_id, setor, source)
+    retry_event = _register_camera_retry_event(camera_id, setor, source)
 
-    def _reconnect(new_source):
-        nonlocal camera, current_source
+    # Reconexão automática com backoff exponencial (1, 2, 4, 8s... até
+    # RECHECK_CAMERA_INTERVAL_S), tudo dentro desta mesma thread — não cria outros loops
+    # e não bloqueia as demais câmeras (cada câmera tem sua própria thread de captura).
+    failures = 0
+    next_attempt_at = 0.0
+    last_status = None
+
+    def _status(status, reason=None):
+        # só notifica quando o estado muda (evita repetir "offline" a cada tentativa)
+        nonlocal last_status
+        if last_status == (status, reason):
+            return
+        last_status = (status, reason)
+        send_stream_status(camera_id, setor, source, status, reason)
+
+    def _schedule_retry():
+        nonlocal failures, next_attempt_at
+        failures += 1
+        next_attempt_at = time.time() + min(RECHECK_CAMERA_INTERVAL_S, 2 ** (failures - 1))
+
+    def _release_camera():
+        nonlocal camera
         if camera is not None:
             try:
                 camera.release()
             except Exception:
                 pass
             camera = None
+
+    def _drop_camera(reason, message):
+        # stream caiu (leitura falhou / parou): libera o handle e agenda nova tentativa
+        print(f"[CAMERA] {label}: {message}")
+        _release_camera()
+        _status("offline", reason)
+        _schedule_retry()
+
+    def _reconnect(new_source):
+        nonlocal camera, current_source, failures, next_attempt_at
+        _release_camera()
         if new_source is None:
             current_source = None
-            send_stream_status(camera_id, setor, source, "offline", "origem_nao_configurada")
+            _status("offline", "origem_nao_configurada")
+            _schedule_retry()
             return
         try:
             camera = Camera(source=new_source)
@@ -492,48 +561,66 @@ def _capture_loop(
             camera.cap.set(cv2.CAP_PROP_FRAME_WIDTH, max_width or 640)
             camera.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             current_source = new_source
+            failures = 0
+            next_attempt_at = 0.0
             print(f"[CAMERA] {label}: conectado em {new_source}")
-            send_stream_status(camera_id, setor, source, "online")
+            _status("online")
         except Exception as e:
             print(f"[CAMERA] {label}: falha ao abrir {new_source} ({e})")
-            camera = None
-            current_source = new_source
-            send_stream_status(camera_id, setor, source, "offline", "falha_ao_abrir")
+            _release_camera()
+            current_source = None  # sem fonte ativa → o backoff força nova tentativa
+            _status("offline", "falha_ao_abrir")
+            _schedule_retry()
 
     try:
         while not (stop_event and stop_event.is_set()):
             now = time.time()
             retry_requested = retry_event.is_set()
             if retry_requested:
+                # pedido manual: tenta já, sem esperar o backoff, e sempre reporta o resultado
                 retry_event.clear()
-            if now - last_check >= RECHECK_CAMERA_INTERVAL_S or (camera is None and last_check == 0.0) or retry_requested:
+                failures = 0
+                next_attempt_at = 0.0
+                last_status = None
+            offline_retry_due = camera is None and now >= next_attempt_at
+            periodic_check = camera is not None and now - last_check >= RECHECK_CAMERA_INTERVAL_S
+            if retry_requested or offline_retry_due or periodic_check:
                 last_check = now
                 new_source = resolve_source_fn()
-                if retry_requested or new_source != current_source:
+                if new_source is _KEEP_SOURCE:
+                    # Backend indisponível (falha transitória de rede): não dá para saber a fonte
+                    # agora. Câmera conectada → mantém como está (não reconecta à toa); offline →
+                    # não há o que tentar, então só agenda a próxima tentativa (backoff).
+                    if camera is None:
+                        _status("offline", "backend_indisponivel")
+                        _schedule_retry()
+                    elif retry_requested:
+                        _status("online")  # o pedido manual não fez nada: desfaz o "reconectando"
+                elif retry_requested or camera is None or new_source != current_source:
                     if retry_requested:
                         print(f"[CAMERA] {label}: nova tentativa solicitada pelo usuário.")
-                    elif current_source is not None:
+                    elif camera is not None:
                         print(f"[CAMERA] {label}: cadastro mudou ({current_source} → {new_source}), reconectando...")
+                    else:
+                        print(f"[CAMERA] {label}: tentando reconectar (falhas seguidas até aqui: {failures})...")
                     _reconnect(new_source)
 
             if camera is not None and not camera.is_opened():
-                print(f"[CAMERA] {label}: stream parou; aguardando nova tentativa.")
-                camera.release()
-                camera = None
-                send_stream_status(camera_id, setor, source, "offline", "stream_parou")
+                _drop_camera("stream_parou", "stream parou; nova tentativa automática agendada.")
                 continue
 
             if camera is None:
-                time.sleep(1)
+                time.sleep(0.5)
                 continue
 
             ret, frame = camera.read()
             if not ret:
-                print(f"[CAMERA] {label}: leitura falhou; aguardando nova tentativa.")
-                camera.release()
-                camera = None
-                send_stream_status(camera_id, setor, source, "offline", "falha_de_leitura")
+                _drop_camera("falha_de_leitura", "leitura falhou; nova tentativa automática agendada.")
                 continue
+
+            rotation = config_server.camera_rotation(setor, camera_id)
+            if rotation in _ROTATE_CV2:
+                frame = cv2.rotate(frame, _ROTATE_CV2[rotation])
 
             if max_width and frame.shape[1] > max_width:
                 scale = max_width / frame.shape[1]
@@ -543,12 +630,16 @@ def _capture_loop(
                 except queue.Empty: pass
             frame_q.put(frame)
     finally:
-        if camera is not None:
-            try: camera.release()
-            except Exception: pass
-        send_stream_status(camera_id, setor, source, "offline", "captura_encerrada")
+        _release_camera()
+        # Só desregistra/avisa se o registro ainda é DESTE loop. Se o setor reiniciou e uma
+        # thread nova já assumiu a chave, ela é quem manda no estado e no botão de reconexão.
         with _camera_retry_lock:
-            _camera_retry_events.pop(_camera_runtime_key(camera_id, setor, source), None)
+            key = _camera_runtime_key(camera_id, setor, source)
+            owns_registry = _camera_retry_events.get(key) is retry_event
+            if owns_registry:
+                _camera_retry_events.pop(key, None)
+        if owns_registry:
+            send_stream_status(camera_id, setor, source, "offline", "captura_encerrada")
 
 
 # ── Pipeline de setor ──────────────────────────────────────────────────────────
@@ -706,10 +797,13 @@ def _run_sector(
                 _epi_state["running"]  = True
                 _frame_snap = frame.copy()
                 def _epi_bg(snap=_frame_snap):
-                    with inference_lock:
-                        result = epi_detector.run(snap)
-                    _epi_state["cache"]   = result
-                    _epi_state["running"] = False
+                    try:
+                        # o detector só segura o lock na inferência local (não durante o HTTP do Roboflow)
+                        _epi_state["cache"] = epi_detector.run(snap, inference_lock)
+                    except Exception as e:
+                        print(f"[EPI] {setor}: falha na inferência: {e}")
+                    finally:
+                        _epi_state["running"] = False
                 threading.Thread(target=_epi_bg, daemon=True).start()
 
         else:
@@ -723,10 +817,12 @@ def _run_sector(
                     _epi_state_lateral["running"] = True
                     _frame_lat_snap = _last_lateral_frame["frame"].copy()
                     def _epi_lat_bg(snap=_frame_lat_snap):
-                        with inference_lock:
-                            result = epi_detector.run(snap)
-                        _epi_state_lateral["cache"]   = result
-                        _epi_state_lateral["running"] = False
+                        try:
+                            _epi_state_lateral["cache"] = epi_detector.run(snap, inference_lock)
+                        except Exception as e:
+                            print(f"[EPI] {setor}/lateral: falha na inferência: {e}")
+                        finally:
+                            _epi_state_lateral["running"] = False
                     threading.Thread(target=_epi_lat_bg, daemon=True).start()
         else:
             _epi_state_lateral["cache"] = []
@@ -741,7 +837,7 @@ def _run_sector(
         epi_dets = primary_epi_dets + lateral_epi_dets
 
         epi_incidents  = epi_detector.incidents(epi_dets)
-        epi_confirmed  = epi_debouncer.update(epi_incidents)
+        epi_confirmed  = epi_debouncer.update(epi_incidents, epi_dets)
         conf_media_epi = (
             round(sum(d.confidence for d in epi_dets) / len(epi_dets), 4)
             if epi_dets else None
@@ -808,7 +904,11 @@ def _run_sector(
         ergo_em_risco  = [p for p in ergo_pessoas if _pessoa_em_risco_ergo(p)]
         ergo_confirmed = ergo_debouncer.update(len(ergo_em_risco) > 0)
 
-        queda_detectada = any(p.get("queda", False) for p in ergo_pessoas)
+        # "queda" é só mais uma chave no mesmo mecanismo de toggle dos EPIs (config_server.
+        # EPI_KEY_TO_PREFIX) — reaproveita _primary_prefixes/_lateral_prefixes já calculados
+        # acima, sem lógica paralela de ativação.
+        queda_ativa = "QUEDA" in _primary_prefixes or "QUEDA" in _lateral_prefixes
+        queda_detectada = queda_ativa and any(p.get("queda", False) for p in ergo_pessoas)
         queda_confirmed = queda_debouncer.update(queda_detectada)
 
         zone_inputs = [(primary_zone_id, _pose_state["raw_frontal"], primary_source, primary_camera_id)]
@@ -853,10 +953,23 @@ def _run_sector(
         if _verdict_key != _last_verdict_key or (_now_t - _last_verdict_t >= 1.0):
             _last_verdict_key = _verdict_key
             _last_verdict_t   = _now_t
+            print("[REALTIME] send_verdict", live_verdict)
             _send_verdict(live_verdict, setor=setor)
 
-        # 4.5 Queda
-        if queda_confirmed:
+        # 4.5 Queda — checagem explícita antes do envio, além do gate já aplicado acima.
+        # Mesmo ponto de decisão usado pro envio: beep só dispara se a label "Queda"
+        # estiver ativa pra essa câmera/setor (Problema 1) e o latch confirmou (Problema 2).
+        print(
+            "[REALTIME][DEBUG] epi_confirmed=", epi_confirmed,
+            "ergo_confirmed=", ergo_confirmed,
+            "zona_confirmed=", zona_confirmed,
+            "queda_confirmed=", queda_confirmed,
+            "queda_ativa=", queda_ativa,
+        )
+        if queda_confirmed and queda_ativa:
+            print("[REALTIME] beep (queda)")
+            threading.Thread(target=_beep, daemon=True).start()
+            print("[REALTIME] send_queda")
             send_queda(
                 pessoas=[p["pessoa_id"] for p in ergo_pessoas if p.get("queda")],
                 timestamp=datetime.now().isoformat(),
@@ -885,6 +998,7 @@ def _run_sector(
             d for d in lateral_epi_dets
             if "AUSENTE" in d.label.upper() or "ERRADO" in d.label.upper()
         ]
+        print("[REALTIME] send_detections", len(primary_missing_epi))
         send_detections(
             [{"label": d.label, "confidence": round(float(d.confidence), 4),
               "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
@@ -892,6 +1006,7 @@ def _run_sector(
             setor=setor, source=primary_source, camera_id=primary_camera_id,
         )
         if has_lateral:
+            print("[REALTIME] send_detections", len(lateral_missing_epi))
             send_detections(
                 [{"label": d.label, "confidence": round(float(d.confidence), 4),
                   "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
@@ -908,6 +1023,13 @@ def _run_sector(
                 send_pose(_pose_state["pessoas_frontal"], source=primary_source, setor=setor)
 
         # 6. Incident confirmado → beep + banco
+        print(
+            "[REALTIME][DEBUG bloco 6] epi_confirmed=", epi_confirmed,
+            "ergo_confirmed=", ergo_confirmed,
+            "zona_confirmed=", zona_confirmed,
+            "queda_confirmed=", queda_confirmed,
+            "queda_ativa=", queda_ativa,
+        )
         if epi_confirmed or ergo_confirmed or zona_confirmed:
             confirmed_verdict = _aggregate(
                 epi_confirmed,
@@ -1022,6 +1144,9 @@ def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: 
 
     while True:
         sectors = _resolve_sectors()
+        if sectors is None:
+            time.sleep(SECTOR_CHECK_INTERVAL_S)
+            continue
 
         with _active_sectors_lock:
             # Iniciar setores novos ou com câmeras diferentes
@@ -1053,14 +1178,10 @@ def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: 
 
 def _start_sector(setor: str, cameras: list[dict], models: dict, inference_lock: threading.Lock, zone_checker: ZoneChecker):
     stop_event = threading.Event()
-<<<<<<< HEAD
     cam_ids = frozenset(
         (c["id"], c.get("papel") or "frontal", c.get("streamUrl", ""))
         for c in cameras
     )
-=======
-    cam_ids    = frozenset((c["id"], c.get("papel", "frontal"), c.get("streamUrl", "")) for c in cameras)
->>>>>>> develop
     t = threading.Thread(
         target=_run_sector,
         args=(setor, cameras, models, inference_lock, zone_checker, stop_event),

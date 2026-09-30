@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/Card";
 import { Camera, Wifi, WifiOff, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
-import { Progress } from "../../../components/ui/progress";
+import { Progress } from "../../../components/ui/Progress";
 import { IconButtonModal } from "../../../components/shared/IconButtonModal";
 
 export function CameraInfo({ data = [], theme = "light" }) {

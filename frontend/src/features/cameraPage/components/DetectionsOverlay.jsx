@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCameraStreamStore } from '../../../store/useCameraStreamStore';
 import { isMissingEpiDetection } from '../../../utils/epiConfig';
+import { useElementSize } from '../../../hooks/useElementSize';
+import { getCoverTransform, frameToContainer } from '../../../utils/coverTransform';
 
 // Conexões do esqueleto COCO (pares de índices de keypoints)
 const SKELETON_CONNECTIONS = [
@@ -27,9 +29,20 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
     return p[source] || p.frontal || EMPTY_ARRAY;
   });
   const verdict = useCameraStreamStore((s) => s.verdict[setor] || null);
-  const frameMeta = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source));
-  const frameWidth = frameMeta?.width || 640;
-  const frameHeight = frameMeta?.height || 480;
+  // seletores primitivos: o objeto de meta é recriado a cada frame e re-renderizaria sempre
+  const metaWidth = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.width);
+  const metaHeight = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.height);
+  const frameWidth = metaWidth || 640;
+  const frameHeight = metaHeight || 480;
+
+  // As coordenadas das caixas/keypoints são pixels do FRAME; o <img> usa object-cover, que
+  // escala e corta o frame para preencher o container. A mesma transformação do cover é
+  // aplicada aqui (e na área de risco) para o overlay ficar exatamente sobre a imagem.
+  const [containerEl, setContainerEl] = useState(null);
+  const { width: containerW, height: containerH } = useElementSize(containerEl);
+  const transform = getCoverTransform(containerW, containerH, frameWidth, frameHeight);
+  // só é chamado dentro de blocos protegidos por `transform` não nulo
+  const toContainer = (kp) => frameToContainer(transform, kp[0] ?? kp.x, kp[1] ?? kp.y);
 
   if (!visible) return null;
 
@@ -37,7 +50,7 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
   const isAlert = verdict?.status === 'ALERTA' || isCritical;
 
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden z-20 select-none">
+    <div ref={setContainerEl} className="absolute inset-0 pointer-events-none overflow-hidden z-20 select-none">
       {/* ── 1. BADGE DE STATUS / VEREDITO NO TOPO ── */}
       {verdict && (
         <div className="absolute top-10 left-2 z-30 flex items-center gap-1.5 pointer-events-auto">
@@ -70,10 +83,9 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
       )}
 
       {/* ── 2. SVG OVERLAY PARA POSE / ESQUELETO ERGONÔMICO ── */}
-      {poseData.length > 0 && (
+      {transform && poseData.length > 0 && (
         <svg
-          viewBox={`0 0 ${frameWidth} ${frameHeight}`}
-          preserveAspectRatio="none"
+          viewBox={`0 0 ${containerW} ${containerH}`}
           className="absolute inset-0 w-full h-full pointer-events-none"
         >
           {poseData.map((pessoa, pIdx) => {
@@ -99,13 +111,15 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                   if (!kp1 || !kp2 || (kp1[2] ?? kp1.conf ?? 1) < 0.3 || (kp2[2] ?? kp2.conf ?? 1) < 0.3) {
                     return null;
                   }
+                  const p1 = toContainer(kp1);
+                  const p2 = toContainer(kp2);
                   return (
                     <line
                       key={`line-${pIdx}-${lineIdx}`}
-                      x1={kp1[0] ?? kp1.x}
-                      y1={kp1[1] ?? kp1.y}
-                      x2={kp2[0] ?? kp2.x}
-                      y2={kp2[1] ?? kp2.y}
+                      x1={p1.x}
+                      y1={p1.y}
+                      x2={p2.x}
+                      y2={p2.y}
                       stroke={rebaColor}
                       strokeWidth="2.5"
                       strokeLinecap="round"
@@ -117,11 +131,12 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                 {/* Pontos das articulações */}
                 {keypoints.map((kp, kpIdx) => {
                   if (!kp || (kp[2] ?? kp.conf ?? 1) < 0.3) return null;
+                  const p = toContainer(kp);
                   return (
                     <circle
                       key={`kp-${pIdx}-${kpIdx}`}
-                      cx={kp[0] ?? kp.x}
-                      cy={kp[1] ?? kp.y}
+                      cx={p.x}
+                      cy={p.y}
                       r="3.5"
                       fill="#ffffff"
                       stroke={rebaColor}
@@ -132,7 +147,7 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
 
                 {/* Tag de REBA sobre a cabeça */}
                 {headKp && (headKp[2] ?? headKp.conf ?? 1) >= 0.3 && (
-                  <g transform={`translate(${headKp[0] ?? headKp.x}, ${Math.max(20, (headKp[1] ?? headKp.y) - 15)})`}>
+                  <g transform={`translate(${toContainer(headKp).x}, ${Math.max(20, toContainer(headKp).y - 15)})`}>
                     <rect
                       x="-45"
                       y="-14"
@@ -165,15 +180,17 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
       )}
 
       {/* ── 3. BOUNDING BOXES DE EPIS (DETECTADOS) ── */}
-      {detections.length > 0 &&
+      {transform && detections.length > 0 &&
         detections.map((det, dIdx) => {
           const isAbsent = det.label.includes('AUSENTE') || det.label.includes('ERRADO');
           const isPresent = det.label.includes('PRESENTE') || det.label.includes('CERTO');
 
-          const left = (det.x1 / frameWidth) * 100;
-          const top = (det.y1 / frameHeight) * 100;
-          const width = Math.max(0, ((det.x2 - det.x1) / frameWidth) * 100);
-          const height = Math.max(0, ((det.y2 - det.y1) / frameHeight) * 100);
+          // pixels do frame → pixels do container (mesma transformação do object-cover)
+          const topLeft = frameToContainer(transform, det.x1, det.y1);
+          const left = topLeft.x;
+          const top = topLeft.y;
+          const width = Math.max(0, (det.x2 - det.x1) * transform.scale);
+          const height = Math.max(0, (det.y2 - det.y1) * transform.scale);
 
           const borderColor = isAbsent
             ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
@@ -191,10 +208,10 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
             <div
               key={`det-${dIdx}`}
               style={{
-                left: `${left}%`,
-                top: `${top}%`,
-                width: `${width}%`,
-                height: `${height}%`,
+                left: `${left}px`,
+                top: `${top}px`,
+                width: `${width}px`,
+                height: `${height}px`,
               }}
               className={`absolute border-2 rounded-sm transition-all duration-100 ${borderColor}`}
             >

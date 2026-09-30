@@ -1,7 +1,7 @@
 // src/layouts/Footer.jsx
 import React from 'react';
 import { GitBranchIcon, HardDrive, Globe } from 'lucide-react';
-import bannerBaixo from '../assets/codexis/banner_cima.jpeg';
+import bannerBaixo from '../assets/Codexis/banner_cima.jpeg';
 
 export const Footer = () => {
   return (

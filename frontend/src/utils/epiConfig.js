@@ -1,4 +1,4 @@
-export const EPI_KEYS = ['auricular', 'botas', 'capacete', 'colete', 'mascara', 'oculos'];
+export const EPI_KEYS = ['auricular', 'botas', 'capacete', 'colete', 'mascara', 'oculos', 'queda'];
 
 const EPI_ALIASES = {
   '1': 'capacete',
@@ -11,6 +11,7 @@ const EPI_ALIASES = {
   colete: 'colete',
   mascara: 'mascara',
   oculos: 'oculos',
+  queda: 'queda',
 };
 
 const normalizeText = (value) => String(value ?? '')
