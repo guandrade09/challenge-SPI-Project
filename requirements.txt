@@ -7,16 +7,6 @@ flask-cors>=4.0.0
 shapely>=2.0.0
 psutil>=5.9.0
 # av (PyAV) decodifica câmeras RTSP preferindo hardware (NVDEC via hevc_cuvid/h264_cuvid)
-<<<<<<< Updated upstream
-# (ver ml_service/inference/pyav_camera.py — hoje desativado, a captura usa OpenCV/FFmpeg).
+# (ver ml_service/inference/pyav_camera.py e vlc_camera.py — ambos desativados hoje;
+# ml_service/inference/camera.py usa OpenCV/FFmpeg direto para RTSP/HTTP/webcam).
 av>=11.0.0
-=======
-# (ver ml_service/inference/pyav_camera.py — hoje desativado; o RTSP usa VLC sob demanda
-# e HTTP/MJPEG/webcam usam OpenCV/FFmpeg).
-av>=11.0.0
-# python-vlc é só o binding — precisa ter o VLC instalado na máquina (libvlc.dll).
-# Usado só para câmeras RTSP: é carregado sob demanda (ver camera.py), então
-# HTTP/MJPEG e webcam funcionam sem o VLC instalado.
-# (ver ml_service/inference/vlc_camera.py).
-python-vlc>=3.0.0
->>>>>>> Stashed changes

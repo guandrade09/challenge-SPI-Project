@@ -39,6 +39,7 @@ Câmera (OpenCV)
 | `PoseAnalyzer` | `ml_ergonomia/pose_analyzer.py` | Analisa postura via ângulos corporais (YOLOv8 Pose) |
 | `ZoneChecker` | `ml_zona_critica/zone_checker.py` | Verifica invasão de área restrita (YOLOv8 Pose + Shapely) |
 | `Aggregator` | `orquestrador/aggregator.py` | Combina os três resultados em um único `Verdict` |
+| `FaceRecognizer` / `FuncionarioFaceRegistry` | `ml_facial/face_recognizer.py` | Reconhecimento facial (MTCNN + FaceNet) contra os funcionários cadastrados em `/api/funcionarios` — ver `ml_facial/README.md` |
 
 ## Veredictos possíveis
 
@@ -66,9 +67,14 @@ cd challenge-SPI-Project
 pip install -r ml_service/requirements.txt
 pip install -r ml_ergonomia/requirements.txt
 pip install -r ml_zona_critica/requirements.txt
+pip install -r ml_facial/requirements.txt
 
 python orquestrador/main.py
 ```
+
+O reconhecimento facial é opcional: se `ml_facial/requirements.txt` não for instalado (ou a
+inicialização do modelo falhar), o orquestrador loga `[FACIAL] Reconhecimento facial
+desativado` e segue rodando normalmente — EPI, ergonomia e zona não são afetados.
 
 ## Configurar zona de risco antes de rodar
 
