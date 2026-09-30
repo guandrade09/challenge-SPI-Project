@@ -11,6 +11,7 @@ import { CameraPage } from './features/cameraPage/CameraPage';
 import IncidentesPage from './features/incidentesPage/IncidentesPage';
 import EventosPage from './features/eventosPage/EventosPage';
 import AnalisePage from './features/analisePage/AnalisePage';
+import CadastroFacialPage from './features/cadastroFacialPage/CadastroFacialPage';
 
 export function App() {
   return (
@@ -33,6 +34,7 @@ export function App() {
             <Route path="/eventos" element={<EventosPage />} />
             <Route path="/camera" element={<CameraPage />} />
             <Route path="/analise" element={<AnalisePage />} />
+            <Route path="/cadastro-facial" element={<CadastroFacialPage />} />
           </Route>
         </Route>
 
