@@ -1,4 +1,4 @@
-import Funcionario from '../models/funcionario.model.js';
+import Funcionario, { MAX_FOTOS_FUNCIONARIO } from '../models/funcionario.model.js';
 import * as funcionarioRepository from '../repositories/funcionario.repository.js';
 import { AppError } from '../utils/appError.js';
 import { base64ToImage } from '../utils/convert.js';
@@ -10,29 +10,52 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const FACES_UPLOAD_DIR = path.resolve(__dirname, '../uploads/faces');
 
-// A foto vem como data URL (base64) do formulário de cadastro — mesmo formato que o
-// orquestrador usa pra mandar frames (ver utils/convert.js#base64ToImage).
-async function saveFotoIfProvided(fotoBase64) {
-  if (!fotoBase64) return null;
-  const folderPath = await createFolderByTimestamp(new Date().toISOString(), FACES_UPLOAD_DIR);
-  return await base64ToImage(fotoBase64, folderPath);
+const BASE64_IMAGE_PREFIX = /^data:image\/\w+;base64,/;
+
+// No cadastro, cada item do array é uma data URL (base64) do formulário — mesmo formato
+// que o orquestrador usa pra mandar frames (ver utils/convert.js#base64ToImage). Na
+// edição, o formulário reenvia o array inteiro misturando caminhos já salvos (fotos que o
+// usuário manteve) com novas fotos em base64 (as que ele acabou de adicionar) — só
+// regravamos as que forem base64; o resto já é um caminho válido em disco e fica como está.
+// Até MAX_FOTOS_FUNCIONARIO fotos; mais ângulos/condições de luz = embeddings mais robustos.
+async function saveFotosIfProvided(fotosInput) {
+  if (!Array.isArray(fotosInput) || fotosInput.length === 0) return [];
+
+  const paths = [];
+  for (const item of fotosInput.slice(0, MAX_FOTOS_FUNCIONARIO)) {
+    if (!item) continue;
+    if (BASE64_IMAGE_PREFIX.test(item)) {
+      const folderPath = await createFolderByTimestamp(new Date().toISOString(), FACES_UPLOAD_DIR);
+      paths.push(await base64ToImage(item, folderPath));
+    } else {
+      paths.push(item);
+    }
+  }
+  return paths;
+}
+
+function assertMaxFotos(fotos) {
+  if (Array.isArray(fotos) && fotos.length > MAX_FOTOS_FUNCIONARIO) {
+    throw new AppError(`No máximo ${MAX_FOTOS_FUNCIONARIO} fotos por funcionário`, 400);
+  }
 }
 
 export async function createFuncionario(data) {
-  const { nome, foto } = data ?? {};
+  const { nome, fotos } = data ?? {};
   if (!nome || !String(nome).trim()) {
     throw new AppError('Nome é obrigatório', 400);
   }
+  assertMaxFotos(fotos);
 
-  const foto_path = await saveFotoIfProvided(foto);
+  const savedFotos = await saveFotosIfProvided(fotos);
 
   const funcionario = new Funcionario({
     nome: nome.trim(),
     matricula: data.matricula ?? null,
     setor: data.setor ?? null,
     cargo: data.cargo ?? null,
-    foto_path,
-    face_encoding: null, // calculado pelo orquestrador (ml_facial) no próximo ciclo de sincronização
+    fotos: savedFotos,
+    face_encodings: null, // calculado pelo orquestrador (ml_facial) no próximo ciclo de sincronização
     status: data.status,
   });
 
@@ -50,22 +73,25 @@ export async function getFuncionario(id) {
 export async function updateFuncionarioById(id, data) {
   const existing = await funcionarioRepository.getFuncionarioById(id);
   if (!existing) throw new AppError('Funcionário não encontrado', 404);
+  assertMaxFotos(data.fotos);
 
-  const foto_path = data.foto ? await saveFotoIfProvided(data.foto) : (data.foto_path ?? existing.foto_path);
+  const fotosForamEnviadas = Array.isArray(data.fotos);
+  const fotos = fotosForamEnviadas ? await saveFotosIfProvided(data.fotos) : existing.fotos;
 
-  // face_encoding chega como array/objeto (do ml_facial) — serializa pra TEXT antes de gravar.
-  // Uma foto nova invalida o embedding anterior: força null pra o orquestrador recalcular.
-  const face_encoding = data.foto
+  // face_encodings chega como array de arrays (do ml_facial) — serializa pra TEXT antes
+  // de gravar. Fotos novas invalidam os embeddings anteriores: força null pra o
+  // orquestrador recalcular a partir das fotos atuais.
+  const face_encodings = fotosForamEnviadas
     ? null
-    : data.face_encoding !== undefined
-      ? (data.face_encoding === null ? null : JSON.stringify(data.face_encoding))
-      : existing.face_encoding;
+    : data.face_encodings !== undefined
+      ? (data.face_encodings === null ? null : JSON.stringify(data.face_encodings))
+      : existing.face_encodings;
 
   const updated = new Funcionario({
     ...existing,
     ...data,
-    foto_path,
-    face_encoding,
+    fotos,
+    face_encodings,
   });
 
   return await funcionarioRepository.updateFuncionario(id, updated);

@@ -14,10 +14,15 @@ HTTP, sem processo separado — roda dentro do processo do orquestrador).
    que ainda não tem um (`face_encoding` vazio) e grava o resultado de volta
    (`PUT /api/funcionarios/:id`) — assim o cálculo só acontece uma vez por funcionário,
    não a cada reinício do orquestrador.
-3. A cada ciclo do pipeline, `FaceRecognizer.identify(frame, known)` compara os rostos
-   detectados contra os embeddings conhecidos (distância euclidiana) e retorna uma lista
-   de `FaceMatch` (`core/entities.py`) — reconhecido (com `funcionario_id`) ou
-   "Desconhecido".
+3. A cada ciclo do pipeline, `FaceRecognizer.identify(frame, known)` compara CADA rosto
+   detectado contra os embeddings conhecidos (distância euclidiana) e retorna uma lista
+   de `FaceMatch` (`core/entities.py`): reconhecido (com `funcionario_id`), se a
+   distância até o melhor candidato for <= `MAX_MATCH_DISTANCE_DEFAULT` (1.0 por padrão),
+   ou "Desconhecido" caso contrário. Esse limite existe pra evitar que, com 2+ pessoas em
+   cena, o rosto de alguém não cadastrado seja atribuído ao único (ou mais parecido)
+   funcionário cadastrado só por ser o candidato mais próximo disponível. A confiança
+   exibida (0-100%) é calculada separadamente via similaridade de cosseno, só pra leitura
+   humana — não é ela que decide o aceite/rejeição.
 
 Por que facenet-pytorch em vez de `face_recognition`/`dlib`: é 100% PyTorch, sem
 dependência de CMake/Visual Studio Build Tools — que costuma travar a instalação no
@@ -64,9 +69,13 @@ seguir o mesmo padrão (ler de um estado compartilhado), nunca abrir uma nova
 
 - Sem liveness/anti-spoofing: uma foto impressa ou tela pode enganar o reconhecimento.
   Fora de escopo do MVP.
-- O cadastro exige apenas uma foto de referência; qualidade de iluminação/ângulo afeta
-  diretamente a precisão do embedding.
-- `identify()` não rejeita por distância (ver comentário em `MATCH_THRESHOLD_DEFAULT`):
-  sempre associa ao funcionário cadastrado mais parecido quando existe pelo menos um.
-  Isso favorece nunca cair em "Desconhecido", mas aumenta o risco de falso positivo se
-  houver mais de um funcionário cadastrado e o rosto real não for nenhum deles.
+- Cada funcionário pode ter até `MAX_FOTOS_FUNCIONARIO` (3) fotos de referência; mais
+  fotos (ângulos/iluminação diferentes) melhoram a precisão do embedding.
+- `MAX_MATCH_DISTANCE_DEFAULT` (1.0) foi calibrado com UM funcionário cadastrado via
+  câmera Wi-Fi/MJPEG (bastante perda de qualidade); a mesma pessoa mediu distância
+  0.84–0.90 contra o feed ao vivo nos testes — valor bem mais alto do que o citado em
+  tutoriais com fotos de estúdio (~0.6–0.8), provavelmente por causa da compressão/baixa
+  resolução do stream. Ainda não foi validado com uma segunda pessoa (pra confirmar que
+  gente não cadastrada fica acima desse limite). Acompanhe o log
+  `[FACIAL] rosto → '...' (distância: X.XXX, confiança: X.XX)` e ajuste a constante em
+  `face_recognizer.py` conforme necessário.

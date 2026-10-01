@@ -83,8 +83,12 @@ COOLDOWN_ZONA = 30
 COOLDOWN_FACIAL = 90
 
 # Intervalo entre inferências de reconhecimento facial (segundos) — não precisa rodar a
-# cada frame como EPI/pose; identidade não muda de um frame pro outro.
-FACIAL_PROCESS_INTERVAL_S = 1.5
+# cada frame como EPI/pose; identidade não muda de um frame pro outro. Reduzido de 1.5s:
+# quanto maior esse valor, maior a defasagem entre a posição dos rostos usada por
+# _resolve_pessoa_label e a posição real das pessoas no momento em que um incidente de
+# EPI é confirmado (pipelines independentes, cada um amostra o mundo no seu próprio
+# ritmo) — com pessoas em movimento, isso é o que faz a caixa "PESSOA" errar o rosto.
+FACIAL_PROCESS_INTERVAL_S = 0.6
 
 REBA_RISCO_MINIMO = 4
 POSE_CONF_MINIMO  = 0.5
@@ -379,6 +383,35 @@ _camera_retry_lock = threading.Lock()
 # da imagem no frontend sempre que o setor de reconhecimento facial iniciava.
 _latest_frontal_frames: dict[object, "np.ndarray"] = {}
 _latest_frontal_frames_lock = threading.Lock()
+
+# Último resultado do reconhecimento facial por camera_id (mesma lista enviada ao
+# WebSocket em send_faces). _run_sector usa isso pra trocar o label genérico "PESSOA"
+# pelo nome do funcionário reconhecido ao montar o incidente (ver _resolve_pessoa_label).
+_latest_face_matches: dict[object, list[dict]] = {}
+_latest_face_matches_lock = threading.Lock()
+
+
+def _resolve_pessoa_label(detection, camera_id) -> str:
+    """Se `detection` é uma caixa de pessoa ("PESSOA...") e o reconhecimento facial achou
+    um rosto cujo centro cai dentro dessa caixa, devolve o nome do funcionário (se bateu
+    com confiança suficiente — ver MIN_CONFIDENCE_RECONHECIMENTO em face_recognizer.py) ou
+    "Desconhecido" (rosto detectado, mas não bate com ninguém cadastrado). Cada caixa
+    "PESSOA" é resolvida pelo PRÓPRIO rosto que está dentro dela — com 2+ pessoas em cena,
+    cada uma recebe o nome que lhe pertence, nunca o de outra. Sem nenhum rosto dentro da
+    caixa (ângulo ruim, rosto fora de quadro), devolve o label original sem alteração."""
+    if not detection.label.startswith("PESSOA"):
+        return detection.label
+
+    with _latest_face_matches_lock:
+        faces = list(_latest_face_matches.get(camera_id) or [])
+
+    for face in faces:
+        face_cx = (face["x1"] + face["x2"]) / 2
+        face_cy = (face["y1"] + face["y2"]) / 2
+        if detection.x1 <= face_cx <= detection.x2 and detection.y1 <= face_cy <= detection.y2:
+            return face["nome"] if face.get("reconhecido") else "Desconhecido"
+
+    return detection.label
 
 
 def _camera_runtime_key(camera_id, setor: str, source: str) -> str:
@@ -1107,11 +1140,29 @@ def _run_sector(
             img_b64   = base64.b64encode(buffer).decode("utf-8")
             incident_zone = zona_confirmadas[0] if zona_confirmadas else None
 
+            # DEBUG temporário: diagnosticar por que caixas "PESSOA" não resolvem pro nome/
+            # "Desconhecido" individualmente quando há 2+ pessoas em cena — mostra quantas
+            # caixas de pessoa o modelo de EPI viu nesse frame vs. quantos rostos o
+            # reconhecimento facial tinha disponível (e suas posições) no mesmo instante.
+            _pessoas_epi = [d for d in (epi_dets or epi_confirmed) if d.label.startswith("PESSOA")]
+            with _latest_face_matches_lock:
+                _faces_disponiveis = list(_latest_face_matches.get(primary_camera_id) or [])
+            print(
+                f"[FACIAL][DEBUG incidente] caixas PESSOA do EPI: "
+                f"{[(round(d.x1), round(d.y1), round(d.x2), round(d.y2)) for d in _pessoas_epi]} | "
+                f"rostos disponíveis: {[(f['nome'], round(f['x1']), round(f['y1']), round(f['x2']), round(f['y2'])) for f in _faces_disponiveis]}"
+            )
+
             details = {
                 "status": confirmed_verdict.status,
                 "epi": [
                     {
-                        "label":      d.label,
+                        # Caixas "PESSOA" viram o nome do funcionário reconhecido, se o
+                        # rosto dele caiu dentro dessa caixa no último ciclo do
+                        # reconhecimento facial (câmera frontal) — ver _resolve_pessoa_label.
+                        "label": _resolve_pessoa_label(
+                            d, primary_camera_id if d in primary_epi_dets else lateral_camera_id
+                        ),
                         "confidence": round(float(d.confidence), 4),
                         "bbox":       [int(d.x1), int(d.y1), int(d.x2), int(d.y2)],
                     }
@@ -1284,7 +1335,11 @@ def _run_facial_sector(
             time.sleep(0.5)
             continue
 
-        registry.refresh_if_needed()
+        # NÃO chama registry.refresh_if_needed() aqui — isso roda numa thread própria
+        # (_facial_registry_sync_worker). Sincronizar aqui bloquearia este loop (que
+        # atualiza a caixa+nome ao vivo) por vários segundos toda vez que precisasse
+        # recalcular embeddings (leitura de foto + MTCNN/FaceNet na CPU não é instantâneo),
+        # travando a transmissão — foi exatamente isso que causava a demora reportada.
         matches = recognizer.identify(frame, registry.known_embeddings())
 
         # Transmite a cada ciclo (não só quando o debounce confirma) — é o que faz a
@@ -1293,20 +1348,25 @@ def _run_facial_sector(
         # source "facial" um dia volte a ter resolução própria) — hoje é o mesmo frame
         # exibido em "frontal", então bate exatamente com o que o overlay já usa.
         face_height, face_width = frame.shape[:2]
+        faces_payload = [
+            {
+                "nome": m.nome,
+                "confidence": m.confidence,
+                "x1": int(m.x1), "y1": int(m.y1), "x2": int(m.x2), "y2": int(m.y2),
+                "funcionario_id": m.funcionario_id,
+                "reconhecido": m.reconhecido,
+            }
+            for m in matches
+        ]
         send_faces(
-            [
-                {
-                    "nome": m.nome,
-                    "confidence": m.confidence,
-                    "x1": int(m.x1), "y1": int(m.y1), "x2": int(m.x2), "y2": int(m.y2),
-                    "funcionario_id": m.funcionario_id,
-                    "reconhecido": m.reconhecido,
-                }
-                for m in matches
-            ],
+            faces_payload,
             setor=setor, source="facial", camera_id=camera_id,
             frame_width=face_width, frame_height=face_height,
         )
+        # Guarda pra _run_sector trocar o label "PESSOA" pelo nome reconhecido ao montar
+        # o incidente (ver _resolve_pessoa_label) — mesma câmera, resultado mais recente.
+        with _latest_face_matches_lock:
+            _latest_face_matches[camera_id] = faces_payload
 
         for match in matches:
             key = match.funcionario_id if match.reconhecido else f"desconhecido_{round(match.center_x / 80)}_{round(match.center_y / 80)}"
@@ -1427,7 +1487,12 @@ def main():
     # feature — EPI/ergonomia/zona continuam funcionando normalmente.
     try:
         face_recognizer = FaceRecognizer()
-        face_registry = FuncionarioFaceRegistry(face_recognizer, backend_url=BACKEND_FUNCIONARIOS_URL)
+        # 15s (em vez do padrão de 30s): agora que a sincronização roda numa thread própria
+        # e não trava mais a transmissão ao vivo (ver _facial_registry_sync_worker), dá pra
+        # ser mais ágil sem custo — fotos novas cadastradas demoram menos pra "entrar em vigor".
+        face_registry = FuncionarioFaceRegistry(
+            face_recognizer, backend_url=BACKEND_FUNCIONARIOS_URL, refresh_interval_s=15.0
+        )
     except Exception as e:
         print(f"[FACIAL] Reconhecimento facial desativado: {e}")
         face_recognizer = None

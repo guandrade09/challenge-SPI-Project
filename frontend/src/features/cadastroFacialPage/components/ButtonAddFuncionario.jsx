@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Plus, Loader2, X, ScanFace, ImagePlus } from 'lucide-react';
 import { PopupModal, IconButtonModal } from '../../../components/shared';
 
+const MAX_FOTOS = 3; // espelha backend/src/api/models/funcionario.model.js (MAX_FOTOS_FUNCIONARIO)
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -23,7 +25,7 @@ export function ButtonAddFuncionario({
   const [matricula, setMatricula] = useState('');
   const [setor, setSetor] = useState('');
   const [cargo, setCargo] = useState('');
-  const [fotoPreview, setFotoPreview] = useState(null);
+  const [fotos, setFotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -34,7 +36,7 @@ export function ButtonAddFuncionario({
     setMatricula('');
     setSetor('');
     setCargo('');
-    setFotoPreview(null);
+    setFotos([]);
   };
 
   const handleOpen = (e) => {
@@ -42,11 +44,16 @@ export function ButtonAddFuncionario({
     setIsOpen(true);
   };
 
-  const handleFotoChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const base64 = await fileToBase64(file);
-    setFotoPreview(base64);
+  const handleFotosChange = async (e) => {
+    const files = Array.from(e.target.files || []).slice(0, MAX_FOTOS - fotos.length);
+    e.target.value = ''; // permite escolher o mesmo arquivo de novo depois de remover
+    if (files.length === 0) return;
+    const base64s = await Promise.all(files.map(fileToBase64));
+    setFotos((prev) => [...prev, ...base64s].slice(0, MAX_FOTOS));
+  };
+
+  const handleRemoveFoto = (idx) => {
+    setFotos((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleSubmit = async (e) => {
@@ -60,7 +67,7 @@ export function ButtonAddFuncionario({
         matricula: matricula.trim() || null,
         setor: setor.trim() || null,
         cargo: cargo.trim() || null,
-        foto: fotoPreview || null,
+        fotos,
       });
       handleClose();
     } catch (err) {
@@ -94,27 +101,44 @@ export function ButtonAddFuncionario({
       >
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] sm:max-h-none overflow-y-auto custom-scrollbar pr-1">
           <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSubmitting}
-              className="w-24 h-24 rounded-full border-2 border-dashed border-theme-divider flex items-center justify-center overflow-hidden bg-[var(--p-bg)] hover:border-[var(--p-subtext)] transition-colors disabled:opacity-50"
-            >
-              {fotoPreview ? (
-                <img src={fotoPreview} alt="Prévia do rosto" className="w-full h-full object-cover" />
-              ) : (
-                <ImagePlus size={22} className="text-theme-muted" />
+            <div className="flex gap-2">
+              {fotos.map((foto, idx) => (
+                <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-theme-divider shrink-0">
+                  <img src={foto} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFoto(idx)}
+                    disabled={isSubmitting}
+                    title="Remover foto"
+                    className="absolute top-0.5 right-0.5 bg-black/70 hover:bg-red-600/90 rounded-full p-0.5 transition-colors"
+                  >
+                    <X size={10} className="text-white" />
+                  </button>
+                </div>
+              ))}
+              {fotos.length < MAX_FOTOS && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSubmitting}
+                  className="w-20 h-20 rounded-lg border-2 border-dashed border-theme-divider flex items-center justify-center overflow-hidden bg-[var(--p-bg)] hover:border-[var(--p-subtext)] transition-colors disabled:opacity-50 shrink-0"
+                >
+                  <ImagePlus size={20} className="text-theme-muted" />
+                </button>
               )}
-            </button>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              onChange={handleFotoChange}
+              multiple
+              onChange={handleFotosChange}
               disabled={isSubmitting}
               className="hidden"
             />
-            <span className="text-theme-muted text-[10px] font-theme-body">Foto do rosto (frontal, bem iluminada)</span>
+            <span className="text-theme-muted text-[10px] font-theme-body">
+              {fotos.length}/{MAX_FOTOS} fotos — rosto de frente, bem iluminado. Mais fotos (ângulos/luz diferentes) melhoram a precisão.
+            </span>
           </div>
 
           <div>

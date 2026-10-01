@@ -6,8 +6,10 @@ import { ButtonDeleteFuncionario } from './ButtonDeleteFuncionario';
 
 export function FuncionarioCard({ funcionario, theme, onEditFuncionario, onDeleteFuncionario }) {
   const isAtivo = (funcionario.status || 'ativo') === 'ativo';
-  const fotoUrl = funcionario.foto_path ? streamService.imagePathToUrl(funcionario.foto_path) : null;
-  const hasEncoding = Boolean(funcionario.face_encoding);
+  const primeiraFoto = funcionario.fotos?.[0];
+  const fotoUrl = primeiraFoto ? streamService.imagePathToUrl(primeiraFoto) : null;
+  const totalFotos = funcionario.fotos?.length || 0;
+  const hasEncoding = Boolean(funcionario.face_encodings);
 
   return (
     <div className="panel-subcard rounded-xl p-3 flex flex-col gap-2.5">
@@ -33,6 +35,9 @@ export function FuncionarioCard({ funcionario, theme, onEditFuncionario, onDelet
         {funcionario.matricula && (
           <span className="text-theme-muted text-[10px] font-mono mt-0.5">Matrícula: {funcionario.matricula}</span>
         )}
+        <span className="text-theme-muted text-[10px] font-mono mt-0.5">
+          {totalFotos} foto{totalFotos === 1 ? '' : 's'} cadastrada{totalFotos === 1 ? '' : 's'}
+        </span>
       </div>
 
       <div className="flex items-center justify-between pt-2 border-t border-theme-divider">

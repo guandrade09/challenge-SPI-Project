@@ -162,6 +162,18 @@ export async function initDatabase() {
     );
   `);
 
+  // fotos/face_encodings: suporte a até 3 fotos de referência por funcionário (melhora a
+  // precisão do reconhecimento). foto_path/face_encoding (singular) ficam só pra compat
+  // com cadastros feitos antes dessa mudança — o repository cai neles quando fotos/
+  // face_encodings ainda estiverem vazios (ver funcionario.repository.js).
+  await db.exec(`
+    ALTER TABLE funcionarios ADD COLUMN fotos TEXT;
+  `).catch(() => {});
+
+  await db.exec(`
+    ALTER TABLE funcionarios ADD COLUMN face_encodings TEXT;
+  `).catch(() => {});
+
   // reconhecimentos_faciais: log de cada reconhecimento reportado pelo orquestrador.
   // funcionario_id NULL = rosto detectado mas não reconhecido (abaixo do limiar de confiança).
   await db.exec(`
