@@ -1,7 +1,8 @@
-import { connect } from "../utils/connection.js";
+import { connect, openConnection } from "../utils/connection.js";
+import { AppError } from "../utils/appError.js";
 
 const SELECT_COLUMNS = `
-  timestamp, label, confidence, img_path, source, camera_id, setor,
+  id, timestamp, label, confidence, img_path, source, camera_id, setor,
   img_path_lateral, details, epi_ausente, criticidade, reba_nivel
 `;
 
@@ -84,4 +85,66 @@ function _parseDetails(row) {
     try { row.details = JSON.parse(row.details); } catch { /* mantém string se inválido */ }
   }
   return row;
+}
+
+// Recebe um ID representante por card e remove todas as linhas que compõem
+// cada incidente. A conexão separada impede intercalamento com outras consultas.
+export async function deleteIncidentGroups(ids, providedDb = null) {
+  const db = providedDb || await openConnection();
+  let transactionOpen = false;
+  try {
+    await db.exec("BEGIN IMMEDIATE");
+    transactionOpen = true;
+    const groups = new Map();
+    for (const id of [...new Set(ids)]) {
+      const row = await db.get(
+        "SELECT id, img_path, timestamp, camera_id, label FROM detections WHERE id = ?",
+        id,
+      );
+      if (!row) throw new AppError(`Incidente ${id} não encontrado.`, 404);
+      const key = row.img_path
+        ? `img:${row.img_path}|${row.timestamp}|${row.camera_id ?? ''}`
+        : `row:${row.timestamp}|${row.camera_id ?? ''}|${row.label}`;
+      groups.set(key, row);
+    }
+
+    const candidatePaths = new Set();
+    let deletedRows = 0;
+    for (const row of groups.values()) {
+      const where = row.img_path
+        ? "img_path = ? AND timestamp = ? AND camera_id IS ?"
+        : "img_path IS NULL AND timestamp = ? AND camera_id IS ? AND label = ?";
+      const params = row.img_path
+        ? [row.img_path, row.timestamp, row.camera_id]
+        : [row.timestamp, row.camera_id, row.label];
+      const rows = await db.all(
+        `SELECT img_path, img_path_lateral FROM detections WHERE ${where}`,
+        params,
+      );
+      for (const item of rows) {
+        if (item.img_path) candidatePaths.add(item.img_path);
+        if (item.img_path_lateral) candidatePaths.add(item.img_path_lateral);
+      }
+      const result = await db.run(`DELETE FROM detections WHERE ${where}`, params);
+      deletedRows += result.changes;
+    }
+
+    const orphanPaths = [];
+    for (const filePath of candidatePaths) {
+      const reference = await db.get(
+        "SELECT 1 FROM detections WHERE img_path = ? OR img_path_lateral = ? LIMIT 1",
+        filePath,
+        filePath,
+      );
+      if (!reference) orphanPaths.push(filePath);
+    }
+    await db.exec("COMMIT");
+    transactionOpen = false;
+    return { deletedRows, deletedIncidents: groups.size, orphanPaths };
+  } catch (error) {
+    if (transactionOpen) await db.exec("ROLLBACK");
+    throw error;
+  } finally {
+    if (!providedDb) await db.close();
+  }
 }

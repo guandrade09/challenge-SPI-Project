@@ -2,7 +2,8 @@ import {
   createDetection,
   viewDetection,
   searchDetection,
-  searchDetectionByDay
+  searchDetectionByDay,
+  deleteDetections,
 } from "../services/detection.service.js";
 
 import { ErrorHandler } from "../utils/appError.js";
@@ -94,6 +95,15 @@ export async function getByTimestamp(req, res)
   } 
   catch (error) 
   {
+    return ErrorHandler.handle(res, error);
+  }
+}
+
+export async function remove(req, res) {
+  try {
+    const result = await deleteDetections(req.body?.ids);
+    return res.status(200).json(result);
+  } catch (error) {
     return ErrorHandler.handle(res, error);
   }
 }

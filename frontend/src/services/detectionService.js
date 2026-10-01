@@ -6,6 +6,10 @@ const detectionService = {
     const res = await api.get('/detections');
     return res.data; // { count, data }
   },
+  remove: async (ids) => {
+    const res = await api.delete('/detections', { data: { ids } });
+    return res.data;
+  },
 };
 
 export default detectionService;

@@ -1,203 +1,118 @@
+# Histórico de Incidentes — documentação técnica
 
-# Módulo de Histórico de Incidentes - Documentação Técnica (Dev)
+Atualizado em 30/09/2026 a partir do código do projeto `frontend/src/features/incidentesPage`.
 
-Documentação técnica completa do módulo de **Histórico de Incidentes**, responsável pela listagem, filtragem, renderização gráfica e detalhamento de eventos de segurança, ergonomia e invasão de áreas.
+## Visão geral
 
----
+A página lista incidentes recebidos de `detectionService.list()`. O backend salva uma linha por causa detectada; `groupIncidentRows` reúne as linhas de um mesmo incidente em um card e compõe seu `label`. A página permite filtrar, selecionar incidentes em lote, abrir detalhes, exportar frames em ZIP e excluir incidentes.
 
-## 1. Visão Geral do Módulo
+## Arquitetura
 
-O módulo gerencia a recuperação e exibição de registros de incidentes capturados por visões computacionais (câmeras). Ele aplica visualizações overlay via HTML5 Canvas em tempo real sobre frames do vídeo para destacar:
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `IncidentesPage.jsx` | Carregamento, agrupamento, filtros, paginação, seleção e coordenação de download e exclusão. |
+| `components/IncidentFilters.jsx` | Select de EPI/estado, chips removíveis, filtros de fonte e câmera, Só alertas, Selecionar todos, Downloads e Deletar selecionados. |
+| `components/IncidentCard.jsx` | Prévia, seleção pelo clique no card, checkbox no canto superior esquerdo, realce e botões de detalhes e exclusão individual. |
+| `components/IncidentModal.jsx` | Detalhes do incidente em portal; vistas frontal e lateral e métricas. |
+| `components/IncidentDownloadModal.jsx` | Portal com as três opções de exportação, quantidade selecionada e estados de processamento/erro. |
+| `components/IncidentDeleteModal.jsx` | Confirmação de exclusão individual ou em lote, com estados de processamento/erro. |
+| `components/IncidentCanvas.jsx` | Imagem e canvas da prévia de detalhes. |
+| `utils/drawIncidentOverlays.js` | Mesma rotina de overlays usada no canvas da prévia e na exportação. |
+| `utils/skeletonUtils.js` | Desenho do esqueleto COCO de 17 pontos. |
+| `utils/groupIncidents.js` | Agrupamento e chave `incidentKey` baseada em caminho, timestamp e câmera. |
+| `utils/incidentFiltering.js` | Opções de EPI, classificação do estado de alerta e predicados de filtro. |
+| `utils/incidentExport.js` | Busca dos frames, renderização marcada, criação do ZIP e disparo do download. |
+| `frontend/src/services/detectionService.js` | `list()` e `remove(ids)`, que chama `DELETE /api/detections`. |
+| `backend/src/api/routes/detection.routes.js` | Rota de exclusão protegida por `authMiddleware`. |
+| `backend/src/api/controllers/detection.controller.js` | Validação HTTP e resposta da exclusão. |
+| `backend/src/api/services/detection.service.js` | Validação de IDs e remoção segura de frames órfãos. |
+| `backend/src/api/repositories/detection.repository.js` | Deleção transacional de todas as linhas de cada incidente e checagem de referências. |
 
-* **EPIs** (Equipamentos de Proteção Individual) ausentes ou em uso (Câmera Frontal).
-* **Ergonomia/REBA** e **Detecção de Quedas** através da renderização de esqueleto corporal (Câmera Lateral).
-* **Invasão de Zonas de Risco**.
+## Dados e classificação
 
----
+O payload de `detectionService.list()` pode ser um array ou objeto com `data` ou `incidents`. Cada linha agora expõe seu `id` do SQLite, além de `timestamp`, `label`, `confidence`, `source`, `camera_id`, `img_path`, opcionalmente `img_path_lateral`, `criticidade` e `details`. `details` pode incluir `epi[]` (com `label`, `confidence`, `bbox`), `ergonomia[]` (REBA, queda, bbox, keypoints) e `zona[]` (invasão e geometria). A página usa `incidentKey` após o agrupamento; o `id` da primeira linha funciona como representante do card para a exclusão, enquanto o backend expande o grupo completo.
 
-## 2. Arquitetura e Estrutura de Arquivos
+O Select oferece valores de EPI extraídos de `details.epi[].label` e dos rótulos agrupados, removendo sufixos como `AUSENTE` e `ERRADO`. Os estados disponíveis são **Segura**, **Atenção** e **Crítica**. A classificação usa `criticidade` ou `details.status`: `MONITORANDO` → Segura; `ALERTA_CRITICO`/`ALERTA_MULTIPLO` → Crítica; demais valores iniciados por `ALERTA` → Atenção. Registros antigos sem estado usam queda, invasão ou REBA ≥ 7 para Crítica; EPI ausente/errado ou REBA ≥ 4 para Atenção; caso contrário, Segura.
+
+## Estado e fluxo da página
+
+| Estado | Uso |
+| --- | --- |
+| `all`, `loading` | Incidentes agrupados e carregamento inicial. |
+| `activeFilters` | Chips `{key, type, value, label}` para EPI ou alerta; substitui a busca textual `search`. |
+| `filterSource`, `filterCamera`, `filterAlert` | Filtros de fonte e câmera e botão Só alertas. |
+| `page` | Índice da página; `PAGE_SIZE = 20`. |
+| `selected` | Incidente aberto no modal de detalhes. |
+| `selectedKeys` | Conjunto de chaves dos incidentes selecionados. |
+| `downloadOpen`, `downloadBusy`, `downloadError` | Modal e andamento da exportação. |
+| `deleteTargets`, `deleteBusy`, `deleteError`, `deleteNotice` | Incidentes a excluir, andamento, erro e aviso de limpeza incompleta de arquivos. |
+
+O resultado `filtered` é calculado **antes** da paginação. Filtros da mesma categoria usam OU; entre EPI, estado, fonte, câmera e Só alertas usa-se E. Um chip clicado remove apenas seu filtro. Qualquer alteração de filtro limpa a seleção e volta à primeira página, impedindo exportação de itens fora do resultado atual. A paginação mostra somente a fatia de 20 itens; a seleção individual ou em lote pode abranger várias páginas.
+
+**Selecionar todos** inclui todos os resultados filtrados, inclusive os que estão em outras páginas. Quando todos estão selecionados, o botão muda para **Desmarcar todos** e o clique limpa a seleção. O card mostra checkbox no canto superior esquerdo e borda azul. Clicar na foto ou nas informações do card também alterna sua seleção; os botões **Detalhes** e **Deletar** são controles independentes e não alteram a seleção. O contador mostra quantos itens do resultado atual estão selecionados. Exportação e exclusão em lote recebem somente a interseção entre `selectedKeys` e `filtered`.
+
+O filtro legado **Só alertas** permanece com sua regra anterior: invasão de zona, queda ou EPI ausente em `details`. Por isso, pode combinar-se com o novo estado de alerta e retornar zero itens. O filtro de fonte preserva as opções extraídas de `source`; o filtro de câmera usa `camera_id`.
+
+## Props relevantes
+
+| Componente | Props |
+| --- | --- |
+| `IncidentFilters` | `activeFilters`, `options`, `onAddFilter`, `onRemoveFilter`, `source`, `onSourceChange`, `sources`, `camera`, `cameras`, `onCameraChange`, `onlyAlerts`, `onToggleAlerts`, `selectedCount`, `filteredCount`, `allFilteredSelected`, `onToggleSelectAll`, `onOpenDownloads`, `onDeleteSelected`. |
+| `IncidentCard` | `incident`, `onClick` (detalhes), `isSelected`, `onToggleSelect`, `onDelete`. |
+| `IncidentDownloadModal` | `selectedCount`, `busy`, `error`, `onClose`, `onDownload(mode)`. |
+| `IncidentDeleteModal` | `count`, `busy`, `error`, `onClose`, `onConfirm`. |
+| `IncidentCanvas` | `imgUrl`, `details`, `source` (padrão `frontal`). |
+| `IncidentModal` | `incident`, `onClose`. |
+
+## Exportação
+
+O botão **Downloads** abre um modal com **Baixar com Bounding Box**, **Baixar normal** e **Baixar ambos**. Sem incidentes selecionados, as três ações ficam desabilitadas. Durante a preparação, o modal indica o estado e bloqueia novos cliques. Falhas aparecem no modal; o ZIP só é oferecido após todos os frames serem processados.
+
+Para cada incidente selecionado, `incidentExport` usa `streamService.imagePathToUrl` e busca o frame frontal; inclui também o lateral quando `img_path_lateral` está presente. A opção normal grava os bytes originais. A opção marcada desenha no canvas na resolução nativa e salva PNG. O desenho é o mesmo do modal: caixas de EPI, caixas/REBA/esqueleto da vista lateral e overlay de zona quando houver geometria. A opção **Baixar ambos** inclui as duas versões em pastas separadas:
 
 ```text
-src/
-└── features/
-    └── incidentesPage/
-        ├── IncidentesPage.jsx         # Página principal (Gerenciador de estado e layout)
-        ├── components/
-        │   ├── index.js               # Exportações centralizadas dos componentes
-        │   ├── IncidentCanvas.jsx     # Renderizador HTML5 Canvas para Overlays
-        │   ├── IncidentCard.jsx       # Card da listagem em grid
-        │   ├── IncidentFilters.jsx    # Barra de busca e filtros
-        │   └── IncidentModal.jsx      # Modal detalhada via React Portal
-        └── utils/
-            └── skeletonUtils.js       # Constantes e algoritmo de renderização do esqueleto
-
+incidentes.zip
+├── original/
+│   ├── frame_0001_<timestamp>_frontal.jpg
+│   └── frame_0001_<timestamp>_lateral.jpg
+└── bounding_box/
+    ├── frame_0001_<timestamp>_frontal.png
+    └── frame_0001_<timestamp>_lateral.png
 ```
 
----
+Cada opção isolada inclui apenas sua pasta. Os nomes contêm índice, timestamp tratado e vista para evitar colisões. `createZip` escreve ZIP sem compressão, pois as imagens já são comprimidas; não há nova dependência. O formato clássico usado limita a 65.535 arquivos e 4 GB. A implementação monta o ZIP em memória. A leitura de imagens requer que o servidor permita CORS para a origem do frontend; o backend atual configura `localhost:3300`.
 
-## 3. Tipos e Estruturas de Dados
+## Exclusão individual e em lote
 
-### `Incident` (Objeto Principal)
+O botão **Deletar** fica ao lado de **Detalhes** em cada card. **Deletar selecionados** fica ao lado de **Downloads** e permanece desabilitado sem seleção. Ambos abrem uma confirmação antes da ação permanente. O modal bloqueia novos cliques durante a operação, mostra erros e permite cancelar antes de confirmar. O clique no botão de exclusão não seleciona o card.
 
-```typescript
-interface Incident {
-  timestamp: string | number;
-  label: string;
-  confidence: number;
-  source: string; // Ex: 'frontal' | 'lateral'
-  camera_id?: string;
-  img_path: string;
-  img_path_lateral?: string;
-  details?: IncidentDetails;
-}
+`detectionService.remove(ids)` envia `DELETE /api/detections` com `{ ids: number[] }`. Cada ID é o da primeira linha do incidente agrupado. A rota exige token Bearer pelo `authMiddleware`. O backend valida IDs inteiros positivos, localiza os representantes e, em uma transação SQLite, remove **todas as linhas** com o mesmo `img_path`, `timestamp` e `camera_id`; para registros sem imagem, usa `timestamp`, `camera_id` e `label`. Se algum ID não existir, a transação é revertida e nenhum registro do lote é excluído. A resposta informa `deletedRows` e `deletedIncidents`.
 
-interface IncidentDetails {
-  epi?: Array<{
-    label: string;      // Ex: "capacete_ausente" ou "óculos"
-    confidence: number; // Ex: 0.95
-    bbox: [number, number, number, number]; // [x1, y1, x2, y2]
-  }>;
-  ergonomia?: Array<{
-    pessoa_id?: number;
-    reba_score?: number;
-    reba_level?: string;
-    queda?: boolean;
-    bbox?: [number, number, number, number];
-    keypoints?: Array<[number, number, number]>; // [x, y, confidence] (17 pontos)
-  }>;
-  zona?: Array<{
-    pessoa_id?: number;
-    invadiu: boolean;
-    epis_ausentes?: string[];
-  }>;
-}
+Após confirmar a transação, o backend verifica cada caminho frontal/lateral removido. Só apaga o arquivo físico se nenhuma detecção restante o referenciar e se o caminho real estiver dentro de `backend/src/api/uploads`. Arquivos fora desse diretório não são apagados. Falhas nessa etapa não restauram as linhas já excluídas; a resposta retorna `filesNotRemoved`, e a página mostra um aviso. Isso evita apagar um frame compartilhado por outro incidente.
 
-```
+Na exclusão em lote, a página envia apenas os incidentes **selecionados no resultado filtrado**, inclusive os de outras páginas. Após sucesso, remove os cards da lista local, retira da seleção apenas os itens excluídos e fecha a confirmação. Se o incidente aberto em detalhes foi excluído, fecha também o modal de detalhes. Em erro, mantém os cards e a confirmação aberta com a mensagem do servidor.
 
----
+## Dependências e serviços
 
-## 4. Componentes
+React 19, `react-dom` (portais), `lucide-react`, Zustand (`useUiStore`), `detectionService.list()/remove()` e `streamService.imagePathToUrl()`. No backend, Express, SQLite e o middleware JWT existentes. O módulo não adicionou dependências. O build usa Vite 8 e o lint usa ESLint 9. O desenho do esqueleto reutiliza `skeletonUtils.js`.
 
-### 4.1. `IncidentesPage` (`IncidentesPage.jsx`)
+## Validação realizada
 
-Container principal responsável por orquestrar a paginação, busca e filtros na API.
+- `npm run build` no frontend: **passou**. O Vite apresentou apenas aviso de bundle acima de 500 kB.
+- ESLint direcionado aos arquivos frontend alterados nesta rodada: **passou**.
+- Verificação de sintaxe dos arquivos backend alterados: **passou**.
+- Em banco SQLite temporário: exclusão do grupo inteiro de linhas, lote com dois incidentes, reversão quando um ID não existe e preservação de arquivos ainda referenciados: **passaram**.
+- Em diretório temporário: exclusão de arquivo órfão dentro de uploads e preservação de arquivo fora desse diretório: **passaram**.
+- Na rota HTTP: requisição sem token retornou 401; corpo com ID inválido e token válido retornou 400. Nenhum dado real foi excluído.
+- Verificações funcionais com dados sintéticos: filtros por EPI e alerta, composição com fonte e câmera, classificação do estado e resultado com 23 incidentes (mais de uma página de 20): **passaram**.
+- ZIP sintético com arquivos nas duas pastas: geração, extração e conferência dos bytes: **passaram**. Com frames/canvas simulados, os fluxos **normal**, **bounding box** e **ambos** incluíram as vistas frontal e lateral nas pastas esperadas.
+- `npm run lint` do frontend inteiro: **não passou** por erros já existentes em outros módulos (por exemplo, câmera, eventos, home, stores). Eles não foram alterados neste trabalho.
+- Não houve teste manual da interface contra um backend com incidentes reais nem exclusão de dados reais nesta execução.
 
-* **Estados Principais:**
-* `all`: Lista completa dos incidentes retornados pelo serviço.
-* `search`: Termo de busca textual por `label`.
-* `filterSource`: Filtro por fonte/câmera.
-* `filterAlert`: Booleano para filtrar apenas itens com alertas críticos.
-* `page`: Índice da página atual.
-* `selected`: Incidente selecionado para exibição na modal.
-* **Paginação:**
-* Constante `PAGE_SIZE = 20`.
-* Recalcula a página atual e o total de páginas dinamicamente de acordo com os filtros aplicados.
+## Próximos passos sugeridos
 
----
-
-### 4.2. `IncidentCanvas` (`IncidentCanvas.jsx`)
-
-Componente responsável por desenhar a imagem base e projetar as marcações bounding box, métricas REBA e esqueleto dinamicamente no Canvas HTML5.
-
-* **Props:**
-* `imgUrl` (`string`): URL da imagem do frame.
-* `details` (`IncidentDetails`): Objeto contendo bounding boxes, keypoints e labels.
-* `source` (`'frontal' | 'lateral'`): Determina a lógica de renderização a ser executada.
-* **Lógica de Renderização no Canvas:**
-
-1. **Redimensionamento:** Ajusta a resolução nativa do canvas (`canvas.width`/`height`) para bater com a resolução nativa da imagem (`img.naturalWidth`/`height`).
-2. **Câmera Frontal (`source === 'frontal'`):**
-
-* Desenha a Bounding Box (`strokeRect`).
-* Define cor vermelha (`#ef4444`) se `label` contiver "ausente"; caso contrário, verde (`#10b981`).
-* Desenha tag superior preenchida com a porcentagem da confiança.
-
-3. **Câmera Lateral (`source === 'lateral'`):**
-
-* Calcula a cor REBA: Red ($\ge 7$), Orange ($\ge 4$), Green ($< 4$).
-* Desenha a Bounding Box tracejada (`ctx.setLineDash([5, 3])`).
-* Executa `drawSkeleton()` usando os `keypoints`.
-* Âncora a tag com o ID da pessoa, pontuação REBA e indicador `⚠QUEDA`.
-
-4. **Camada de Zona de Risco (`details.zona`):**
-
-* Caso `invadiu === true`, desenha uma borda laranja pontilhada em toda a extensão do canvas e insere uma barra de alerta inferior.
-
----
-
-### 4.3. `IncidentCard` (`IncidentCard.jsx`)
-
-Componente individual para exibição simplificada do registro no Grid.
-
-* **Props:**
-* `incident` (`Incident`): Dados do incidente.
-* `onClick` (`function`): Callback disparado ao clicar no card.
-* **Comportamento Destaque de Alerta:**
-* Aplica borda vermelha suave (`border-red-500/40`) se houver invasão de zona ou queda.
-* Aplica borda amarela suave (`border-yellow-500/40`) se houver EPIs ausentes.
-
----
-
-### 4.4. `IncidentFilters` (`IncidentFilters.jsx`)
-
-Barra de controle de filtros de busca.
-
-* **Props:**
-* `search`: `string`
-* `onSearchChange`: `(value: string) => void`
-* `source`: `string`
-* `onSourceChange`: `(value: string) => void`
-* `sources`: `string[]` (Lista única de fontes extraída dinamicamente dos dados)
-* `onlyAlerts`: `boolean`
-* `onToggleAlerts`: `() => void`
-
----
-
-### 4.5. `IncidentModal` (`IncidentModal.jsx`)
-
-Modal exibida via **React Portal** (`createPortal` para `document.body`) com os detalhes aprofundados do incidente.
-
-* **Funcionalidades:**
-* Renderiza o `IncidentCanvas` para a visão frontal e, se disponível (`img_path_lateral`), renderiza o `IncidentCanvas` para a visão lateral.
-* Painel lateral de métricas formatadas por categorias: EPIs Detectados, Ergonomia/REBA e Zonas de Risco.
-
----
-
-## 5. Utilitários (`skeletonUtils.js`)
-
-Módulo utilitário para desenho de esqueletos estruturados no formato COCO (17 keypoints).
-
-### Constantes Exportadas
-
-* `KP_CONF_THRESHOLD = 0.4`: Limiar de confiança mínimo para exibição de um ponto articular ou linha de conexão.
-* `SKELETON_EDGES`: Matriz de pares indexados definindo as conexões entre articulações:
-
-| Conexão                 | Pontos do Corpo                                 |
-| ------------------------ | ----------------------------------------------- |
-| `[0,1]`, `[0,2]`     | Nariz → Olhos                                  |
-| `[1,3]`, `[2,4]`     | Olhos → Orelhas                                |
-| `[5,6]`                | Ombro Esquerdo → Ombro Direito                 |
-| `[5,7]`, `[7,9]`     | Braço Esquerdo (Ombro → Cotovelo → Pulso)    |
-| `[6,8]`, `[8,10]`    | Braço Direito (Ombro → Cotovelo → Pulso)     |
-| `[5,11]`, `[6,12]`   | Tronco (Ombros → Quadris)                      |
-| `[11,12]`              | Quadril Esquerdo → Quadril Direito             |
-| `[11,13]`, `[13,15]` | Perna Esquerda (Quadril → Joelho → Tornozelo) |
-| `[12,14]`, `[14,16]` | Perna Direita (Quadril → Joelho → Tornozelo)  |
-
-### `drawSkeleton(ctx, keypoints, rebaColor)`
-
-* Itera sobre `SKELETON_EDGES` e traça as linhas caso a confiança de ambos os pontos seja maior ou igual a `KP_CONF_THRESHOLD`.
-* Desenha um círculo preenchido em branco com borda colorida (`rebaColor`) sobre cada articulação válida.
-
----
-
-## 6. Dependências Externa e Serviços
-
-* **Bibliotecas Third-Party:**
-* `lucide-react`: Ícones da interface (`Search`, `Filter`, `X`, `AlertTriangle`, `Shield`, `Activity`, `MapPin`, etc.).
-* `React`: Hooks `useEffect`, `useRef`, `useCallback`, `useState`.
-* **Serviços Globais Esperados:**
-* `streamService.imagePathToUrl(path)`: Converte caminhos relativos em URLs absolutas para consumo no `<img />`.
-* `detectionService.list()`: Promise contendo o payload `{ data: Incident[] }`.
-* `useUiStore`: Store Zustand para controle do tema global (`theme`).
-* `formatLabel`, `formatIncidentLabel`, `formatTs`: Funções utilitárias de formatação visual de textos e datas.
+1. Exercitar as três opções de download com dados reais, inclusive frames laterais e overlays de zona, e conferir visualmente os PNGs resultantes.
+2. Para lotes grandes, gerar o ZIP no servidor ou por streaming para reduzir memória no navegador e contornar possíveis diferenças de CORS em outros ambientes.
+3. Criar um ID de incidente agrupado no contrato da API para seleção e rastreabilidade mais robustas.
+4. Adicionar testes automatizados de integração da página, com múltiplas páginas, mudança de filtros durante a seleção e falhas de carregamento de imagem.
+5. Testar a exclusão com incidentes reais em ambiente de homologação e avaliar trilha de auditoria ou recuperação para operações permanentes.

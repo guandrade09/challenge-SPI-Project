@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 // por conexão, as conexões avulsas nem tinham busy_timeout (SQLITE_BUSY sob concorrência).
 let connectionPromise = null;
 
-async function openConnection() {
+export async function openConnection() {
   const databasePath = path.resolve(__dirname, "../config/database.sqlite");
 
   const db = await open({

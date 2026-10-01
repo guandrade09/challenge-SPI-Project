@@ -1,9 +1,14 @@
 import Detection from "../models/detection.model.js";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+import { AppError } from "../utils/appError.js";
 import {
   saveDetection,
   getAllDetections,
   getDetectionsByLabel,
-  getDetectionsByDay
+  getDetectionsByDay,
+  deleteIncidentGroups,
 } from "../repositories/detection.repository.js";
 import { base64ToImage, normalizeBrasiliaTimestamp } from "../utils/convert.js";
 import { createFolderByTimestamp } from "../utils/folder.js";
@@ -144,4 +149,53 @@ export async function searchDetectionByDay(day)
     start.toISOString(),
     end.toISOString()
   );
+}
+
+const uploadsRoot = fileURLToPath(new URL("../uploads/", import.meta.url));
+
+function isInsideUploads(filePath, realRoot) {
+  const relative = path.relative(realRoot, filePath);
+  return relative !== "" && relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
+export async function removeOrphanFrames(paths, root = uploadsRoot) {
+  let filesDeleted = 0;
+  let filesNotRemoved = 0;
+  const realRoot = await fs.realpath(root).catch(() => null);
+  for (const filePath of paths) {
+    if (!realRoot || !path.isAbsolute(filePath)) {
+      filesNotRemoved += 1;
+      continue;
+    }
+    try {
+      const realFile = await fs.realpath(filePath);
+      if (!isInsideUploads(realFile, realRoot)) {
+        filesNotRemoved += 1;
+        continue;
+      }
+      await fs.unlink(realFile);
+      filesDeleted += 1;
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        console.error("Falha ao remover frame sem referências:", error);
+        filesNotRemoved += 1;
+      }
+    }
+  }
+  return { filesDeleted, filesNotRemoved };
+}
+
+export async function deleteDetections(ids) {
+  if (!Array.isArray(ids) || ids.length === 0 ||
+      ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+    throw new AppError("Informe IDs válidos de incidentes.", 400);
+  }
+  const result = await deleteIncidentGroups(ids);
+  const cleanup = await removeOrphanFrames(result.orphanPaths);
+  return {
+    deletedRows: result.deletedRows,
+    deletedIncidents: result.deletedIncidents,
+    ...cleanup,
+  };
 }
