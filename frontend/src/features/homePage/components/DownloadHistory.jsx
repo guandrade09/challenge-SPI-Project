@@ -5,6 +5,22 @@ import { Download, FileText, Calendar } from "lucide-react";
 import { IconButtonModal } from '../../../components/shared';
 import { reportService } from '../../../services/reportService';
 
+function formatFileSize(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value < 0) return '—';
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
 export function DownloadHistory({ data, theme = "light" }) {
   const handleDownload = async (filename) => {
     try {
@@ -58,7 +74,7 @@ export function DownloadHistory({ data, theme = "light" }) {
                       {new Date(download.date).toLocaleDateString('pt-BR')}
                     </div>
                   </TableCell>
-                  <TableCell className="font-bold text-xs text-theme-muted">{download.size}</TableCell>
+                  <TableCell className="font-bold text-xs text-theme-muted">{formatFileSize(download.size)}</TableCell>
                   <TableCell className="text-right py-2">
                     <IconButtonModal
                       onClick={() => handleDownload(download.fileName)}

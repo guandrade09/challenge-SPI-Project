@@ -1,10 +1,15 @@
 import { viewReportPdf, viewReportExcel, getReportSummary as getReportSummaryService, listReportFiles, getReportFile } from "../services/report.service.js";
 import { ErrorHandler } from "../utils/appError.js";
 
+function parseSections(sections) {
+  if (!sections) return null;
+  return String(sections).split(",").map((section) => section.trim()).filter(Boolean);
+}
+
 export async function downloadReportPdf(req, res) {
   try {
-    const { label, start, end } = req.query;
-    const pdfBuffer = await viewReportPdf(label, start, end);
+    const { label, start, end, sections } = req.query;
+    const pdfBuffer = await viewReportPdf(label, start, end, parseSections(sections));
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", "attachment; filename=relatorio.pdf");
@@ -17,8 +22,8 @@ export async function downloadReportPdf(req, res) {
 
 export async function getReportPdf(req, res) {
   try {
-    const { label, start, end } = req.query;
-    const pdfBuffer = await viewReportPdf(label, start, end);
+    const { label, start, end, sections } = req.query;
+    const pdfBuffer = await viewReportPdf(label, start, end, parseSections(sections));
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", "inline; filename=relatorio.pdf");

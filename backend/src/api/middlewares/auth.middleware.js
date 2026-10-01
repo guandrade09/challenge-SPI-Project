@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
-
-const SECRET = process.env.JWT_SECRET || "segredo_super_secreto";
+import { JWT_SECRET } from "../config/secrets.js";
 
 export function authMiddleware(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -17,7 +16,7 @@ export function authMiddleware(req, res, next) {
 
     try 
     {
-        const decoded = jwt.verify(token, SECRET);
+        const decoded = jwt.verify(token, JWT_SECRET);
 
         req.user = decoded; 
         return next();

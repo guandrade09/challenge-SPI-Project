@@ -192,6 +192,7 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
 
       if (conversationId) {
         setSelectedConversationId(conversationId);
+        setNewConversationActive(false);
         setCurrentConversationLabel(data.conversation_title || currentConversationLabel || text);
         setSelectedDay(data.started_at ? data.started_at.slice(0, 10) : selectedDay || new Date().toISOString().slice(0, 10));
       }
@@ -386,7 +387,9 @@ export const AiChatSidebar = ({ theme = 'dark' }) => {
 
     while ((match = linkRegex.exec(content)) !== null) {
       const [fullMatch, linkText, rawInside] = match;
-      const urlMatch = rawInside.match(/https?:\/\/[^\s)]+/);
+      // Aceita tanto URLs absolutas quanto caminhos relativos de API (ex: /api/report/pdf/download),
+      // já que os links de download gerados pelo backend agora são relativos.
+      const urlMatch = rawInside.match(/(https?:\/\/[^\s)]+|\/api\/[^\s)]+)/);
 
       if (!urlMatch) {
         continue;

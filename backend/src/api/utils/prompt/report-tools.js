@@ -1,3 +1,8 @@
+import { REPORT_SECTIONS } from "../report/File.js";
+
+const SECTION_IDS = REPORT_SECTIONS.map((section) => section.id);
+const SECTION_DESCRIPTIONS = REPORT_SECTIONS.map((section) => `${section.id} (${section.label})`).join(", ");
+
 export const REPORT_TOOLS = [
   {
     type: "function",
@@ -39,10 +44,25 @@ export const REPORT_TOOLS = [
     type: "function",
     function: {
       name: "get_pdf_download_link",
-      description: "Gera o link de download do relatório em PDF.",
+      description:
+        "Gera o link de download do relatório em PDF. Por padrão (pedido genérico, sem detalhes) o PDF sai completo, com todas as seções. " +
+        "Se o usuário pedir algo específico (ex: 'só a parte de setores', 'quero só o resumo e os gráficos de equipamento'), " +
+        "use o parâmetro 'sections' para montar um PDF só com as partes pedidas.",
       parameters: {
         type: "object",
-        properties: {},
+        properties: {
+          sections: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: SECTION_IDS,
+            },
+            description:
+              `Lista de seções a incluir no PDF, na ordem desejada pelo usuário (a ordem final do documento segue a estrutura padrão do relatório). ` +
+              `Opções disponíveis: ${SECTION_DESCRIPTIONS}. ` +
+              `Deixe vazio ou omita este campo para gerar o relatório completo (comportamento padrão para pedidos genéricos).`,
+          },
+        },
         required: [],
       },
     },

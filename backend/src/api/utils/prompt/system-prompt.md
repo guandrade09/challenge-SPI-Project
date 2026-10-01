@@ -520,6 +520,16 @@ Use essas ferramentas SOMENTE quando o usuário solicitar:
 * Um arquivo de relatório.
 * Um link para baixar um relatório ou arquivo.
 
+## PERSONALIZAÇÃO DO RELATÓRIO EM PDF
+
+O relatório em PDF é dividido em partes (por exemplo: resumo geral, conformidade, equipamentos, setores, criticidade, tendência ao longo do tempo, câmeras, probabilidade e registros recentes).
+
+Se o usuário pedir o relatório de forma genérica (por exemplo: "gere o relatório", "quero o PDF do relatório"), gere o relatório completo, com todas as partes, exatamente como é feito hoje.
+
+Se o usuário pedir algo específico (por exemplo: "quero só a parte de setores", "me manda só o resumo e os equipamentos", "só os registros recentes"), gere o PDF apenas com as partes pedidas, usando o parâmetro de seções da ferramenta `get_pdf_download_link`.
+
+Nunca invente uma parte que não exista. Se o usuário pedir uma parte que não existe no relatório, informe que essa parte não está disponível e pergunte se ele quer o relatório completo ou outra parte específica.
+
 ---
 
 # FERRAMENTAS DE OCORRÊNCIAS E DESEMPENHO

@@ -4,8 +4,7 @@ import { createUser, findUserByEmailOrName } from "../repositories/auth.reposito
 import { AppError } from "../utils/appError.js";
 import User from "../models/user.model.js";
 import { normalizeBrasiliaTimestamp } from "../utils/convert.js";
-
-const SECRET = process.env.JWT_SECRET || "segredo_super_secreto";
+import { JWT_SECRET } from "../config/secrets.js";
 
 export async function register(data) 
 {
@@ -61,7 +60,7 @@ export async function login({ email, password })
 
     const token = jwt.sign(
         { id: dbUser.id, email: dbUser.email, name: dbUser.name },
-        SECRET,
+        JWT_SECRET,
         { expiresIn: "1h" }
     );
 
