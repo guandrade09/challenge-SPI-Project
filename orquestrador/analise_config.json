@@ -1,0 +1,44 @@
+{
+  "camera:21": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:22": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "KzaMAY": {
+    "epis": [
+      "colete",
+      "oculos",
+      "capacete",
+      "mascara",
+      "auricular"
+    ],
+    "ergonomia": true
+  },
+  "camera:1": {
+    "epis": [
+      "queda",
+      "capacete"
+    ],
+    "ergonomia": true,
+    "rotation": 180
+  },
+  "camera:13": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:15": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:10": {
+    "epis": [],
+    "ergonomia": true
+  },
+  "camera:14": {
+    "epis": [],
+    "ergonomia": true
+  }
+}

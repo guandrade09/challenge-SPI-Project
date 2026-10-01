@@ -1,0 +1,6 @@
+﻿ultralytics
+opencv-python
+flask
+flask-cors
+numpy
+shapely

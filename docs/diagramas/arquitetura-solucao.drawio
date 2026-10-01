@@ -1,0 +1,268 @@
+<mxfile host="app.diagrams.net" modified="2026-09-13T00:00:00.000Z" agent="claude-code" version="24.0.0" type="device">
+  <diagram name="Arquitetura da Solução" id="arq-solucao-spi">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===================== TITLE ===================== -->
+        <mxCell id="title" value="Sistema de Visão Computacional para Segurança Industrial (SPI) — Arquitetura da Solução" style="text;html=1;fontSize=20;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="1500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== LEGEND ===================== -->
+        <mxCell id="legend" value="Legenda" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;align=left;verticalAlign=top;fontStyle=1;spacingLeft=8;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="60" width="310" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="Componente ativo em produção" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="86" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="Módulo opcional / legado" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="86" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="REST / HTTP" style="endArrow=block;html=1;strokeColor=#333333;fontSize=11;" edge="1" parent="1">
+          <mxGeometry x="1240" y="126" width="60" height="10" as="geometry">
+            <mxPoint x="1240" y="130" as="sourcePoint" />
+            <mxPoint x="1300" y="130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg3t" value="REST / HTTP" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1305" y="120" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="WebSocket / stream" style="endArrow=block;dashed=1;html=1;strokeColor=#b85450;fontSize=11;" edge="1" parent="1">
+          <mxGeometry x="1240" y="156" width="60" height="10" as="geometry">
+            <mxPoint x="1240" y="160" as="sourcePoint" />
+            <mxPoint x="1300" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg4t" value="WebSocket (tempo real)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1305" y="150" width="150" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== CAMADA 1: FONTES DE VÍDEO ===================== -->
+        <mxCell id="cam1" value="Webcam Notebook&#10;(EPI — frontal)&#10;captura via OpenCV (USB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="70" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cam2" value="Câmeras IP RTSP (H.265)&#10;Quarto Frontal / Cozinha Lateral&#10;rtsp://admin:*@ip:554/onvif1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="320" y="70" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cam3" value="Celular (app IP Webcam)&#10;stream HTTP/MJPEG&#10;(lateral — cenário alternativo)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="600" y="70" width="220" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== CAMADA 2: ORQUESTRADOR (PYTHON) ===================== -->
+        <mxCell id="orqBox" value="Orquestrador (Python) — orquestrador/main.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontStyle=1;fontSize=14;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="180" width="1180" height="380" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orqCaptura" value="Camada de Captura&#10;Camera (ml_service/inference/camera.py)&#10;• cv2.VideoCapture (USB/HTTP)&#10;• VLCCamera — libvlc (RTSP H.265)&#10;• PyAVCamera / NVDEC (desativado — bug extradata)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="70" y="220" width="290" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orqEpi" value="EPIDetector&#10;(ml_service/inference/detector.py)&#10;YOLOv8 — best.pt (custom, EPIs)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="220" width="230" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orqPose" value="PoseAnalyzer — Ergonomia (REBA)&#10;(ml_ergonomia/pose_analyzer.py)&#10;YOLOv8-pose — yolov8n-pose.pt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="640" y="220" width="250" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orqZona" value="ZoneChecker — Zona de Risco&#10;(ml_zona_critica/zone_checker.py)&#10;Shapely — geometria da zona + pose" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="300" width="230" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orqQueda" value="Detecção de Queda&#10;(Quedamodal — heurística sobre pose)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="640" y="300" width="250" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orqCfg" value="config_server.py&#10;Config dinâmica (EPIs ativos,&#10;ergonomia ativa, CAMERA_DUAL_MODE)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="910" y="220" width="230" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orqAgg" value="_aggregate() — Agregador de Veredicto&#10;Combina EPI + REBA + Zona + Queda&#10;→ MONITORANDO / ALERTA / APROVADO / REJEITADO&#10;IncidentDebouncer (evita spam de alerta)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="390" y="400" width="500" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orqWs" value="WebSocket Server&#10;lib. websockets — porta 8765&#10;frames anotados, pose (frontal/lateral), veredicto, métricas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="70" y="440" width="290" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Flask microservices (optional standalone) -->
+        <mxCell id="flaskErgo" value="ml_ergonomia/app.py (Flask)&#10;REST opcional — porta 5001&#10;POST /ergonomia/analisar" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="220" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="flaskZona" value="ml_zona_critica/app.py (Flask)&#10;REST opcional — porta 5002&#10;POST /zona/configurar" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="300" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="flaskNote" value="Mesma lógica de análise também&#10;exposta como microsserviço REST&#10;independente (testes / integração futura)" style="text;html=1;fontSize=10;fontStyle=2;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="375" width="240" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== CAMADA 3: BACKEND ===================== -->
+        <mxCell id="backBox" value="Backend — Node.js + Express (porta 3000) — backend/src/api" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;fontStyle=1;fontSize=14;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="1180" height="260" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backRoutes" value="Rotas / Controllers&#10;auth · camera · detection · zona&#10;log · report · thread · chat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="660" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backServices" value="Services / Repositories&#10;camada de regra de negócio&#10;+ acesso a dados (models)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="660" width="220" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backAuth" value="Autenticação&#10;JWT (jsonwebtoken) + bcrypt&#10;user.model.js" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="740" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backChat" value="Chatbot IA&#10;chat.service.js + thread.model.js&#10;(threads de conversa persistidas)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="740" width="220" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backReport" value="Geração de Relatórios&#10;ExcelJS · PDFKit · Puppeteer&#10;report.service/controller/routes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="580" y="660" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backCluster" value="Cluster / Monitoramento&#10;thread-metrics, realtime-service,&#10;log-monitor.service (processo Primary)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="580" y="740" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="db" value="SQLite&#10;(database.js)&#10;detections · cameras · zonas&#10;users · threads/chat" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;boundedLbl=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="900" y="670" width="160" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uploads" value="Sistema de Arquivos&#10;uploads/ (imagens de incidentes)&#10;modelos: best.pt, yolov8n-pose.pt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="850" y="740" width="230" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== CAMADA 4: FRONTEND ===================== -->
+        <mxCell id="frontBox" value="Frontend — React 19 + Vite (porta 3300) — frontend/src" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontStyle=1;fontSize=14;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="920" width="1180" height="220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="frontLogin" value="Auth / Login" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="960" width="170" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="frontMonitor" value="MonitoramentoPage&#10;CameraCarousel + CameraView&#10;(skeleton/pose PiP, canvas)&#10;AlertPanel · ZonaConfigModal · QuedaModal" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="270" y="960" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="frontLogs" value="Logs / Relatórios&#10;LogReportModal&#10;(download PDF/Excel via backend)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="590" y="960" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="frontChat" value="Chat IA&#10;AiChatSidebar.jsx" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="960" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="frontState" value="Estado / Cliente HTTP&#10;Zustand (stores) · Axios (api.js)&#10;Cliente WebSocket nativo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1050" width="270" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="frontUi" value="UI / Visualização&#10;TailwindCSS v4 · Recharts (dashboards)&#10;Lucide Icons" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1050" width="270" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== ARROWS: cameras -> orquestrador ===================== -->
+        <mxCell id="e1" style="endArrow=block;html=1;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.2;entryY=0;" edge="1" parent="1" source="cam1" target="orqCaptura">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="RTSP" style="endArrow=block;html=1;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=10;" edge="1" parent="1" source="cam2" target="orqCaptura">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="HTTP/MJPEG" style="endArrow=block;html=1;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.8;entryY=0;fontSize=10;" edge="1" parent="1" source="cam3" target="orqCaptura">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- internal orquestrador flow -->
+        <mxCell id="e4" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="orqCaptura" target="orqEpi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="orqCaptura" target="orqPose">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="orqEpi" target="orqAgg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="orqPose" target="orqAgg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="orqZona" target="orqAgg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="orqQueda" target="orqAgg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="endArrow=block;html=1;strokeColor=#6c8ebf;dashed=1;" edge="1" parent="1" source="orqPose" target="orqZona">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="endArrow=none;html=1;strokeColor=#999999;dashed=1;" edge="1" parent="1" source="orqPose" target="flaskErgo">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="endArrow=none;html=1;strokeColor=#999999;dashed=1;" edge="1" parent="1" source="orqZona" target="flaskZona">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- aggregate -> websocket -->
+        <mxCell id="e13" style="endArrow=block;html=1;strokeColor=#d79b00;" edge="1" parent="1" source="orqAgg" target="orqWs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- orquestrador <-> backend -->
+        <mxCell id="e14" value="POST /api/detections" style="endArrow=block;html=1;strokeColor=#333333;fontSize=10;" edge="1" parent="1" source="orqAgg" target="backRoutes">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="580" />
+              <mxPoint x="190" y="580" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e15" value="GET /api/zonas/:id · GET /api/cameras" style="endArrow=block;startArrow=block;html=1;strokeColor=#333333;fontSize=10;" edge="1" parent="1" source="orqZona" target="backRoutes">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="960" y="600" />
+              <mxPoint x="270" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- backend internal -->
+        <mxCell id="e16" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="backRoutes" target="backServices">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="backServices" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="backReport" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="backRoutes" target="uploads">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- frontend <-> backend / websocket -->
+        <mxCell id="e20" value="REST/JSON (axios) — :3000/api" style="endArrow=block;startArrow=block;html=1;strokeColor=#333333;fontSize=11;" edge="1" parent="1" source="frontState" target="backBox">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="205" y="900" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e21" value="WebSocket — ws://:8765 (vídeo, pose, veredicto em tempo real)" style="endArrow=block;dashed=1;html=1;strokeColor=#b85450;fontSize=11;" edge="1" parent="1" source="orqWs" target="frontMonitor">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="215" y="900" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===================== DEPLOYMENT NOTE ===================== -->
+        <mxCell id="deployNote" value="Execução local (on-premise) — notebook i5, GPU NVIDIA RTX 2050 4GB VRAM, 8GB RAM. Inferência YOLOv8 acelerada via CUDA (torch+cu124). Sem componentes em nuvem nesta fase." style="text;html=1;fontSize=11;fontStyle=2;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1160" width="1180" height="30" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
