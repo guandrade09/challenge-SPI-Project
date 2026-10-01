@@ -5,6 +5,7 @@ import { makeStreamKey, useCameraStreamStore } from '../../../store/useCameraStr
 import { cameraSocketManager } from '../../../services/websocket/CameraSocketManager';
 import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
 import { DetectionsOverlay } from "../components/DetectionsOverlay";
+import { FaceBoxesOverlay } from "../components/FaceBoxesOverlay";
 
 const DEFAULT_TEST_FRAME = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="100%" height="100%" fill="%23121212"/><grid width="100%" height="100%" stroke="%23333" stroke-width="1"/><circle cx="640" cy="360" r="100" fill="none" stroke="%2300ff88" stroke-width="2"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%2300ff88" font-family="monospace" font-size="28" font-weight="bold">FRAME DE TESTE CAM - SIMULAÇÃO LOCAL</text></svg>`;
 
@@ -203,6 +204,7 @@ export function CameraView({
         {isStreamActive && (
           <>
             {showDetections && <DetectionsOverlay cameraId={cameraId} setor={setor} source={source} />}
+            {showDetections && <FaceBoxesOverlay cameraId={cameraId} setor={setor} />}
             <RiskAreaOverlay
               initialBox={riskBox}
               isEditing={isEditingRiskArea}

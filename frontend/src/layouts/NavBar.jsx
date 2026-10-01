@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Camera, FileText, Home, AlertTriangle,
+  Camera, FileText, Home, AlertTriangle, ScanFace,
   User, Settings, LogOut, ShieldCheck, Bell, Menu, X
 } from 'lucide-react';
 import { ThemeToggleButton } from '../components/ui/ThemeToggleButton';
@@ -23,6 +23,7 @@ export const NavBar = ({ theme }) => {
     { label: 'Incidentes', path: '/incidentes', icon: AlertTriangle },
     { label: 'Eventos', path: '/eventos', icon: AlertTriangle },
     { label: 'Análise', path: '/analise', icon: FileText },
+    { label: 'Cadastro Facial', path: '/cadastro-facial', icon: ScanFace },
   ];
 
   useEffect(() => {

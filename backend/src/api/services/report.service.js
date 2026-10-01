@@ -19,14 +19,12 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export async function viewReportPdf(label = null, timestamp_start = null, timestamp_end = null) {
-    const detectionAll = await getAllDetections();
+export async function viewReportPdf(label = null, timestamp_start = null, timestamp_end = null, sections = null) {
     const detection = await GetDataForReport(label, timestamp_start, timestamp_end);
-    const predict = await GetPredictionData(detectionAll);
-    const reportPDF = await GenerateReportPDF(detection);
-    
-    await savePdfToUploads(reportPDF);        
-    
+    const reportPDF = await GenerateReportPDF(detection, { label, timestamp_start, timestamp_end, sections });
+
+    await savePdfToUploads(reportPDF);
+
     return reportPDF;
 }
 

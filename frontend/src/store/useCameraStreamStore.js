@@ -12,6 +12,7 @@ export const useCameraStreamStore = create((set, get) => ({
   frames: {},
   frameMeta: {},
   detections: {},
+  faces: {},
   pose: {},
   verdict: {},
   metrics: {},
@@ -48,6 +49,17 @@ export const useCameraStreamStore = create((set, get) => ({
     detections: {
       ...state.detections,
       [makeStreamKey(cameraId, setor, source)]: data,
+    },
+  })),
+  // `meta.frameWidth`/`frameHeight` são as dimensões do frame em que as caixas foram
+  // calculadas (a captura de reconhecimento facial roda numa conexão própria, separada da
+  // que alimenta a imagem exibida) — getFacesMeta devolve isso pro overlay reescalar.
+  setFaces: (cameraId, setor, source, data, meta = {}) => set((state) => ({
+    faces: {
+      ...state.faces,
+      [makeStreamKey(cameraId, setor, source)]: {
+        data, frameWidth: meta.frameWidth ?? null, frameHeight: meta.frameHeight ?? null,
+      },
     },
   })),
   setPose: (setor, source, pessoas) => set((state) => ({ pose: { ...state.pose, [setor]: { ...(state.pose[setor] || {}), [source]: pessoas } } })),
@@ -107,4 +119,13 @@ export const useCameraStreamStore = create((set, get) => ({
     if (Array.isArray(legacy)) return legacy;
     return legacy?.[source] || EMPTY_ARRAY;
   },
+  getFaces: (cameraId, setor, source = 'facial') => {
+    const state = get();
+    return state.faces[makeStreamKey(cameraId, setor, source)]?.data || EMPTY_ARRAY;
+  },
+  // Sem um "getFacesMeta" que devolve objeto: monte-o a partir de dois seletores
+  // primitivos (frameWidth/frameHeight) no componente, como o FaceBoxesOverlay faz — um
+  // getter que retorna um objeto novo a cada chamada quebra a comparação por referência
+  // do Zustand e re-renderiza o componente a cada mudança no store (ex.: a cada frame de
+  // vídeo), travando a página.
 }));

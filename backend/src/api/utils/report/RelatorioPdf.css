@@ -1,7 +1,12 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: Arial;
+  font-family: "Segoe UI", Arial, sans-serif;
   margin: 0;
   background: #f4f6f9;
+  color: #2c3e50;
 }
 
 .container {
@@ -25,15 +30,33 @@ body {
   color: white;
 }
 
-.logo-container {
-  width: 120px;  
+.header-text h1 {
+  margin: 0 0 4px 0;
+  font-size: 24px;
+  letter-spacing: 0.3px;
+}
+
+.header-text h2 {
+  margin: 0 0 14px 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: #d6e4f0;
+}
+
+.header-meta {
   display: flex;
-  justify-content: flex-end;
-  overflow: visible;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 11px;
+  color: #eaf1f8;
+}
+
+.header-meta strong {
+  color: #ffffff;
 }
 
 .logo {
-  max-height: 100px; 
+  max-height: 100px;
   width: auto;
   transform: scale(1.8);
   object-fit: contain;
@@ -41,15 +64,22 @@ body {
 }
 
 .section {
-  margin-top: 20px;
+  margin-top: 22px;
+  page-break-inside: avoid;
+}
+
+.section.page-break {
+  page-break-before: always;
 }
 
 .section-title {
   background: #3c6382;
   color: white;
-  padding: 10px;
+  padding: 10px 14px;
   border-radius: 5px;
   font-weight: bold;
+  font-size: 13px;
+  letter-spacing: 0.2px;
 }
 
 .grid {
@@ -63,21 +93,186 @@ body {
   background: #ecf0f1;
   padding: 15px;
   border-radius: 10px;
+  font-size: 12px;
+  border: 1px solid #e1e6e9;
 }
 
-.charts-container {
+.card-chart,
+.card-table,
+.card-table-full,
+.card-crit {
+  background: #ffffff;
+  padding: 12px;
+}
+
+.card-table-full {
+  flex: 1 1 100%;
+}
+
+/* Resumo executivo */
+.stat-grid {
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  flex: 1 1 28%;
+  background: linear-gradient(160deg, #ffffff, #eef2f5);
+  border: 1px solid #dfe4e8;
+  border-radius: 10px;
+  padding: 14px 16px;
+  min-width: 140px;
+}
+
+.stat-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #7f8c8d;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0a3d62;
+}
+
+.stat-subtitle {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #7f8c8d;
+}
+
+/* Gráficos */
+.chart-subtitle {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #566573;
+  margin-bottom: 6px;
+}
+
+.chart-wrapper {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 40px;
-  margin-top: 20px;
+  height: 230px;
 }
 
-.chart-block {
-  width: 400px;
+.chart-wrapper-sm {
+  height: 190px;
 }
 
-.chart-block canvas {
+.chart-wrapper canvas {
+  max-height: 100%;
+}
+
+/* Tabelas */
+.data-table {
   width: 100%;
-  height: auto ;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.data-table thead th {
+  background: #0a3d62;
+  color: white;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.data-table tbody td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #e8ecef;
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: #f7f9fb;
+}
+
+.empty-row {
+  text-align: center;
+  color: #95a5a6;
+  font-style: italic;
+  padding: 16px;
+  font-size: 11px;
+}
+
+/* Badges de status */
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+}
+
+.badge-good {
+  background: #27ae60;
+}
+
+.badge-warn {
+  background: #f39c12;
+}
+
+.badge-bad {
+  background: #c0392b;
+}
+
+/* Criticidade */
+.crit-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.crit-card {
+  background: #f7f9fb;
+  border-left: 5px solid #95a5a6;
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.crit-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #34495e;
+  text-transform: capitalize;
+}
+
+.crit-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0a3d62;
+}
+
+.crit-subtitle {
+  font-size: 10px;
+  color: #7f8c8d;
+}
+
+/* Alertas */
+.warning-banner {
+  margin-top: 16px;
+  background: #fdf3d9;
+  border: 1px solid #f0c75e;
+  color: #8a6416;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.disclaimer {
+  margin-top: 26px;
+  padding-top: 14px;
+  border-top: 1px solid #e1e6e9;
+  font-size: 9.5px;
+  color: #95a5a6;
+  line-height: 1.5;
 }

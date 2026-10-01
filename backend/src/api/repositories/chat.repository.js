@@ -103,6 +103,24 @@ export async function getConversationMessages({ conversation_id, user_id, limit 
     : db.all(query, [conversation_id, limit]);
 }
 
+export async function getConversationMessageCounts({ user_id, conversation_ids }) {
+  if (!conversation_ids || conversation_ids.length === 0) return {};
+
+  const db = await connect();
+  const placeholders = conversation_ids.map(() => "?").join(",");
+  const query = user_id
+    ? `SELECT conversation_id, COUNT(*) as count FROM chat_messages WHERE conversation_id IN (${placeholders}) AND user_id = ? GROUP BY conversation_id`
+    : `SELECT conversation_id, COUNT(*) as count FROM chat_messages WHERE conversation_id IN (${placeholders}) GROUP BY conversation_id`;
+  const params = user_id ? [...conversation_ids, user_id] : conversation_ids;
+
+  const rows = await db.all(query, params);
+  const counts = {};
+  for (const row of rows) {
+    counts[row.conversation_id] = row.count;
+  }
+  return counts;
+}
+
 export async function getChatConversations({ user_id, limit = 100 }) {
   const db = await connect();
   const query = user_id

@@ -12,6 +12,7 @@ import {
   updateConversationTitle,
   deleteConversation,
   ensureTablesInitialized,
+  getConversationMessageCounts,
 } from "../repositories/chat.repository.js";
 import { normalizeBrasiliaTimestamp } from "../utils/convert.js";
 import { AppError } from "../utils/appError.js";
@@ -147,17 +148,6 @@ export async function sendMessage({ user_id, content, model, conversation_id = n
 
   await saveChatMessage(userMessage);
 
-  if (!conversation.title_is_custom) {
-    const latestUser = [...(await getConversationMessages({ conversation_id: conversation.id, user_id, limit: 100 }))]
-      .reverse()
-      .find((message) => message.role === "user");
-
-    if (latestUser) {
-      const autoTitle = String(latestUser.content || "Nova conversa").trim().slice(0, 80) || "Nova conversa";
-      await updateConversationTitle({ user_id, conversation_id: conversation.id, title: autoTitle, title_is_custom: false });
-    }
-  }
-
   const history = await getConversationMessages({
     conversation_id: conversation.id,
     user_id,
@@ -208,35 +198,28 @@ export async function fetchHistory({ user_id, limit }) {
   }));
 }
 
+function toConversationSummary(conversation, counts) {
+  return {
+    id: conversation.id,
+    conversation_id: conversation.id,
+    title: conversation.title,
+    started_at: conversation.started_at,
+    day: conversation.started_at ? conversation.started_at.slice(0, 10) : null,
+    day_index: conversation.day_index || 1,
+    count: counts[conversation.id] || 0,
+  };
+}
+
 export async function fetchConversations({ user_id, limit = 100 }) {
   await ensureChatInitialized();
 
   const conversations = await getChatConversations({ user_id, limit });
-  const results = [];
+  const counts = await getConversationMessageCounts({
+    user_id,
+    conversation_ids: conversations.map((conversation) => conversation.id),
+  });
 
-  for (const conversation of conversations) {
-    const messages = await getConversationMessages({
-      conversation_id: conversation.id,
-      user_id,
-      limit: 1000,
-    });
-
-    results.push({
-      id: conversation.id,
-      conversation_id: conversation.id,
-      title: conversation.title,
-      started_at: conversation.started_at,
-      day: conversation.started_at ? conversation.started_at.slice(0, 10) : null,
-      day_index: conversation.day_index || 1,
-      count: messages.length,
-      messages: messages.map((message) => ({
-        ...message,
-        metadata: message.metadata ? JSON.parse(message.metadata) : null,
-      })),
-    });
-  }
-
-  return results;
+  return conversations.map((conversation) => toConversationSummary(conversation, counts));
 }
 
 export async function fetchConversationByDay({ user_id, day, limit = 100 }) {
@@ -246,31 +229,12 @@ export async function fetchConversationByDay({ user_id, day, limit = 100 }) {
   const subset = conversations.filter(
     (conversation) => conversation.started_at && conversation.started_at.slice(0, 10) === day
   );
+  const counts = await getConversationMessageCounts({
+    user_id,
+    conversation_ids: subset.map((conversation) => conversation.id),
+  });
 
-  const results = [];
-  for (const conversation of subset) {
-    const messages = await getConversationMessages({
-      conversation_id: conversation.id,
-      user_id,
-      limit,
-    });
-
-    results.push({
-      id: conversation.id,
-      conversation_id: conversation.id,
-      title: conversation.title,
-      started_at: conversation.started_at,
-      day: conversation.started_at ? conversation.started_at.slice(0, 10) : null,
-      day_index: conversation.day_index || 1,
-      count: messages.length,
-      messages: messages.map((message) => ({
-        ...message,
-        metadata: message.metadata ? JSON.parse(message.metadata) : null,
-      })),
-    });
-  }
-
-  return results;
+  return subset.map((conversation) => toConversationSummary(conversation, counts));
 }
 
 export async function fetchConversationMessages({ user_id, conversation_id, limit = 100 }) {

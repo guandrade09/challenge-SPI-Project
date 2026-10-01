@@ -228,6 +228,21 @@ def send_pose(ergo_pessoas: list, source: str = "frontal", setor: str = ""):
     _broadcast_threadsafe(msg)
 
 
+def send_faces(faces: list, setor: str = "", source: str = "facial", camera_id=None,
+               frame_width: int | None = None, frame_height: int | None = None):
+    """Envia as caixas + nomes do reconhecimento facial (ver ml_facial/face_recognizer.py).
+    `frame_width`/`frame_height` são as dimensões do frame em que as caixas foram
+    calculadas — a captura de reconhecimento facial roda numa thread própria (source
+    "facial"), separada da que alimenta a visualização ("frontal"), então o frontend
+    precisa desses valores pra reescalar as caixas caso as resoluções não sejam iguais."""
+    msg = json.dumps({
+        "type": "faces", "data": faces, "setor": setor,
+        "source": source or "facial", "camera_id": camera_id,
+        "frame_width": frame_width, "frame_height": frame_height,
+    })
+    _broadcast_threadsafe(msg)
+
+
 def send_zone(camera_id: str, pontos: list, setor: str = ""):
     """Envia o polígono da zona de risco para o frontend desenhar no canvas."""
     msg = json.dumps({"type": "zone", "camera_id": camera_id, "pontos": pontos, "setor": setor})

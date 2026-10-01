@@ -49,6 +49,31 @@ class Detection:
 
 
 @dataclass
+class FaceMatch:
+    """Resultado de uma identificação facial (ml_facial). `funcionario_id` None = rosto
+    detectado mas não reconhecido (abaixo do limiar de confiança de match)."""
+    nome: str
+    confidence: float
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    funcionario_id: int | None = None
+
+    @property
+    def center_x(self) -> float:
+        return (self.x1 + self.x2) / 2
+
+    @property
+    def center_y(self) -> float:
+        return (self.y1 + self.y2) / 2
+
+    @property
+    def reconhecido(self) -> bool:
+        return self.funcionario_id is not None
+
+
+@dataclass
 class IncidentEntry:
     label: str
     confidence: float

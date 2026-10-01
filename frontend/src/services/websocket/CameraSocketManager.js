@@ -86,6 +86,11 @@ class CameraSocketManager {
     switch (message.type) {
       case 'alert': store.addAlerta(setor, message); break;
       case 'detections': store.setDetections(message.camera_id, setor, message.source, message.data); break;
+      case 'faces':
+        store.setFaces(message.camera_id, setor, message.source, message.data, {
+          frameWidth: message.frame_width, frameHeight: message.frame_height,
+        });
+        break;
       case 'pose': store.setPose(setor, message.source || 'frontal', message.pessoas ?? []); break;
       case 'verdict': store.setVerdict(setor, message); break;
       case 'metrics': store.setMetrics(setor, message); break;

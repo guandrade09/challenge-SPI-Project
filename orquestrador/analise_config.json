@@ -40,5 +40,10 @@
   "camera:14": {
     "epis": [],
     "ergonomia": true
+  },
+  "camera:2": {
+    "epis": [],
+    "ergonomia": true,
+    "rotation": 0
   }
 }

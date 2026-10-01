@@ -1,5 +1,14 @@
+import { isDetectionConfirmed } from "../report/detectionRules.js";
+
 const API_BASE_URL = process.env.INTERNAL_API_BASE_URL || "http://localhost:3000/api";
-const CONFIDENCE_THRESHOLD = 0.6;
+// Base usada apenas para os links de download exibidos ao usuário no chat.
+// Precisa ser relativa (e não o host interno do backend) para funcionar tanto
+// no proxy do Vite em dev quanto atrás de qualquer domínio em produção.
+const PUBLIC_API_BASE_URL = process.env.PUBLIC_API_BASE_URL || "/api";
+
+function buildPublicDownloadUrl(pathname) {
+  return `${PUBLIC_API_BASE_URL}${pathname}`;
+}
 
 async function callEndpoint(pathname) {
   const response = await fetch(`${API_BASE_URL}${pathname}`);
@@ -20,16 +29,6 @@ function asArray(result) {
   return [];
 }
 
-// Mesma regra usada nos gráficos do frontend (src/utils/detectionStatus.js):
-// só é considerada confirmada quando o equipamento não está marcado como ausente
-// e a confiança é suficiente. Confiança baixa ou ausência -> não confirmada.
-function isDetectionConfirmed(item) {
-  const epiAusente = item?.epi_ausente;
-  if (epiAusente === true || epiAusente === 1 || epiAusente === "1") return false;
-
-  const confidence = parseFloat(item?.confidence);
-  return !isNaN(confidence) && confidence >= CONFIDENCE_THRESHOLD;
-}
 
 function summarizeDetections(items) {
   const byLabel = {};
@@ -114,17 +113,23 @@ export async function executeReportTool(name, args) {
     case "list_report_files":
       return callEndpoint("/report/files");
 
-    case "get_pdf_download_link":
-      return { url: `${API_BASE_URL}/report/pdf/download` };
+    case "get_pdf_download_link": {
+      const sections = Array.isArray(args?.sections)
+        ? args.sections.map((section) => String(section).trim().toLowerCase()).filter(Boolean)
+        : [];
+
+      const query = sections.length > 0 ? `?sections=${encodeURIComponent(sections.join(","))}` : "";
+      return { url: buildPublicDownloadUrl(`/report/pdf/download${query}`) };
+    }
 
     case "get_excel_download_link":
-      return { url: `${API_BASE_URL}/report/excel/download` };
+      return { url: buildPublicDownloadUrl("/report/excel/download") };
 
     case "get_report_file_download_link": {
       if (!args?.filename) {
         return { error: "filename é obrigatório" };
       }
-      return { url: `${API_BASE_URL}/report/download/${encodeURIComponent(args.filename)}` };
+      return { url: buildPublicDownloadUrl(`/report/download/${encodeURIComponent(args.filename)}`) };
     }
 
     case "get_detection_stats": {

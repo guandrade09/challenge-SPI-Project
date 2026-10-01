@@ -2,7 +2,6 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <link rel="stylesheet" href="RelatorioPdf.css">
 </head>
 
 <body>
@@ -11,57 +10,29 @@
     <div class="header">
         <div class="header-content">
             <div class="header-text">
-                <h1>Relatório de EPIs</h1>
-                <h2>Monitoramento Inteligente</h2>
+                <h1>Relatório de Segurança e Conformidade de EPIs</h1>
+                <h2>Monitoramento Inteligente com Visão Computacional</h2>
+                <div class="header-meta">
+                    <span>Gerado em: <strong>{{gerado_em}}</strong></span>
+                    <span>Período: <strong>{{periodo}}</strong></span>
+                    <span>Filtro: <strong>{{filtro}}</strong></span>
+                </div>
             </div>
 
             <img src="{{logo}}" class="logo" />
         </div>
     </div>
 
-    <div class="section">
-        <div class="section-title">Distribuição</div>
-        <div class="grid">
-            <div class="card">Capacete: {{capacete}}</div>
-            <div class="card">Colete: {{colete}}</div>
-            <div class="card">Máscara: {{mascara}}</div>
-            <div class="card">Óculos: {{oculos}}</div>
-        </div>        
-        <div class="grid">
-            <div class="card">Total de detecções: {{total}}</div>
-            <div class="card">Quantidade de acertos: {{acertos}}</div>
-            <div class="card">Quantidade de erros: {{erros}}</div>
-        </div>
-    </div>
-    <div class="section">
-        <div class="section-title">Análise Gráfica</div>
-        <div class="grid">
-            <div class="card">
-                <div class="charts-container">
-                    <div class="chart-block left">
-                        <canvas id="chartDistribuicao"></canvas>
-                    </div>
-                    <div class="chart-block right">
-                        <canvas id="chartAccuracy"></canvas>
-                    </div>
+    {{banner_sem_dados}}
 
-                </div>
-            </div>
-        </div>
+    {{content}}
+
+    <div class="disclaimer">
+        Este relatório foi gerado automaticamente pelo Sistema Sentinel SPI com base nos registros de detecção
+        disponíveis até o momento de sua geração. Os indicadores de conformidade consideram a presença do
+        equipamento e a confiança mínima do modelo de visão computacional. Documento de uso interno.
     </div>
-    <div class="section">
-        <div class="section-title">Probabilidades de ocorrência geral</div>
-        <div class="grid">
-            <div class="card">Capacete: {{prob_capacete}}</div>
-            <div class="card">Colete: {{prob_colete}}</div>
-            <div class="card">Máscara: {{prob_mascara}}</div>
-            <div class="card">Óculos: {{prob_oculos}}</div>
-        </div>
-        <div class="grid">
-            <div class="card">Maior probabilidade de ocorrer: {{prediction}}</div>
-            <div class="card">Probabilidade: {{probability}}</div>
-        </div>  
-    </div>
+
   </div>
 </body>
 </html>
