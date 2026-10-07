@@ -221,9 +221,10 @@ def send_detections(detections: list, setor: str = "", source: str = "frontal", 
     _broadcast_threadsafe(msg)
 
 
-def send_pose(ergo_pessoas: list, source: str = "frontal", setor: str = ""):
-    msg = json.dumps({"type": "pose", "pessoas": ergo_pessoas, "source": source, "setor": setor})
-    cache_key = f"{setor}:{source}"
+def send_pose(ergo_pessoas: list, source: str = "frontal", setor: str = "", camera_id=None):
+    msg = json.dumps({"type": "pose", "pessoas": ergo_pessoas, "source": source,
+                      "setor": setor, "camera_id": camera_id})
+    cache_key = f"pose:camera:{camera_id}" if camera_id is not None else f"{setor}:{source}"
     _pose_cache[cache_key] = msg
     _broadcast_threadsafe(msg)
 
@@ -231,10 +232,9 @@ def send_pose(ergo_pessoas: list, source: str = "frontal", setor: str = ""):
 def send_faces(faces: list, setor: str = "", source: str = "facial", camera_id=None,
                frame_width: int | None = None, frame_height: int | None = None):
     """Envia as caixas + nomes do reconhecimento facial (ver ml_facial/face_recognizer.py).
-    `frame_width`/`frame_height` são as dimensões do frame em que as caixas foram
-    calculadas — a captura de reconhecimento facial roda numa thread própria (source
-    "facial"), separada da que alimenta a visualização ("frontal"), então o frontend
-    precisa desses valores pra reescalar as caixas caso as resoluções não sejam iguais."""
+    `frame_width`/`frame_height` são as dimensões do frame analisado. O reconhecimento
+    reutiliza a captura da própria câmera numa thread de análise separada (source
+    "facial"); o frontend usa essas dimensões para posicionar as caixas."""
     msg = json.dumps({
         "type": "faces", "data": faces, "setor": setor,
         "source": source or "facial", "camera_id": camera_id,

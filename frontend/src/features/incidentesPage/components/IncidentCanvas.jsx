@@ -6,7 +6,7 @@ import imgNotFound from '../../../assets/Codexis/img-not-found.jpg';
 // Importando as lógicas de esqueleto do seu arquivo utilitário
 import { drawIncidentOverlays } from '../utils/drawIncidentOverlays';
 
-function IncidentCanvasImage({ imgUrl, details, source }) {
+function IncidentCanvasImage({ imgUrl, details, source, showOverlays, hasLateralFrame, showEpi, showReba }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [currentSrc, setCurrentSrc] = useState(imgUrl || imgNotFound);
@@ -31,8 +31,8 @@ function IncidentCanvasImage({ imgUrl, details, source }) {
     // Limpa o frame anterior
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    drawIncidentOverlays(ctx, details, source, canvas.width, canvas.height);
-  }, [details, source, error]);
+    drawIncidentOverlays(ctx, details, source, canvas.width, canvas.height, { hasLateralFrame, showEpi, showReba });
+  }, [details, source, error, hasLateralFrame, showEpi, showReba]);
 
   // Handler quando a imagem termina de carregar
   const handleLoad = () => {
@@ -88,20 +88,24 @@ function IncidentCanvasImage({ imgUrl, details, source }) {
       <canvas
         ref={canvasRef}
         className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-300 object-contain ${
-          loading ? 'opacity-0' : 'opacity-100'
+          loading || !showOverlays ? 'opacity-0' : 'opacity-100'
         }`}
       />
     </div>
   );
 }
 
-export function IncidentCanvas({ imgUrl, details, source = 'frontal' }) {
+export function IncidentCanvas({ imgUrl, details, source = 'frontal', showOverlays = true, hasLateralFrame = false, showEpi = true, showReba = true }) {
   return (
     <IncidentCanvasImage
       key={`${source}:${imgUrl || 'sem-imagem'}`}
       imgUrl={imgUrl}
       details={details}
       source={source}
+      showOverlays={showOverlays}
+      hasLateralFrame={hasLateralFrame}
+      showEpi={showEpi}
+      showReba={showReba}
     />
   );
 }

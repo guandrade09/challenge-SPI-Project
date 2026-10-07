@@ -14,7 +14,6 @@ const SKELETON_CONNECTIONS = [
   [11, 13], [13, 15],                   // Perna esquerda
   [12, 14], [14, 16],                   // Perna direita
 ];
-const EMPTY_ARRAY = Object.freeze([]);
 
 export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible = true }) {
   const rawDetections = useCameraStreamStore((s) => s.getDetections(cameraId, setor, source));
@@ -22,13 +21,8 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
     () => rawDetections.filter(isMissingEpiDetection),
     [rawDetections]
   );
-  const poseData = useCameraStreamStore((s) => {
-    const p = s.pose[setor];
-    if (!p) return EMPTY_ARRAY;
-    if (Array.isArray(p)) return p;
-    return p[source] || p.frontal || EMPTY_ARRAY;
-  });
-  const verdict = useCameraStreamStore((s) => s.verdict[setor] || null);
+  const poseData = useCameraStreamStore((s) => s.getPose(cameraId, setor, source));
+  const verdict = useCameraStreamStore((s) => s.getVerdict(cameraId, setor, source));
   // seletores primitivos: o objeto de meta é recriado a cada frame e re-renderizaria sempre
   const metaWidth = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.width);
   const metaHeight = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.height);

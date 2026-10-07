@@ -52,8 +52,8 @@ export const useCameraStreamStore = create((set, get) => ({
     },
   })),
   // `meta.frameWidth`/`frameHeight` são as dimensões do frame em que as caixas foram
-  // calculadas (a captura de reconhecimento facial roda numa conexão própria, separada da
-  // que alimenta a imagem exibida) — getFacesMeta devolve isso pro overlay reescalar.
+  // calculadas (o reconhecimento reutiliza frames da câmera numa análise separada)
+  // para o overlay ajustar a escala na imagem exibida.
   setFaces: (cameraId, setor, source, data, meta = {}) => set((state) => ({
     faces: {
       ...state.faces,
@@ -62,9 +62,17 @@ export const useCameraStreamStore = create((set, get) => ({
       },
     },
   })),
-  setPose: (setor, source, pessoas) => set((state) => ({ pose: { ...state.pose, [setor]: { ...(state.pose[setor] || {}), [source]: pessoas } } })),
-  setVerdict: (setor, verdict) => set((state) => ({ verdict: { ...state.verdict, [setor]: verdict } })),
-  setMetrics: (setor, metrics) => set((state) => ({ metrics: { ...state.metrics, [setor]: metrics } })),
+  setPose: (setor, source, pessoas, cameraId = null) => set((state) => ({
+    pose: { ...state.pose, [makeStreamKey(cameraId, setor, source)]: pessoas },
+  })),
+  setVerdict: (setor, verdict) => set((state) => ({
+    verdict: { ...state.verdict, [verdict.camera_id != null || verdict.source
+      ? makeStreamKey(verdict.camera_id, setor, verdict.source) : setor]: verdict },
+  })),
+  setMetrics: (setor, metrics) => set((state) => ({
+    metrics: { ...state.metrics, [metrics.camera_id != null || metrics.source
+      ? makeStreamKey(metrics.camera_id, setor, metrics.source) : setor]: metrics },
+  })),
   setZone: (setor, cameraId, zone) => {
     const key = makeStreamKey(cameraId, setor, 'frontal');
     set((state) => ({ zones: { ...state.zones, [key]: zone } }));
@@ -118,6 +126,20 @@ export const useCameraStreamStore = create((set, get) => ({
     const legacy = state.detections[setor];
     if (Array.isArray(legacy)) return legacy;
     return legacy?.[source] || EMPTY_ARRAY;
+  },
+  getPose: (cameraId, setor, source = 'frontal') => {
+    const state = get();
+    const exact = state.pose[makeStreamKey(cameraId, setor, source)];
+    if (Array.isArray(exact)) return exact;
+    const sourcePose = state.pose[makeStreamKey(null, setor, source)];
+    if (Array.isArray(sourcePose)) return sourcePose;
+    const legacy = state.pose[setor];
+    return (Array.isArray(legacy) ? legacy : legacy?.[source]) || EMPTY_ARRAY;
+  },
+  getVerdict: (cameraId, setor, source = 'frontal') => {
+    const state = get();
+    return state.verdict[makeStreamKey(cameraId, setor, source)]
+      || state.verdict[makeStreamKey(null, setor, source)] || state.verdict[setor] || null;
   },
   getFaces: (cameraId, setor, source = 'facial') => {
     const state = get();

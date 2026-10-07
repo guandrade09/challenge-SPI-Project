@@ -204,7 +204,7 @@ export function CameraView({
         {isStreamActive && (
           <>
             {showDetections && <DetectionsOverlay cameraId={cameraId} setor={setor} source={source} />}
-            {showDetections && <FaceBoxesOverlay cameraId={cameraId} setor={setor} />}
+            {showDetections && <FaceBoxesOverlay cameraId={cameraId} setor={setor} source={source} />}
             <RiskAreaOverlay
               initialBox={riskBox}
               isEditing={isEditingRiskArea}

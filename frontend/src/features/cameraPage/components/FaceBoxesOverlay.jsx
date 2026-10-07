@@ -6,7 +6,7 @@ import { getCoverTransform, frameToContainer } from '../../../utils/coverTransfo
 // Desenha a caixa + nome do reconhecimento facial (ver ml_facial/face_recognizer.py e
 // orquestrador/main.py#_run_facial_sector) por cima do vídeo, no mesmo padrão visual do
 // DetectionsOverlay (EPI).
-export function FaceBoxesOverlay({ cameraId, setor, visible = true }) {
+export function FaceBoxesOverlay({ cameraId, setor, source = 'frontal', visible = true }) {
   const faces = useCameraStreamStore((s) => s.getFaces(cameraId, setor));
   // Seletores primitivos, não o objeto inteiro: getFacesMeta() monta um objeto NOVO a cada
   // chamada, então usá-lo direto como valor selecionado faria o Zustand comparar por
@@ -15,8 +15,8 @@ export function FaceBoxesOverlay({ cameraId, setor, visible = true }) {
   const facesKey = makeStreamKey(cameraId, setor, 'facial');
   const faceFrameWidthRaw = useCameraStreamStore((s) => s.faces[facesKey]?.frameWidth);
   const faceFrameHeightRaw = useCameraStreamStore((s) => s.faces[facesKey]?.frameHeight);
-  const metaWidth = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, 'frontal')?.width);
-  const metaHeight = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, 'frontal')?.height);
+  const metaWidth = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.width);
+  const metaHeight = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.height);
   const frameWidth = metaWidth || 640;
   const frameHeight = metaHeight || 480;
 

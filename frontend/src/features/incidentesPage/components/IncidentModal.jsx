@@ -1,17 +1,23 @@
 //src/features/incidentesPage/components/IncidentModal.jsx
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, AlertTriangle, Shield, Activity, MapPin, Camera, Clock } from 'lucide-react';
+import { X, AlertTriangle, Camera, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatLabel, formatIncidentLabel, formatTs } from '../../../utils/formatLabel';
 import { streamService } from '../../../services/streamService';
 import { ConfidenceBadge, SourceBadge } from '../../../components/ui/Badge';
 import { IconButtonModal } from '../../../components/shared/IconButtonModal';
 import { useUiStore } from '../../../store/useUiStore';
 import IncidentCanvas from './IncidentCanvas';
+import { OverlayVisibilityControls } from './OverlayVisibilityControls';
+import { IncidentCameraDetails } from './IncidentCameraDetails';
+import { getIncidentCameraDetails, getUnassignedCameraDetails } from '../utils/frameOverlayData';
 
-export function IncidentModal({ incident, onClose }) {
+export function IncidentModal({ incident, onClose, onPrev, onNext, index = 0, total = 1 }) {
   const currentTheme = useUiStore((s) => s.theme);
+  const [showEpi, setShowEpi] = useState(true);
+  const [showReba, setShowReba] = useState(true);
+  const bodyRef = useRef(null);
 
   if (!incident) return null;
 
@@ -19,9 +25,15 @@ export function IncidentModal({ incident, onClose }) {
   const lateralUrl = streamService.imagePathToUrl(incident.img_path_lateral);
   const d = incident.details;
 
-  // Checagem de dados para os blocos
-  const hasSeguranca = (d?.epi?.length > 0) || (d?.zona?.length > 0);
-  const hasErgonomia = d?.ergonomia?.length > 0;
+  const hasLateralFrame = !!incident.img_path_lateral;
+  const primarySource = d?.image_source || d?.frames?.frontal?.source || 'frontal';
+  const views = [{ source: primarySource, imgUrl, primary: true }];
+  if (hasLateralFrame) views.push({ source: d?.frames?.lateral?.source || 'lateral', imgUrl: lateralUrl, primary: false });
+  const unassigned = getUnassignedCameraDetails(d, { hasLateralFrame });
+  const navigate = (callback) => {
+    callback?.();
+    bodyRef.current?.scrollTo({ top: 0 });
+  };
 
   return createPortal(
     <div className={`panel-theme-${currentTheme} font-theme-body`}>
@@ -81,192 +93,56 @@ export function IncidentModal({ incident, onClose }) {
             </div>
           </div>
 
-          {/* CORPO DO MODAL (LAYOUT 2 COLUNAS) */}
-          <div 
-            className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-y-auto custom-scrollbar flex-1"
+          {total > 1 && index >= 0 && (
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-theme-divider shrink-0 bg-[var(--p-header-bg)]">
+              <button type="button" onClick={() => navigate(onPrev)} disabled={index === 0 || !onPrev} aria-label="Incidente anterior" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-theme-divider text-xs text-theme-main hover:bg-theme-hover disabled:opacity-30 disabled:cursor-not-allowed">
+                <ChevronLeft size={16} /> Anterior
+              </button>
+              <span aria-live="polite" className="text-xs font-mono text-theme-muted whitespace-nowrap">{index + 1} de {total}</span>
+              <button type="button" onClick={() => navigate(onNext)} disabled={index >= total - 1 || !onNext} aria-label="Próximo incidente" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-theme-divider text-xs text-theme-main hover:bg-theme-hover disabled:opacity-30 disabled:cursor-not-allowed">
+                Próximo <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+
+          <div
+            ref={bodyRef}
+            className="p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar flex-1"
             style={{ backgroundColor: 'var(--p-graf-bg)' }}
           >
-            
-            {/* COLUNA ESQUERDA: CÂMERAS (7 COLS) */}
-            <div className="lg:col-span-7 flex flex-col gap-5">
-              
-              {/* Câmera Frontal */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-mono uppercase tracking-wider text-theme-main font-bold flex items-center gap-1.5">
-                    <Camera size={13} className="text-amber-500" /> Câmera Frontal
-                  </span>
-                  {incident.camera_id && (
-                    <span className="text-[10px] font-mono text-theme-muted badge-theme-industrial px-2 py-0.5 rounded font-medium">
-                      CAM: {incident.camera_id}
-                    </span>
-                  )}
-                </div>
-                <IncidentCanvas imgUrl={imgUrl} details={d} source="frontal" />
-              </div>
-
-              {/* Câmera Lateral */}
-              {incident.img_path_lateral && (
-                <div className="flex flex-col gap-2 pt-1">
-                  <span className="text-xs font-mono uppercase tracking-wider text-theme-main font-bold flex items-center gap-1.5">
-                    <Camera size={13} className="text-amber-500" /> Câmera Lateral
-                  </span>
-                  <IncidentCanvas imgUrl={lateralUrl} details={d} source="lateral" />
-                </div>
-              )}
-            </div>
-
-            {/* COLUNA DIREITA: CARDS DE MÉTRICAS (5 COLS) */}
-            <div className="lg:col-span-5 flex flex-col gap-4">
-              
-              {/* CARD MONTADO 1: SEGURANÇA & EPIS */}
-              {hasSeguranca && (
-                <div className="panel-subcard shadow-lg flex flex-col gap-4">
-                  
-                  {/* SUB-BLOCO: EPIs */}
-                  {d?.epi?.length > 0 && (
-                    <div className="flex flex-col gap-2.5">
-                      <div className="flex items-center justify-between pb-2 border-b border-theme-divider">
-                        <span className="text-xs font-mono uppercase tracking-wider text-blue-500 font-bold flex items-center gap-1.5">
-                          <Shield size={14} /> EPIs Detectados
-                        </span>
-                        <span className="text-[10px] font-mono text-theme-muted">{d.epi.length} itens</span>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        {d.epi.map((epi, i) => {
-                          const ausente = epi.label?.toLowerCase().includes('ausente');
-                          const camTag = epi.camera || epi.source;
-                          return (
-                            <div 
-                              key={i} 
-                              className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-mono ${
-                                ausente 
-                                  ? 'bg-red-500/10 border-red-500/40 text-red-500' 
-                                  : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
-                              }`}
-                            >
-                              <span className="font-semibold flex items-center gap-1.5">
-                                {ausente ? '✖' : '✓'} {formatLabel(epi.label)}
-                                {camTag && (
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded badge-theme-industrial font-normal">
-                                    {camTag}
-                                  </span>
-                                )}
-                              </span>
-                              <ConfidenceBadge value={epi.confidence} />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SUB-BLOCO: ZONA DE RISCO */}
-                  {d?.zona?.length > 0 && (
-                    <div className="flex flex-col gap-2.5 pt-1">
-                      <div className="flex items-center justify-between pb-2 border-b border-theme-divider">
-                        <span className="text-xs font-mono uppercase tracking-wider text-amber-500 font-bold flex items-center gap-1.5">
-                          <MapPin size={14} /> Perímetro / Zona de Alerta
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        {d.zona.map((z, i) => (
-                          <div 
-                            key={i} 
-                            className="flex flex-col gap-1 p-2.5 rounded-lg text-xs font-mono border border-theme-divider"
-                            style={{ backgroundColor: 'var(--p-bg)' }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-theme-main font-semibold flex items-center gap-1.5">
-                                Pessoa #{z.pessoa_id ?? i + 1}
-                                {(z.camera || z.source) && (
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded badge-theme-industrial font-normal">
-                                    {z.camera || z.source}
-                                  </span>
-                                )}
-                              </span>
-                              <span className={`px-2 py-0.5 rounded border font-bold text-[10px] ${
-                                z.invadiu 
-                                  ? 'bg-red-500/15 border-red-500/40 text-red-500' 
-                                  : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
-                              }`}>
-                                {z.invadiu ? '⚠ Invasão' : '✓ Normal'}
-                              </span>
-                            </div>
-                            {z.epis_ausentes?.length > 0 && (
-                              <div className="text-red-500 text-[11px] bg-red-500/10 p-1.5 rounded border border-red-500/30 mt-0.5">
-                                Falta: <span className="font-bold">{z.epis_ausentes.join(', ')}</span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              )}
-
-              {/* CARD MONTADO 2: ERGONOMIA & REBA */}
-              {hasErgonomia && (
-                <div className="panel-subcard shadow-lg flex flex-col gap-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-theme-divider">
-                    <span className="text-xs font-mono uppercase tracking-wider text-purple-500 dark:text-purple-400 font-bold flex items-center gap-1.5">
-                      <Activity size={14} /> Análise Ergonômica (REBA)
-                    </span>
+            {views.map(({ source, imgUrl: frameUrl, primary }) => {
+              const cameraDetails = getIncidentCameraDetails(d, source, { hasLateralFrame });
+              const cameraId = cameraDetails.cameraId ?? (!hasLateralFrame ? incident.camera_id : null);
+              return (
+                <section key={source} className="flex flex-col gap-3" aria-label={`Câmera ${source}`}>
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <h3 className="text-xs font-mono uppercase tracking-wider text-theme-main font-bold flex items-center gap-1.5">
+                      <Camera size={13} className="text-amber-500" /> Câmera {source === 'lateral' ? 'Lateral' : 'Frontal'}
+                    </h3>
+                    {cameraId != null && <span className="text-[10px] font-mono text-theme-muted badge-theme-industrial px-2 py-0.5 rounded">CAM: {cameraId}</span>}
                   </div>
-
-                  <div className="flex flex-col gap-2">
-                    {d.ergonomia.map((p, i) => {
-                      const score = p.reba_score ?? 0;
-                      const rebaBadgeStyle = score >= 7 
-                        ? 'text-red-500 bg-red-500/15 border-red-500/40' 
-                        : score >= 4 
-                        ? 'text-amber-500 bg-amber-500/15 border-amber-500/40' 
-                        : 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border-emerald-500/40';
-
-                      return (
-                        <div 
-                          key={i} 
-                          className="flex flex-col gap-1.5 p-2.5 rounded-lg text-xs font-mono border border-theme-divider"
-                          style={{ backgroundColor: 'var(--p-bg)' }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-theme-main font-semibold flex items-center gap-1.5">
-                              Pessoa #{p.pessoa_id ?? i + 1}
-                              {(p.camera || p.source) && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded badge-theme-industrial font-normal">
-                                  {p.camera || p.source}
-                                </span>
-                              )}
-                            </span>
-                            <span className={`px-2 py-0.5 rounded border font-bold text-[10px] ${rebaBadgeStyle}`}>
-                              REBA {score} • {p.reba_level ?? 'N/A'}
-                            </span>
-                          </div>
-                          
-                          {p.queda && (
-                            <div className="p-1.5 rounded bg-red-500/15 border border-red-500/40 text-red-500 text-[11px] flex items-center gap-1.5 font-bold mt-0.5">
-                              <AlertTriangle size={12} className="shrink-0 text-red-500" /> Alerta de Queda Detectada
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                    <div className="lg:col-span-7 flex flex-col gap-2">
+                      <OverlayVisibilityControls details={d} source={source} hasLateralFrame={hasLateralFrame} showEpi={showEpi} showReba={showReba} onToggleEpi={() => setShowEpi((visible) => !visible)} onToggleReba={() => setShowReba((visible) => !visible)} />
+                      <IncidentCanvas imgUrl={frameUrl} details={d} source={source} hasLateralFrame={hasLateralFrame} showEpi={showEpi} showReba={showReba} />
+                    </div>
+                    <div className="lg:col-span-5">
+                      <IncidentCameraDetails cameraDetails={cameraDetails} source={source} />
+                    </div>
                   </div>
+                  {primary && !d && <p className="text-theme-muted text-xs">Registro antigo sem detalhes estruturados.</p>}
+                </section>
+              );
+            })}
+            {(unassigned.epi.length > 0 || unassigned.zona.length > 0) && (
+              <section className="panel-subcard border border-amber-500/30 flex flex-col gap-3">
+                <p className="text-theme-main text-xs">Este registro antigo contém detecções sem identificação da câmera. Elas são listadas abaixo e não recebem marcações sobre as imagens.</p>
+                <div className="flex flex-wrap gap-2">
+                  {unassigned.epi.map((item, index) => <span key={`epi-${index}`} className="text-xs text-theme-muted border border-theme-divider rounded px-2 py-1">{formatLabel(item.label)} <ConfidenceBadge value={item.confidence} /></span>)}
+                  {unassigned.zona.map((item, index) => <span key={`zona-${index}`} className="text-xs text-theme-muted">{item.nome || 'Zona de risco'}: {item.invadiu ? 'invasão' : 'normal'}</span>)}
                 </div>
-              )}
-
-              {!d && (
-                <div className="panel-subcard p-6 text-theme-muted text-xs font-mono text-center">
-                  Registro antigo sem detalhes estruturados.
-                </div>
-              )}
-
-            </div>
-
+              </section>
+            )}
           </div>
         </div>
       </div>

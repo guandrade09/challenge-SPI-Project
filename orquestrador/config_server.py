@@ -167,8 +167,8 @@ def set_analise_config(setor: str, epis: list[str], camera_id=None, ergonomia=No
         json.dump(_analise_config_por_setor, f, ensure_ascii=False, indent=2)
     return cfg.copy()
 
-def ergonomia_ativa(setor: str = "") -> bool:
-    cfg = _analise_config_por_setor.get(setor, _DEFAULT_ANALISE)
+def ergonomia_ativa(setor: str = "", camera_id=None) -> bool:
+    cfg = get_analise_config(setor, camera_id)
     return bool(cfg.get("ergonomia", True))
 
 

@@ -58,6 +58,14 @@ export default function IncidentesPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const page_ = Math.min(page, Math.max(0, totalPages - 1));
   const pageItems = filtered.slice(page_ * PAGE_SIZE, (page_ + 1) * PAGE_SIZE);
+  const selectedIndex = selected ? filtered.findIndex((incident) => incidentKey(incident) === incidentKey(selected)) : -1;
+
+  const navigateIncident = (direction) => {
+    const nextIndex = selectedIndex + direction;
+    if (selectedIndex < 0 || nextIndex < 0 || nextIndex >= filtered.length) return;
+    setSelected(filtered[nextIndex]);
+    setPage(Math.floor(nextIndex / PAGE_SIZE));
+  };
 
   const changeFilters = (next) => {
     setActiveFilters(next);
@@ -179,7 +187,16 @@ export default function IncidentesPage() {
           </div>
         )}
       </main>
-      {selected && <IncidentModal incident={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <IncidentModal
+          incident={selected}
+          onClose={() => setSelected(null)}
+          onPrev={() => navigateIncident(-1)}
+          onNext={() => navigateIncident(1)}
+          index={selectedIndex}
+          total={filtered.length}
+        />
+      )}
       {downloadOpen && (
         <IncidentDownloadModal
           selectedCount={selectedFiltered.length}

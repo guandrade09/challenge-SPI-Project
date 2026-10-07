@@ -1,13 +1,13 @@
 """
-Orquestrador — Pipeline Multi-Setor de Visão Computacional
+Orquestrador — Pipelines Independentes por Câmera
 ============================================================
-Cameras são agrupadas por `setor`. Cameras do mesmo setor compartilham o
-pipeline de análise (EPI frontal + pose lateral + zona). Setores diferentes
-rodam pipelines independentes mas compartilham os modelos YOLO via lock de
-inferência GPU.
+Câmeras compartilham a tag `setor`, mas cada ID tem captura, análise EPI/pose/zona,
+alertas e fila de evidências próprios. Uma câmera offline não impede as outras
+de analisar e salvar incidentes. Os modelos YOLO são compartilhados e as
+inferências locais usam um lock de GPU.
 
 Adição de câmeras no frontend é detectada automaticamente (a cada 30 s) e
-inicia um novo pipeline sem reiniciar o orquestrador.
+inicia somente o pipeline da câmera nova sem reiniciar as demais.
 """
 
 import sys
@@ -18,6 +18,7 @@ import threading
 import time
 import base64
 import json
+from copy import deepcopy
 import cv2
 import requests
 from datetime import datetime
@@ -35,6 +36,8 @@ _ORCH_CORES = cpu_affinity.apply()
 cv2.setNumThreads(len(_ORCH_CORES))
 
 from thread_metrics import ml_thread_metrics_service
+from incident_tracking import build_incident_tracking, synchronize_incident_view
+from incident_worker import IncidentEvidenceWorker
 
 from ml_service.inference.camera import Camera
 from ml_service.inference.detector import EPIDetector, IncidentDebouncer
@@ -209,8 +212,10 @@ def _aggregate(
                 sources.append("zona")
             epis_certo = p.get("epis_certo_labels", [])
             epis_obrig = p.get("epis_obrigatorios", [])
-            for epi_id, epi_label in zip(epis_obrig, epis_certo):
-                if epi_label not in all_epi_labels:
+            zone_epi_labels = p.get("epi_labels", all_epi_labels)
+            required_epis = zip(epis_obrig, epis_certo) if p.get("epi_available", True) else []
+            for epi_id, epi_label in required_epis:
+                if epi_label not in zone_epi_labels:
                     reasons.append(f"zona_epi_ausente_{epi_id}")
                     confidences.append(1.0)
 
@@ -233,23 +238,28 @@ def _aggregate(
 
 
 # ── WebSocket: envia veredicto e métricas ─────────────────────────────────────
-def _send_verdict(verdict: Verdict, setor: str = ""):
+def _send_verdict(verdict: Verdict, setor: str = "", camera_id=None, source="frontal"):
     send_verdict({
         "status":     verdict.status,
         "reasons":    verdict.reasons,
         "confidence": verdict.confidence,
         "sources":    verdict.sources,
         "timestamp":  verdict.timestamp,
+        "camera_id": camera_id,
+        "source": source,
     }, setor=setor)
 
 
-def _send_metrics(lat_total_ms, lat_epi_ms, lat_pose_ms, pck_pose, conf_media_epi, setor: str = ""):
+def _send_metrics(lat_total_ms, lat_epi_ms, lat_pose_ms, pck_pose, conf_media_epi,
+                  setor: str = "", camera_id=None, source="frontal"):
     send_metrics({
         "latencia_total_ms":  round(lat_total_ms, 1),
         "latencia_epi_ms":    round(lat_epi_ms, 1),
         "latencia_pose_ms":   round(lat_pose_ms, 1),
         "pck_pose":           pck_pose,
         "conf_media_epi":     conf_media_epi,
+        "camera_id": camera_id,
+        "source": source,
     }, setor=setor)
 
 
@@ -578,6 +588,20 @@ def _make_resolve_fn(setor: str, papel: str, env_var: str | None = None, default
     return resolve
 
 
+def _make_camera_resolve_fn(camera_id):
+    """Resolve a câmera pelo ID, mesmo quando outras compartilham setor e papel."""
+    def resolve():
+        try:
+            response = requests.get(CAMERAS_API_URL, timeout=2)
+            response.raise_for_status()
+            cameras = response.json().get("data", [])
+        except Exception:
+            return _KEEP_SOURCE
+        camera = next((item for item in cameras if str(item.get("id")) == str(camera_id)), None)
+        return camera.get("streamUrl") if camera else None
+    return resolve
+
+
 # ── Capture loop ───────────────────────────────────────────────────────────────
 def _capture_loop(
     resolve_source_fn,
@@ -592,6 +616,7 @@ def _capture_loop(
     camera = None
     current_source = None
     last_check = 0.0
+    last_frame_sent_at = 0.0
     retry_event = _register_camera_retry_event(camera_id, setor, source)
 
     # Reconexão automática com backoff exponencial (1, 2, 4, 8s... até
@@ -612,7 +637,7 @@ def _capture_loop(
     def _schedule_retry():
         nonlocal failures, next_attempt_at
         failures += 1
-        next_attempt_at = time.time() + min(RECHECK_CAMERA_INTERVAL_S, 2 ** (failures - 1))
+        next_attempt_at = time.time() + min(RECHECK_CAMERA_INTERVAL_S, 2 ** min(failures - 1, 4))
 
     def _release_camera():
         nonlocal camera
@@ -640,6 +665,9 @@ def _capture_loop(
             return
         try:
             camera = Camera(source=new_source)
+            if stop_event and stop_event.is_set():
+                _release_camera()
+                return
             camera.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             camera.cap.set(cv2.CAP_PROP_FRAME_WIDTH, max_width or 640)
             camera.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -697,6 +725,8 @@ def _capture_loop(
                 continue
 
             ret, frame = camera.read()
+            if stop_event and stop_event.is_set():
+                break
             if not ret:
                 _drop_camera("falha_de_leitura", "leitura falhou; nova tentativa automática agendada.")
                 continue
@@ -708,6 +738,15 @@ def _capture_loop(
             if max_width and frame.shape[1] > max_width:
                 scale = max_width / frame.shape[1]
                 frame = cv2.resize(frame, (max_width, int(frame.shape[0] * scale)))
+
+            # Cada câmera publica por conta própria: uma frontal offline não pode
+            # impedir o vídeo lateral nem a inferência atrasar a transmissão.
+            now_frame = time.monotonic()
+            if now_frame - last_frame_sent_at >= 0.1:
+                last_frame_sent_at = now_frame
+                if camera_id is not None:
+                    _camera_frame_shapes[str(camera_id)] = (int(frame.shape[1]), int(frame.shape[0]))
+                send_tagged_frame(frame, setor=setor, source=source, camera_id=camera_id)
             if frame_q.full():
                 try: frame_q.get_nowait()
                 except queue.Empty: pass
@@ -733,6 +772,163 @@ def _run_sector(
     inference_lock: threading.Lock,
     zone_checker:   ZoneChecker,
     stop_event:     threading.Event,
+):
+    capture_threads = []
+    try:
+        _run_sector_pipeline(
+            setor, cameras, models, inference_lock, zone_checker, stop_event, capture_threads,
+        )
+    finally:
+        stop_event.set()
+        # Só considera o setor encerrado depois que TODOS os handles fecharem.
+        # open/read pode levar 8s; join de 3s deixava a captura antiga viva.
+        for thread in capture_threads:
+            thread.join()
+        print(f"[SETOR] '{setor}': pipeline encerrado.")
+
+
+def _build_incident_evidence(views, pose_observations, epi_detector, pose_model,
+                             pose_analyzer, inference_lock, zone_checker,
+                             confirmed_zone_ids, ergo_confirmed):
+    """Monta imagens e detalhes usando um único instante por câmera."""
+    def run_pose(snapshot):
+        with inference_lock:
+            raw = pose_model(snapshot, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
+        return raw, pose_analyzer.analyze_from_results(raw)
+
+    evidence = {}
+    confirmed_epi = []
+    confirmed_epi_cameras = []
+    zones = []
+    for view in views:
+        source = view["source"]
+        observation = synchronize_incident_view(
+            epi_observation=view["epi_observation"],
+            pose_observation=pose_observations.get(source),
+            current_frame=view["frame"], prefer_epi=bool(view["confirmed_epi"]),
+            epi_enabled=view["epi_prefixes"] != [], pose_enabled=view["pose_enabled"],
+            run_epi=lambda snapshot: epi_detector.run(snapshot, inference_lock),
+            run_pose=run_pose,
+        )
+        prefixes = view["epi_prefixes"]
+        observation["detections"] = [
+            d for d in observation["detections"] if d.label.startswith("PESSOA")
+            or prefixes is None or any(d.label.startswith(prefix) for prefix in prefixes)
+        ]
+        observation.update({key: view[key] for key in ("slot", "source", "camera_id")})
+        evidence[source] = observation
+        confirmed_labels = {d.label for d in view["confirmed_epi"]}
+        view_confirmed_epi = [d for d in observation["detections"] if d.label in confirmed_labels]
+        confirmed_epi.extend(view_confirmed_epi)
+        if view_confirmed_epi:
+            confirmed_epi_cameras.append(view["camera_id"])
+
+        zone_id = view["zone_id"]
+        zone_config = zone_checker.get(zone_id)
+        if zone_id in confirmed_zone_ids and zone_config and observation["raw"] is not None:
+            _, people_in_zone = zone_checker.check_from_results(zone_id, observation["raw"])
+            for person in people_in_zone:
+                if person.get("invadiu"):
+                    zones.append({**person, **zone_config, "source": source,
+                                  "camera_id": view["camera_id"], "zone_id": zone_id,
+                                  "epi_available": prefixes != [] and "epi" not in observation["analysis_errors"],
+                                  "epi_labels": {d.label for d in observation["detections"]}})
+
+    people_frontal = evidence.get("frontal", {}).get("people", [])
+    people_lateral = evidence.get("lateral", {}).get("people", [])
+    verdict_people = (_merge_pose_readings(people_frontal, people_lateral)
+                      if CAMERA_DUAL_MODE == "mesma_pessoa" else people_frontal + people_lateral)
+    verdict = _aggregate(
+        confirmed_epi, verdict_people if ergo_confirmed else [], zones,
+        epi_dets=[d for observation in evidence.values() for d in observation["detections"]],
+    )
+    camera_ids = {source: observation["camera_id"] for source, observation in evidence.items()}
+    tracking = build_incident_tracking(people_frontal, people_lateral, camera_ids)
+    details = {
+        "status": verdict.status,
+        "image_source": views[0]["source"],
+        "frames": {
+            observation["slot"]: {
+                "source": source, "camera_id": observation["camera_id"],
+                "width": int(observation["frame"].shape[1]),
+                "height": int(observation["frame"].shape[0]),
+                "sampled_at": observation["sampled_at"],
+                "analysis_errors": observation["analysis_errors"],
+            }
+            for source, observation in evidence.items()
+        },
+        "tracking": tracking,
+        "epi": [
+            # O cache facial é de outro instante e não identifica o snapshot desta
+            # evidência. Mantém PESSOA para evitar associar o rosto de alguém que se moveu.
+            {"label": d.label,
+             "confidence": round(float(d.confidence), 4),
+             "bbox": [int(d.x1), int(d.y1), int(d.x2), int(d.y2)],
+             "source": source, "camera_id": observation["camera_id"]}
+            for source, observation in evidence.items() for d in observation["detections"]
+        ],
+        "ergonomia": [person for people in tracking.values() for person in people],
+        "zona": [
+            {"pessoa_id": person.get("pessoa_id"), "invadiu": True,
+             "nome": person.get("nome", "Zona de Risco"), "pontos": person.get("pontos", []),
+             "source": person["source"], "camera_id": person["camera_id"],
+             "epis_ausentes": [label for label in person.get("epis_certo_labels", [])
+                               if person["epi_available"] and label not in person["epi_labels"]]}
+            for person in zones
+        ],
+        "zona_config": {key: zones[0].get(key) for key in ("nome", "pontos", "source", "camera_id")}
+                       if zones else None,
+    }
+    incident_camera_id = (zones[0]["camera_id"] if zones else
+                          confirmed_epi_cameras[0] if confirmed_epi_cameras else
+                          next((observation["camera_id"] for observation in evidence.values()
+                                if ergo_confirmed and any(_pessoa_em_risco_ergo(person)
+                                                          for person in observation["people"])),
+                               views[0]["camera_id"]))
+    return {"views": evidence, "details": details, "verdict": verdict, "zones": zones,
+            "camera_id": incident_camera_id,
+            "confirmed_epi": confirmed_epi}
+
+
+def _persist_incident_job(job, models, inference_lock, stop_event):
+    """Só o worker chama modelos complementares e prepara o registro no banco."""
+    if stop_event.is_set():
+        return
+    zone_snapshot = ZoneChecker(model_path=None)
+    for zone_id, config in job["zone_configs"].items():
+        zone_snapshot.configure(
+            zone_id, config["nome"], config["pontos"],
+            epis_obrigatorios=config.get("epis_obrigatorios", []),
+            epis_certo_labels=config.get("epis_certo_labels", []),
+        )
+    evidence = _build_incident_evidence(
+        job["views"], job["pose_observations"], models["epi_detector"], models["pose_model"],
+        models["pose_analyzer"], inference_lock, zone_snapshot,
+        job["confirmed_zone_ids"], job["ergo_confirmed"],
+    )
+    if stop_event.is_set() or not evidence["verdict"].reasons:
+        return
+    images = {}
+    for observation in evidence["views"].values():
+        ok, buffer = cv2.imencode(".jpg", observation["frame"], [cv2.IMWRITE_JPEG_QUALITY, 70])
+        if not ok:
+            raise RuntimeError("Não foi possível codificar a imagem do incidente")
+        images[observation["slot"]] = base64.b64encode(buffer).decode("utf-8")
+    verdict = evidence["verdict"]
+    payload = {
+        "timestamp": job["timestamp"], "label": ", ".join(verdict.reasons),
+        "confidence": verdict.confidence, "img_Frame": images["frontal"],
+        "source": ", ".join(verdict.sources), "camera_id": evidence["camera_id"],
+        "setor": job["setor"], "details": evidence["details"],
+    }
+    if "lateral" in images:
+        payload["img_Frame_lateral"] = images["lateral"]
+    if not stop_event.is_set():
+        _post_queue.put(payload)
+
+
+def _run_sector_pipeline(
+    setor, cameras, models, inference_lock, zone_checker, stop_event, capture_threads,
 ):
     epi_detector  = models["epi_detector"]
     pose_model    = models["pose_model"]
@@ -767,11 +963,8 @@ def _run_sector(
         resolve_frontal = _make_resolve_fn("default", "frontal", env_var="CAMERA_SOURCE", default=0)
         resolve_lateral = _make_resolve_fn("default", "lateral", env_var="CAMERA_SOURCE_LATERAL", default=None)
     else:
-        if has_frontal_cam:
-            resolve_frontal = _make_resolve_fn(setor, "frontal")
-        else:
-            resolve_frontal = lambda: cameras[0].get("streamUrl") if cameras else None
-        resolve_lateral = _make_resolve_fn(setor, "lateral")
+        resolve_frontal = _make_camera_resolve_fn(primary_camera_id)
+        resolve_lateral = _make_camera_resolve_fn(lateral_camera_id)
 
     frame_queue         = queue.Queue(maxsize=2)
     frame_queue_lateral = queue.Queue(maxsize=2)
@@ -792,510 +985,493 @@ def _run_sector(
             daemon=True,
         )
     t_frontal.start()
+    capture_threads.append(t_frontal)
     if t_lateral is not None:
         t_lateral.start()
+        capture_threads.append(t_lateral)
 
     epi_debouncer   = IncidentDebouncer(required_frames=FRAMES_EPI,  cooldown_frames=COOLDOWN_EPI)
+    epi_debouncer_lateral = IncidentDebouncer(required_frames=FRAMES_EPI, cooldown_frames=COOLDOWN_EPI)
     ergo_debouncer  = SimpleDebouncer(required_frames=FRAMES_ERGO, cooldown_frames=COOLDOWN_ERGO)
     zona_debouncers = {
         zone_id: SimpleDebouncer(required_frames=FRAMES_ZONA, cooldown_frames=COOLDOWN_ZONA)
         for zone_id in zone_camera_ids
     }
     queda_debouncer = SimpleDebouncer(required_frames=6, cooldown_frames=120)
-    _frame_interval = 1.0 / 10   # máx 10 FPS por setor no WebSocket
-    _last_frame_t   = 0.0
     _last_verdict_key = None
     _last_verdict_t   = 0.0
     _last_metrics_t   = 0.0
 
-    _epi_state         = {"counter": 0, "cache": [], "running": False}
-    _epi_state_lateral = {"counter": 0, "cache": [], "running": False}
+    _epi_state         = {"counter": 0, "observation": None, "running": False}
+    _epi_state_lateral = {"counter": 0, "observation": None, "running": False}
+    _empty_pose_result = {"raw": None, "raw_frontal": None, "raw_lateral": None,
+                          "lat_ms": 0.0, "pck": None, "views": {},
+                          "pessoas": [], "pessoas_frontal": [], "pessoas_lateral": []}
     _pose_state = {
-        "counter": 0, "raw": None, "raw_frontal": None, "raw_lateral": None,
-        "lat_ms": 0.0, "pck": None,
-        "pessoas": [], "pessoas_frontal": [], "pessoas_lateral": [],
-        "running": False, "dirty": False,
+        "counter": 0, "result": _empty_pose_result,
+        "running": False,
     }
+    last_sent_pose_result = None
     _verdict_cooldown = 0
 
     configured_zone_ids = [zone_id for zone_id in zone_camera_ids if zone_checker.get(zone_id)]
-    print(f"[SETOR] '{setor}': pipeline ativo | cameras_zona={zone_camera_ids} | "
-          f"frontal={'sim' if cam_frontal else 'webcam'} | "
-          f"lateral={'sim' if cam_lateral else 'não'} | "
+    print(f"[CAMERA] {primary_camera_id}: pipeline ativo | setor='{setor}' | "
+          f"source={primary_source} | cameras_zona={zone_camera_ids} | "
+          f"segunda_captura={'sim' if t_lateral is not None else 'não'} | "
           f"zonas_configuradas={configured_zone_ids or 'nenhuma'}")
 
-    while not stop_event.is_set():
-        try:
-            frame = frame_queue.get(timeout=0.5)
-        except queue.Empty:
-            frame = None
+    incident_worker = IncidentEvidenceWorker(
+        lambda job: _persist_incident_job(job, models, inference_lock, stop_event),
+        max_pending=8, name=f"incident-camera-{primary_camera_id or setor}",
+        on_error=lambda error: print(
+            f"[INCIDENTE] {setor}/câmera {primary_camera_id}: falha ao processar evidência: {error}"
+        ),
+    )
+    incident_worker.start()
 
-        try:
-            _last_lateral_frame["frame"] = frame_queue_lateral.get_nowait()
-            _last_lateral_frame["received_at"] = time.monotonic()
-        except queue.Empty:
-            pass
+    try:
+        while not stop_event.is_set():
+            try:
+                frame = frame_queue.get(timeout=0.5)
+            except queue.Empty:
+                frame = None
 
-        if frame is None:
-            time.sleep(0.1)
-            continue
+            try:
+                _last_lateral_frame["frame"] = frame_queue_lateral.get_nowait()
+                _last_lateral_frame["received_at"] = time.monotonic()
+            except queue.Empty:
+                pass
 
-        if primary_camera_id is not None:
-            with _latest_frontal_frames_lock:
-                _latest_frontal_frames[primary_camera_id] = frame
-
-        t_start = time.perf_counter()
-
-        frame_pose = frame
-        # has_lateral: só True quando há câmera FRONTAL dedicada E câmera lateral com frame
-        # (setor com câmera única nunca é tratado como dual-cam)
-        lateral_is_fresh = (
-            _last_lateral_frame["frame"] is not None
-            and time.monotonic() - _last_lateral_frame["received_at"] <= 2.0
-        )
-        has_lateral = has_frontal_cam and (cam_lateral is not None) and lateral_is_fresh
-        if has_lateral:
-            frame_pose = _last_lateral_frame["frame"]
-
-        # === 0. LIBERA STREAM DE VÍDEO IMEDIATAMENTE AO WEBSOCKET (ZERO LATÊNCIA VISUAL) ===
-        _now_t = time.perf_counter()
-        if _now_t - _last_frame_t >= _frame_interval:
-            _last_frame_t = _now_t
-            if has_frontal_cam:
-                _camera_frame_shapes[str(primary_camera_id)] = (int(frame.shape[1]), int(frame.shape[0]))
-                send_tagged_frame(frame, setor=setor, source="frontal", camera_id=primary_camera_id)
-                if has_lateral:
-                    _camera_frame_shapes[str(lateral_camera_id)] = (int(frame_pose.shape[1]), int(frame_pose.shape[0]))
-                    send_tagged_frame(frame_pose, setor=setor, source="lateral", camera_id=lateral_camera_id)
-            elif frame is not None:
-                if primary_camera_id is not None:
-                    _camera_frame_shapes[str(primary_camera_id)] = (int(frame.shape[1]), int(frame.shape[0]))
-                send_tagged_frame(frame, setor=setor, source=primary_source, camera_id=primary_camera_id)
-
-        # 1. EPI — background, a cada 5 frames, com lock de inferência
-        # _prefixes=None → detecta tudo; _prefixes=[] → pula EPI (nenhum configurado)
-        _primary_prefixes = epi_prefixes_ativos(setor, primary_camera_id)
-        _lateral_prefixes = epi_prefixes_ativos(setor, lateral_camera_id) if has_lateral else []
-        if _primary_prefixes != []:
-            # EPI na câmera frontal
-            _epi_state["counter"] += 1
-            if _epi_state["counter"] >= 5 and not _epi_state["running"]:
-                _epi_state["counter"]  = 0
-                _epi_state["running"]  = True
-                _frame_snap = frame.copy()
-                def _epi_bg(snap=_frame_snap):
-                    try:
-                        # o detector só segura o lock na inferência local (não durante o HTTP do Roboflow)
-                        _epi_state["cache"] = epi_detector.run(snap, inference_lock)
-                    except Exception as e:
-                        print(f"[EPI] {setor}: falha na inferência: {e}")
-                    finally:
-                        _epi_state["running"] = False
-                threading.Thread(target=_epi_bg, daemon=True).start()
-
-        else:
-            _epi_state["cache"] = []
-
-        # EPI na câmera lateral (quando disponível) — configuração independente
-        if has_lateral and _lateral_prefixes != []:
-                _epi_state_lateral["counter"] += 1
-                if _epi_state_lateral["counter"] >= 5 and not _epi_state_lateral["running"]:
-                    _epi_state_lateral["counter"] = 0
-                    _epi_state_lateral["running"] = True
-                    _frame_lat_snap = _last_lateral_frame["frame"].copy()
-                    def _epi_lat_bg(snap=_frame_lat_snap):
-                        try:
-                            _epi_state_lateral["cache"] = epi_detector.run(snap, inference_lock)
-                        except Exception as e:
-                            print(f"[EPI] {setor}/lateral: falha na inferência: {e}")
-                        finally:
-                            _epi_state_lateral["running"] = False
-                    threading.Thread(target=_epi_lat_bg, daemon=True).start()
-        else:
-            _epi_state_lateral["cache"] = []
-
-        def _filter_epi(detections, prefixes):
-            return [d for d in detections if d.label.startswith("PESSOA")
-                    or prefixes is None
-                    or any(d.label.startswith(prefix) for prefix in prefixes)]
-
-        primary_epi_dets = _filter_epi(_epi_state["cache"], _primary_prefixes)
-        lateral_epi_dets = _filter_epi(_epi_state_lateral["cache"], _lateral_prefixes) if has_lateral else []
-        epi_dets = primary_epi_dets + lateral_epi_dets
-
-        epi_incidents  = epi_detector.incidents(epi_dets)
-        epi_confirmed  = epi_debouncer.update(epi_incidents, epi_dets)
-        conf_media_epi = (
-            round(sum(d.confidence for d in epi_dets) / len(epi_dets), 4)
-            if epi_dets else None
-        )
-
-        # 2. Pose — também é necessária para localizar pessoas dentro das zonas,
-        # mesmo quando a análise ergonômica estiver desativada.
-        zona_ativa_no_setor = any(zone_checker.get(zone_id) for zone_id in zone_camera_ids)
-        if ergonomia_ativa(setor) or zona_ativa_no_setor:
-            _pose_state["counter"] += 1
-            if _pose_state["counter"] >= 2 and not _pose_state["running"]:
-                _pose_state["counter"] = 0
-                _pose_state["running"] = True
-                _snap_pose     = frame_pose.copy()
-                _snap_frontal  = frame.copy() if has_lateral else None
-                _dual          = has_lateral
-
-                def _pose_bg(snap_pose=_snap_pose, snap_frontal=_snap_frontal, _has_lat=_dual):
-                    try:
-                        with inference_lock:
-                            raw_lat = pose_model(snap_pose, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
-                        pessoas_lat = pose_analyzer.analyze_from_results(raw_lat)
-
-                        if _has_lat and snap_frontal is not None:
-                            with inference_lock:
-                                raw_front = pose_model(snap_frontal, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
-                            pessoas_front = pose_analyzer.analyze_from_results(raw_front)
-                            _pose_state["pessoas_frontal"] = pessoas_front
-                            _pose_state["pessoas_lateral"] = pessoas_lat
-                            _pose_state["raw_frontal"] = raw_front
-                            _pose_state["raw_lateral"] = raw_lat
-                            if CAMERA_DUAL_MODE == "mesma_pessoa":
-                                _pose_state["pessoas"] = _merge_pose_readings(pessoas_front, pessoas_lat)
-                            else:
-                                _pose_state["pessoas"] = pessoas_front + pessoas_lat
-                        else:
-                            _pose_state["pessoas_frontal"] = pessoas_lat
-                            _pose_state["pessoas_lateral"] = []
-                            _pose_state["pessoas"] = pessoas_lat
-                            _pose_state["raw_frontal"] = raw_lat
-                            _pose_state["raw_lateral"] = None
-
-                        _pose_state["raw"]    = raw_lat
-                        _pose_state["lat_ms"] = raw_lat[0].speed.get("inference", 0.0)
-                        _pose_state["pck"]    = _calc_pck(raw_lat)
-                        _pose_state["dirty"]  = True
-                    finally:
-                        _pose_state["running"] = False
-
-                threading.Thread(target=_pose_bg, daemon=True).start()
-        else:
-            _pose_state.update({
-                "raw": None, "raw_frontal": None, "raw_lateral": None,
-                "lat_ms": 0.0, "pck": None,
-                "pessoas": [], "pessoas_frontal": [], "pessoas_lateral": [],
-                "running": False, "dirty": False,
-            })
-
-        raw_pose    = _pose_state["raw"]
-        lat_pose_ms = _pose_state["lat_ms"]
-        pck_pose    = _pose_state["pck"]
-        ergo_pessoas = _pose_state["pessoas"]
-
-        ergo_em_risco  = [p for p in ergo_pessoas if _pessoa_em_risco_ergo(p)]
-        ergo_confirmed = ergo_debouncer.update(len(ergo_em_risco) > 0)
-
-        # "queda" é só mais uma chave no mesmo mecanismo de toggle dos EPIs (config_server.
-        # EPI_KEY_TO_PREFIX) — reaproveita _primary_prefixes/_lateral_prefixes já calculados
-        # acima, sem lógica paralela de ativação.
-        queda_ativa = "QUEDA" in _primary_prefixes or "QUEDA" in _lateral_prefixes
-        queda_detectada = queda_ativa and any(p.get("queda", False) for p in ergo_pessoas)
-        queda_confirmed = queda_debouncer.update(queda_detectada)
-
-        zone_inputs = [(primary_zone_id, _pose_state["raw_frontal"], primary_source, primary_camera_id)]
-        if has_lateral and lateral_zone_id and lateral_zone_id != primary_zone_id:
-            zone_inputs.append((lateral_zone_id, _pose_state["raw_lateral"], "lateral", lateral_camera_id))
-
-        zona_pessoas = []
-        zona_confirmadas = []
-        for zone_id, zone_results, zone_source, zone_camera_id in zone_inputs:
-            zone_config = zone_checker.get(zone_id)
-            if zone_config is None or zone_results is None:
+            if frame is None:
+                time.sleep(0.1)
                 continue
-            _, pessoas_da_zona = zone_checker.check_from_results(zone_id, zone_results)
-            pessoas_da_zona = [
-                {
-                    **p,
-                    "nome": zone_config.get("nome", "Zona de Risco"),
-                    "pontos": zone_config.get("pontos", []),
-                    "source": zone_source,
-                    "camera_id": zone_camera_id,
-                    "zone_id": zone_id,
-                }
-                for p in pessoas_da_zona
+
+            if primary_camera_id is not None:
+                with _latest_frontal_frames_lock:
+                    _latest_frontal_frames[primary_camera_id] = frame
+
+            t_start = time.perf_counter()
+
+            frame_pose = frame
+            # has_lateral: só True quando há câmera FRONTAL dedicada E câmera lateral com frame
+            # (setor com câmera única nunca é tratado como dual-cam)
+            lateral_is_fresh = (
+                _last_lateral_frame["frame"] is not None
+                and time.monotonic() - _last_lateral_frame["received_at"] <= 2.0
+            )
+            has_lateral = has_frontal_cam and (cam_lateral is not None) and lateral_is_fresh
+            if has_lateral:
+                frame_pose = _last_lateral_frame["frame"]
+
+            # 1. EPI — background, a cada 5 frames, com lock de inferência
+            # _prefixes=None → detecta tudo; _prefixes=[] → pula EPI (nenhum configurado)
+            _primary_prefixes = epi_prefixes_ativos(setor, primary_camera_id)
+            _ergonomia_ativa = ergonomia_ativa(setor, primary_camera_id)
+            _lateral_prefixes = epi_prefixes_ativos(setor, lateral_camera_id) if has_lateral else []
+            queda_ativa = "QUEDA" in (_primary_prefixes or []) or "QUEDA" in (_lateral_prefixes or [])
+            if _primary_prefixes != []:
+                # EPI na câmera frontal
+                _epi_state["counter"] += 1
+                if _epi_state["counter"] >= 5 and not _epi_state["running"]:
+                    _epi_state["counter"]  = 0
+                    _epi_state["running"]  = True
+                    _frame_snap = frame.copy()
+                    _sampled_at = datetime.now().isoformat()
+                    def _epi_bg(snap=_frame_snap, sampled_at=_sampled_at):
+                        try:
+                            # o detector só segura o lock na inferência local (não durante o HTTP do Roboflow)
+                            detections = epi_detector.run(snap, inference_lock)
+                            _epi_state["observation"] = {
+                                "frame": snap, "detections": detections, "sampled_at": sampled_at,
+                            }
+                        except Exception as e:
+                            print(f"[EPI] {setor}: falha na inferência: {e}")
+                        finally:
+                            _epi_state["running"] = False
+                    threading.Thread(target=_epi_bg, daemon=True).start()
+
+            else:
+                _epi_state["observation"] = None
+
+            # EPI na câmera lateral (quando disponível) — configuração independente
+            if has_lateral and _lateral_prefixes != []:
+                    _epi_state_lateral["counter"] += 1
+                    if _epi_state_lateral["counter"] >= 5 and not _epi_state_lateral["running"]:
+                        _epi_state_lateral["counter"] = 0
+                        _epi_state_lateral["running"] = True
+                        _frame_lat_snap = _last_lateral_frame["frame"].copy()
+                        _sampled_at_lat = datetime.now().isoformat()
+                        def _epi_lat_bg(snap=_frame_lat_snap, sampled_at=_sampled_at_lat):
+                            try:
+                                detections = epi_detector.run(snap, inference_lock)
+                                _epi_state_lateral["observation"] = {
+                                    "frame": snap, "detections": detections, "sampled_at": sampled_at,
+                                }
+                            except Exception as e:
+                                print(f"[EPI] {setor}/lateral: falha na inferência: {e}")
+                            finally:
+                                _epi_state_lateral["running"] = False
+                        threading.Thread(target=_epi_lat_bg, daemon=True).start()
+            else:
+                _epi_state_lateral["observation"] = None
+
+            def _filter_epi(detections, prefixes):
+                return [d for d in detections if d.label.startswith("PESSOA")
+                        or prefixes is None
+                        or any(d.label.startswith(prefix) for prefix in prefixes)]
+
+            primary_epi_observation = _epi_state["observation"]
+            lateral_epi_observation = _epi_state_lateral["observation"] if has_lateral else None
+            primary_epi_dets = _filter_epi(
+                primary_epi_observation["detections"] if primary_epi_observation else [], _primary_prefixes,
+            )
+            lateral_epi_dets = _filter_epi(
+                lateral_epi_observation["detections"] if lateral_epi_observation else [], _lateral_prefixes,
+            ) if has_lateral else []
+            epi_dets = primary_epi_dets + lateral_epi_dets
+
+            epi_incidents  = epi_detector.incidents(epi_dets)
+            primary_epi_confirmed = epi_debouncer.update(epi_detector.incidents(primary_epi_dets), primary_epi_dets)
+            lateral_epi_confirmed = epi_debouncer_lateral.update(epi_detector.incidents(lateral_epi_dets), lateral_epi_dets)
+            epi_confirmed = primary_epi_confirmed + lateral_epi_confirmed
+            conf_media_epi = (
+                round(sum(d.confidence for d in epi_dets) / len(epi_dets), 4)
+                if epi_dets else None
+            )
+
+            # 2. Pose também localiza pessoas nas zonas e detecta queda, mesmo
+            # quando a análise ergonômica desta câmera estiver desativada.
+            zona_ativa_no_setor = any(zone_checker.get(zone_id) for zone_id in zone_camera_ids)
+            if _ergonomia_ativa or zona_ativa_no_setor or queda_ativa:
+                _pose_state["counter"] += 1
+                if _pose_state["counter"] >= 2 and not _pose_state["running"]:
+                    _pose_state["counter"] = 0
+                    _pose_state["running"] = True
+                    _snap_pose     = frame_pose.copy()
+                    _snap_frontal  = frame.copy() if has_lateral else None
+                    _dual          = has_lateral
+                    _pose_sampled_at = datetime.now().isoformat()
+
+                    def _pose_bg(snap_pose=_snap_pose, snap_frontal=_snap_frontal, _has_lat=_dual,
+                                 sampled_at=_pose_sampled_at):
+                        try:
+                            with inference_lock:
+                                raw_lat = pose_model(snap_pose, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
+                            pessoas_lat = pose_analyzer.analyze_from_results(raw_lat)
+
+                            if _has_lat and snap_frontal is not None:
+                                with inference_lock:
+                                    raw_front = pose_model(snap_frontal, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
+                                pessoas_front = pose_analyzer.analyze_from_results(raw_front)
+                                result = {
+                                    "pessoas_frontal": pessoas_front, "pessoas_lateral": pessoas_lat,
+                                    "raw_frontal": raw_front, "raw_lateral": raw_lat,
+                                    "views": {
+                                        primary_source: {"frame": snap_frontal, "raw": raw_front,
+                                                         "people": pessoas_front, "sampled_at": sampled_at},
+                                        "lateral": {"frame": snap_pose, "raw": raw_lat,
+                                                    "people": pessoas_lat, "sampled_at": sampled_at},
+                                    },
+                                }
+                                if CAMERA_DUAL_MODE == "mesma_pessoa":
+                                    result["pessoas"] = _merge_pose_readings(pessoas_front, pessoas_lat)
+                                else:
+                                    result["pessoas"] = pessoas_front + pessoas_lat
+                            else:
+                                result = {
+                                    "pessoas_frontal": pessoas_lat, "pessoas_lateral": [],
+                                    "pessoas": pessoas_lat, "raw_frontal": raw_lat, "raw_lateral": None,
+                                    "views": {primary_source: {"frame": snap_pose, "raw": raw_lat,
+                                                              "people": pessoas_lat, "sampled_at": sampled_at}},
+                                }
+
+                            result["raw"] = raw_lat
+                            result["lat_ms"] = raw_lat[0].speed.get("inference", 0.0)
+                            result["pck"] = _calc_pck(raw_lat)
+                            # Publica todas as vistas e seus snapshots juntas. O leitor nunca
+                            # combina a pose frontal nova com a lateral do ciclo anterior.
+                            _pose_state["result"] = result
+                        finally:
+                            _pose_state["running"] = False
+
+                    threading.Thread(target=_pose_bg, daemon=True).start()
+            else:
+                _pose_state.update({
+                    "result": _empty_pose_result,
+                })
+
+            pose_result = _pose_state["result"]
+            raw_pose    = pose_result["raw"]
+            lat_pose_ms = pose_result["lat_ms"]
+            pck_pose    = pose_result["pck"]
+            ergo_pessoas = pose_result["pessoas"]
+
+            ergo_em_risco  = [p for p in ergo_pessoas if _pessoa_em_risco_ergo(p)] if _ergonomia_ativa else []
+            ergo_confirmed = ergo_debouncer.update(len(ergo_em_risco) > 0)
+
+            # "queda" é só mais uma chave no mesmo mecanismo de toggle dos EPIs (config_server.
+            # EPI_KEY_TO_PREFIX) — reaproveita _primary_prefixes/_lateral_prefixes já calculados
+            # acima, sem lógica paralela de ativação.
+            queda_detectada = queda_ativa and any(p.get("queda", False) for p in ergo_pessoas)
+            queda_confirmed = queda_debouncer.update(queda_detectada)
+
+            zone_inputs = [(primary_zone_id, pose_result["raw_frontal"], primary_source, primary_camera_id)]
+            if has_lateral and lateral_zone_id and lateral_zone_id != primary_zone_id:
+                zone_inputs.append((lateral_zone_id, pose_result["raw_lateral"], "lateral", lateral_camera_id))
+
+            zona_pessoas = []
+            zona_confirmadas = []
+            for zone_id, zone_results, zone_source, zone_camera_id in zone_inputs:
+                zone_config = zone_checker.get(zone_id)
+                if zone_config is None or zone_results is None:
+                    continue
+                _, pessoas_da_zona = zone_checker.check_from_results(zone_id, zone_results)
+                pessoas_da_zona = [
+                    {
+                        **p,
+                        "nome": zone_config.get("nome", "Zona de Risco"),
+                        "pontos": zone_config.get("pontos", []),
+                        "source": zone_source,
+                        "camera_id": zone_camera_id,
+                        "zone_id": zone_id,
+                    }
+                    for p in pessoas_da_zona
+                ]
+                invasores = [p for p in pessoas_da_zona if p.get("invadiu")]
+                zona_pessoas.extend(pessoas_da_zona)
+                debouncer = zona_debouncers.setdefault(
+                    zone_id,
+                    SimpleDebouncer(required_frames=FRAMES_ZONA, cooldown_frames=COOLDOWN_ZONA),
+                )
+                if debouncer.update(bool(invasores)):
+                    zona_confirmadas.extend(invasores)
+
+            zona_confirmed = bool(zona_confirmadas)
+
+            # 4. Verdict em tempo real (envia quando status/reasons mudam ou heartbeat a cada 1s)
+            zona_em_risco = [p for p in zona_pessoas if p["invadiu"]]
+            live_verdict  = _aggregate(epi_incidents, ergo_em_risco, zona_em_risco, epi_dets=epi_dets)
+
+            _now_t = time.perf_counter()
+            _verdict_key = (live_verdict.status, tuple(sorted(live_verdict.reasons)))
+            if _verdict_key != _last_verdict_key or (_now_t - _last_verdict_t >= 1.0):
+                _last_verdict_key = _verdict_key
+                _last_verdict_t   = _now_t
+                print("[REALTIME] send_verdict", live_verdict)
+                _send_verdict(live_verdict, setor=setor, camera_id=primary_camera_id, source=primary_source)
+
+            # 4.5 Queda — checagem explícita antes do envio, além do gate já aplicado acima.
+            # Mesmo ponto de decisão usado pro envio: beep só dispara se a label "Queda"
+            # estiver ativa pra essa câmera/setor (Problema 1) e o latch confirmou (Problema 2).
+            print(
+                "[REALTIME][DEBUG] epi_confirmed=", epi_confirmed,
+                "ergo_confirmed=", ergo_confirmed,
+                "zona_confirmed=", zona_confirmed,
+                "queda_confirmed=", queda_confirmed,
+                "queda_ativa=", queda_ativa,
+            )
+            if queda_confirmed and queda_ativa:
+                print("[REALTIME] beep (queda)")
+                threading.Thread(target=_beep, daemon=True).start()
+                print("[REALTIME] send_queda")
+                send_queda(
+                    pessoas=[p["pessoa_id"] for p in ergo_pessoas if p.get("queda")],
+                    timestamp=datetime.now().isoformat(),
+                    setor=setor,
+                    camera_id=lateral_camera_id if has_lateral else primary_camera_id,
+                    source="lateral" if has_lateral else primary_source,
+                )
+
+            for zone_id in dict.fromkeys(p["zone_id"] for p in zona_confirmadas):
+                invasor = next(p for p in zona_confirmadas if p["zone_id"] == zone_id)
+                send_alert(
+                    label="Zona de Risco",
+                    confidence=1.0,
+                    timestamp=datetime.now().isoformat(),
+                    setor=setor,
+                    camera_id=invasor.get("camera_id"),
+                    source=invasor.get("source"),
+                )
+
+            # 5. Envia metadados de ML ao WebSocket (detecções de EPI e pose/esqueleto)
+            primary_missing_epi = [
+                d for d in primary_epi_dets
+                if "AUSENTE" in d.label.upper() or "ERRADO" in d.label.upper()
             ]
-            invasores = [p for p in pessoas_da_zona if p.get("invadiu")]
-            zona_pessoas.extend(pessoas_da_zona)
-            debouncer = zona_debouncers.setdefault(
-                zone_id,
-                SimpleDebouncer(required_frames=FRAMES_ZONA, cooldown_frames=COOLDOWN_ZONA),
-            )
-            if debouncer.update(bool(invasores)):
-                zona_confirmadas.extend(invasores)
-
-        zona_confirmed = bool(zona_confirmadas)
-
-        # 4. Verdict em tempo real (envia quando status/reasons mudam ou heartbeat a cada 1s)
-        zona_em_risco = [p for p in zona_pessoas if p["invadiu"]]
-        live_verdict  = _aggregate(epi_incidents, ergo_em_risco, zona_em_risco, epi_dets=epi_dets)
-
-        _now_t = time.perf_counter()
-        _verdict_key = (live_verdict.status, tuple(sorted(live_verdict.reasons)))
-        if _verdict_key != _last_verdict_key or (_now_t - _last_verdict_t >= 1.0):
-            _last_verdict_key = _verdict_key
-            _last_verdict_t   = _now_t
-            print("[REALTIME] send_verdict", live_verdict)
-            _send_verdict(live_verdict, setor=setor)
-
-        # 4.5 Queda — checagem explícita antes do envio, além do gate já aplicado acima.
-        # Mesmo ponto de decisão usado pro envio: beep só dispara se a label "Queda"
-        # estiver ativa pra essa câmera/setor (Problema 1) e o latch confirmou (Problema 2).
-        print(
-            "[REALTIME][DEBUG] epi_confirmed=", epi_confirmed,
-            "ergo_confirmed=", ergo_confirmed,
-            "zona_confirmed=", zona_confirmed,
-            "queda_confirmed=", queda_confirmed,
-            "queda_ativa=", queda_ativa,
-        )
-        if queda_confirmed and queda_ativa:
-            print("[REALTIME] beep (queda)")
-            threading.Thread(target=_beep, daemon=True).start()
-            print("[REALTIME] send_queda")
-            send_queda(
-                pessoas=[p["pessoa_id"] for p in ergo_pessoas if p.get("queda")],
-                timestamp=datetime.now().isoformat(),
-                setor=setor,
-                camera_id=lateral_camera_id if has_lateral else primary_camera_id,
-                source="lateral" if has_lateral else primary_source,
-            )
-
-        for zone_id in dict.fromkeys(p["zone_id"] for p in zona_confirmadas):
-            invasor = next(p for p in zona_confirmadas if p["zone_id"] == zone_id)
-            send_alert(
-                label="Zona de Risco",
-                confidence=1.0,
-                timestamp=datetime.now().isoformat(),
-                setor=setor,
-                camera_id=invasor.get("camera_id"),
-                source=invasor.get("source"),
-            )
-
-        # 5. Envia metadados de ML ao WebSocket (detecções de EPI e pose/esqueleto)
-        primary_missing_epi = [
-            d for d in primary_epi_dets
-            if "AUSENTE" in d.label.upper() or "ERRADO" in d.label.upper()
-        ]
-        lateral_missing_epi = [
-            d for d in lateral_epi_dets
-            if "AUSENTE" in d.label.upper() or "ERRADO" in d.label.upper()
-        ]
-        print("[REALTIME] send_detections", len(primary_missing_epi))
-        send_detections(
-            [{"label": d.label, "confidence": round(float(d.confidence), 4),
-              "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
-             for d in primary_missing_epi],
-            setor=setor, source=primary_source, camera_id=primary_camera_id,
-        )
-        if has_lateral:
-            print("[REALTIME] send_detections", len(lateral_missing_epi))
+            lateral_missing_epi = [
+                d for d in lateral_epi_dets
+                if "AUSENTE" in d.label.upper() or "ERRADO" in d.label.upper()
+            ]
+            print("[REALTIME] send_detections", len(primary_missing_epi))
             send_detections(
                 [{"label": d.label, "confidence": round(float(d.confidence), 4),
                   "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
-                 for d in lateral_missing_epi],
-                setor=setor, source="lateral", camera_id=lateral_camera_id,
+                 for d in primary_missing_epi],
+                setor=setor, source=primary_source, camera_id=primary_camera_id,
             )
-        if _pose_state["dirty"]:
-            _pose_state["dirty"] = False
-            if has_frontal_cam:
-                send_pose(_pose_state["pessoas_frontal"], source="frontal", setor=setor)
-                if has_lateral:
-                    send_pose(_pose_state["pessoas_lateral"], source="lateral", setor=setor)
-            else:
-                send_pose(_pose_state["pessoas_frontal"], source=primary_source, setor=setor)
-
-        # 6. Incident confirmado → beep + banco
-        print(
-            "[REALTIME][DEBUG bloco 6] epi_confirmed=", epi_confirmed,
-            "ergo_confirmed=", ergo_confirmed,
-            "zona_confirmed=", zona_confirmed,
-            "queda_confirmed=", queda_confirmed,
-            "queda_ativa=", queda_ativa,
-        )
-        if epi_confirmed or ergo_confirmed or zona_confirmed:
-            confirmed_verdict = _aggregate(
-                epi_confirmed,
-                ergo_pessoas if ergo_confirmed else [],
-                zona_confirmadas,
-                epi_dets=epi_dets,
-            )
-            timestamp = datetime.now()
-
-            for d in epi_confirmed:
-                send_alert(
-                    label=d.label,
-                    confidence=round(float(d.confidence), 4),
-                    timestamp=timestamp.isoformat(),
-                    setor=setor,
+            if has_lateral:
+                print("[REALTIME] send_detections", len(lateral_missing_epi))
+                send_detections(
+                    [{"label": d.label, "confidence": round(float(d.confidence), 4),
+                      "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
+                     for d in lateral_missing_epi],
+                    setor=setor, source="lateral", camera_id=lateral_camera_id,
                 )
+            if pose_result is not last_sent_pose_result:
+                last_sent_pose_result = pose_result
+                if has_frontal_cam:
+                    send_pose(pose_result["pessoas_frontal"], source="frontal", setor=setor, camera_id=primary_camera_id)
+                    if has_lateral:
+                        send_pose(pose_result["pessoas_lateral"], source="lateral", setor=setor, camera_id=lateral_camera_id)
+                else:
+                    send_pose(pose_result["pessoas_frontal"], source=primary_source, setor=setor, camera_id=primary_camera_id)
 
-            threading.Thread(target=_beep, daemon=True).start()
-
-            _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
-            img_b64   = base64.b64encode(buffer).decode("utf-8")
-            incident_zone = zona_confirmadas[0] if zona_confirmadas else None
-
-            # DEBUG temporário: diagnosticar por que caixas "PESSOA" não resolvem pro nome/
-            # "Desconhecido" individualmente quando há 2+ pessoas em cena — mostra quantas
-            # caixas de pessoa o modelo de EPI viu nesse frame vs. quantos rostos o
-            # reconhecimento facial tinha disponível (e suas posições) no mesmo instante.
-            _pessoas_epi = [d for d in (epi_dets or epi_confirmed) if d.label.startswith("PESSOA")]
-            with _latest_face_matches_lock:
-                _faces_disponiveis = list(_latest_face_matches.get(primary_camera_id) or [])
+            # 6. Incident confirmado → beep + banco
             print(
-                f"[FACIAL][DEBUG incidente] caixas PESSOA do EPI: "
-                f"{[(round(d.x1), round(d.y1), round(d.x2), round(d.y2)) for d in _pessoas_epi]} | "
-                f"rostos disponíveis: {[(f['nome'], round(f['x1']), round(f['y1']), round(f['x2']), round(f['y2'])) for f in _faces_disponiveis]}"
+                "[REALTIME][DEBUG bloco 6] epi_confirmed=", epi_confirmed,
+                "ergo_confirmed=", ergo_confirmed,
+                "zona_confirmed=", zona_confirmed,
+                "queda_confirmed=", queda_confirmed,
+                "queda_ativa=", queda_ativa,
             )
+            if epi_confirmed or ergo_confirmed or zona_confirmed:
+                timestamp = datetime.now().isoformat()
+                for source, camera_id, detections in (
+                    (primary_source, primary_camera_id, primary_epi_confirmed),
+                    ("lateral", lateral_camera_id, lateral_epi_confirmed),
+                ):
+                    for detection in detections:
+                        send_alert(
+                            label=detection.label, confidence=round(float(detection.confidence), 4),
+                            timestamp=timestamp, setor=setor, camera_id=camera_id, source=source,
+                        )
+                threading.Thread(target=_beep, daemon=True).start()
 
-            details = {
-                "status": confirmed_verdict.status,
-                "epi": [
-                    {
-                        # Caixas "PESSOA" viram o nome do funcionário reconhecido, se o
-                        # rosto dele caiu dentro dessa caixa no último ciclo do
-                        # reconhecimento facial (câmera frontal) — ver _resolve_pessoa_label.
-                        "label": _resolve_pessoa_label(
-                            d, primary_camera_id if d in primary_epi_dets else lateral_camera_id
-                        ),
-                        "confidence": round(float(d.confidence), 4),
-                        "bbox":       [int(d.x1), int(d.y1), int(d.x2), int(d.y2)],
-                    }
-                    for d in (epi_dets or epi_confirmed)
-                ],
-                "ergonomia": [
-                    {
-                        "pessoa_id":  p.get("pessoa_id"),
-                        "reba_score": p.get("reba_score"),
-                        "reba_level": p.get("reba_level"),
-                        "confianca":  round(float(p.get("confianca_deteccao", 0)), 4),
-                        "queda":      p.get("queda", False),
-                        "bbox":       p.get("bbox"),
-                        "keypoints":  p.get("keypoints"),
-                    }
-                    for p in ergo_pessoas
-                ],
-                "zona": [
-                    {
-                        "pessoa_id": p.get("pessoa_id"),
-                        "invadiu":   p.get("invadiu", False),
-                        "nome": p.get("nome", "Zona de Risco"),
-                        "pontos": p.get("pontos", []),
-                        "source": p.get("source"),
-                        "camera_id": p.get("camera_id"),
-                        "epis_ausentes": [
-                            epi_label
-                            for epi_id, epi_label in zip(
-                                p.get("epis_obrigatorios", []),
-                                p.get("epis_certo_labels", []),
-                            )
-                            if epi_label not in {d.label for d in (epi_dets or [])}
-                        ],
-                    }
-                    for p in zona_confirmadas
-                ],
-                "zona_config": {
-                    "nome": incident_zone.get("nome", "Zona de Risco"),
-                    "pontos": incident_zone.get("pontos", []),
-                    "source": incident_zone.get("source"),
-                    "camera_id": incident_zone.get("camera_id"),
-                } if incident_zone else None,
-            }
+                views = [{
+                    "slot": "frontal", "source": primary_source, "camera_id": primary_camera_id,
+                    "zone_id": primary_zone_id, "frame": frame,
+                    "epi_observation": primary_epi_observation,
+                    "confirmed_epi": primary_epi_confirmed, "epi_prefixes": _primary_prefixes,
+                    "pose_enabled": _ergonomia_ativa or queda_ativa or zone_checker.get(primary_zone_id) is not None,
+                }]
+                if has_lateral and has_frontal_cam:
+                    views.append({
+                        "slot": "lateral", "source": "lateral", "camera_id": lateral_camera_id,
+                        "zone_id": lateral_zone_id, "frame": frame_pose,
+                        "epi_observation": lateral_epi_observation,
+                        "confirmed_epi": lateral_epi_confirmed, "epi_prefixes": _lateral_prefixes,
+                        "pose_enabled": _ergonomia_ativa or queda_ativa or zone_checker.get(lateral_zone_id) is not None,
+                    })
+                zone_configs = {}
+                for view in views:
+                    zone_config = zone_checker.get(view["zone_id"])
+                    if zone_config is not None:
+                        zone_configs[view["zone_id"]] = deepcopy(zone_config)
+                # As observações publicadas não são modificadas pelas próximas inferências.
+                # O job guarda esses snapshots, as configurações e o instante da confirmação.
+                job = {
+                    "views": views, "pose_observations": dict(pose_result["views"]),
+                    "confirmed_zone_ids": frozenset(person["zone_id"] for person in zona_confirmadas),
+                    "zone_configs": zone_configs, "ergo_confirmed": ergo_confirmed,
+                    "timestamp": timestamp, "setor": setor,
+                }
+                if not incident_worker.submit(job) and not stop_event.is_set():
+                    print(
+                        f"[INCIDENTE] {setor}/câmera {primary_camera_id}: fila de evidências cheia "
+                        "(8 pendentes); evento não salvo. O alerta ao vivo já foi emitido."
+                    )
 
-            payload = {
-                "timestamp":  timestamp.isoformat(),
-                "label":      ", ".join(confirmed_verdict.reasons),
-                "confidence": confirmed_verdict.confidence,
-                "img_Frame":  img_b64,
-                "source":     ", ".join(confirmed_verdict.sources),
-                "camera_id":  incident_zone.get("camera_id") if incident_zone else primary_camera_id,
-                "setor":      setor,
-                "details":    details,
-            }
-
-            # só salva lateral quando há câmera frontal E lateral distintas
-            if has_lateral and has_frontal_cam:
-                _, buffer_lateral = cv2.imencode(".jpg", frame_pose, [cv2.IMWRITE_JPEG_QUALITY, 70])
-                payload["img_Frame_lateral"] = base64.b64encode(buffer_lateral).decode("utf-8")
-
-            _post_queue.put(payload)
-
-        # 7. Métricas (a cada 0.5s para não sobrecarregar o WebSocket)
-        if _now_t - _last_metrics_t >= 0.5:
-            _last_metrics_t = _now_t
-            lat_total_ms = (time.perf_counter() - t_start) * 1000
-            _send_metrics(lat_total_ms, 0.0, lat_pose_ms, pck_pose, conf_media_epi, setor=setor)
-
-    stop_event.set()
-    t_frontal.join(timeout=3)
-    if t_lateral is not None:
-        t_lateral.join(timeout=3)
-    print(f"[SETOR] '{setor}': pipeline encerrado.")
-
+            # 7. Métricas (a cada 0.5s para não sobrecarregar o WebSocket)
+            if _now_t - _last_metrics_t >= 0.5:
+                _last_metrics_t = _now_t
+                lat_total_ms = (time.perf_counter() - t_start) * 1000
+                _send_metrics(lat_total_ms, 0.0, lat_pose_ms, pck_pose, conf_media_epi, setor=setor, camera_id=primary_camera_id, source=primary_source)
+    finally:
+        incident_worker.stop()
 
 # ── Gerenciador de setores ─────────────────────────────────────────────────────
 _active_sectors: dict[str, dict] = {}
 _active_sectors_lock = threading.Lock()
 
 
-def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: ZoneChecker):
-    """Monitora novos setores / câmeras e inicia/reinicia pipelines conforme necessário."""
-    global _active_sectors
+def _camera_pipeline_key(setor, cameras):
+    if not cameras:
+        return "default" if setor == "default" else f"fallback:{setor}"
+    if len(cameras) != 1:
+        raise ValueError("Cada pipeline cadastrado deve receber exatamente uma câmera")
+    return f"camera:{cameras[0]['id']}"
 
+
+def _camera_pipeline_signature(setor, cameras):
+    return frozenset(
+        (setor, camera["id"], camera.get("papel") or "frontal", camera.get("streamUrl", ""))
+        for camera in cameras
+    )
+
+
+def _camera_pipeline_entries(sectors, include_fallback=True):
+    entries = {}
+    for setor, cameras in sectors.items():
+        if cameras:
+            for camera in cameras:
+                singleton = [camera]
+                entries[_camera_pipeline_key(setor, singleton)] = (setor, singleton)
+        elif include_fallback:
+            entries[_camera_pipeline_key(setor, [])] = (setor, [])
+    return entries
+
+
+def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: ZoneChecker):
+    """Setor é uma tag; cada câmera tem captura, análise e persistência próprias."""
     while True:
         sectors = _resolve_sectors()
         if sectors is None:
             time.sleep(SECTOR_CHECK_INTERVAL_S)
             continue
+        desired = _camera_pipeline_entries(sectors)
 
         with _active_sectors_lock:
-            # Iniciar setores novos ou com câmeras diferentes
-            for setor, cameras in sectors.items():
-                cam_ids = frozenset(
-                    (c["id"], c.get("papel") or "frontal", c.get("streamUrl", ""))
-                    for c in cameras
-                )
-                existing = _active_sectors.get(setor)
-
+            for key, (setor, cameras) in desired.items():
+                existing = _active_sectors.get(key)
+                signature = _camera_pipeline_signature(setor, cameras)
                 if existing is None:
                     _start_sector(setor, cameras, models, inference_lock, zone_checker)
-                elif existing["cam_ids"] != cam_ids:
-                    print(f"[SETOR] '{setor}': câmeras alteradas, reiniciando pipeline...")
+                elif existing["cam_ids"] != signature:
+                    if not existing["stop_event"].is_set():
+                        print(f"[CAMERA] {key}: cadastro alterado; encerrando somente esta câmera.")
                     existing["stop_event"].set()
-                    existing["thread"].join(timeout=8)
+                    # Não espera o timeout RTSP aqui: as outras câmeras seguem e podem iniciar.
+                    if existing["thread"].is_alive():
+                        continue
+                    _start_sector(setor, cameras, models, inference_lock, zone_checker)
+                elif not existing["thread"].is_alive():
                     _start_sector(setor, cameras, models, inference_lock, zone_checker)
 
-            # Encerrar setores removidos
-            for setor in list(_active_sectors.keys()):
-                if setor not in sectors:
-                    print(f"[SETOR] '{setor}': encerrado (câmeras removidas do cadastro).")
-                    _active_sectors[setor]["stop_event"].set()
-                    _active_sectors[setor]["thread"].join(timeout=8)
-                    del _active_sectors[setor]
-
+            for key in list(_active_sectors):
+                if key not in desired:
+                    existing = _active_sectors[key]
+                    if not existing["stop_event"].is_set():
+                        print(f"[CAMERA] {key}: removida do cadastro; encerrando somente esta câmera.")
+                    existing["stop_event"].set()
+                    if not existing["thread"].is_alive():
+                        del _active_sectors[key]
         time.sleep(SECTOR_CHECK_INTERVAL_S)
 
 
 def _start_sector(setor: str, cameras: list[dict], models: dict, inference_lock: threading.Lock, zone_checker: ZoneChecker):
+    key = _camera_pipeline_key(setor, cameras)
     stop_event = threading.Event()
-    cam_ids = frozenset(
-        (c["id"], c.get("papel") or "frontal", c.get("streamUrl", ""))
-        for c in cameras
-    )
-    t = threading.Thread(
+    thread = threading.Thread(
         target=_run_sector,
         args=(setor, cameras, models, inference_lock, zone_checker, stop_event),
-        daemon=True,
-        name=f"sector-{setor}",
+        daemon=True, name=f"pipeline-{key}",
     )
-    _active_sectors[setor] = {"thread": t, "stop_event": stop_event, "cam_ids": cam_ids}
-    t.start()
-    print(f"[SETOR] '{setor}': iniciado com {len(cameras)} câmera(s).")
+    _active_sectors[key] = {
+        "thread": thread, "stop_event": stop_event, "setor": setor,
+        "cam_ids": _camera_pipeline_signature(setor, cameras),
+    }
+    thread.start()
+    print(f"[CAMERA] {key}: pipeline independente iniciado | setor='{setor}'.")
 
 
 # ── Reconhecimento facial ────────────────────────────────────────────────────────
@@ -1411,39 +1587,47 @@ _active_facial_sectors_lock = threading.Lock()
 
 
 def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry):
-    """Espelha _sector_manager: detecta setores/câmeras novos periodicamente e inicia (ou
-    encerra) a thread de reconhecimento facial correspondente, sem reiniciar o orquestrador."""
-    global _active_facial_sectors
+    """Uma thread facial por ID, reutilizando a captura da própria câmera."""
     while True:
         sectors = _resolve_sectors()
         if sectors is not None:
+            desired = _camera_pipeline_entries(sectors, include_fallback=False)
             with _active_facial_sectors_lock:
-                for setor, cameras in sectors.items():
-                    if not cameras:
-                        continue
-                    existing = _active_facial_sectors.get(setor)
-                    if existing is None or not existing["thread"].is_alive():
+                for key, (setor, cameras) in desired.items():
+                    existing = _active_facial_sectors.get(key)
+                    signature = _camera_pipeline_signature(setor, cameras)
+                    if existing is None:
+                        _start_facial_sector(setor, cameras, recognizer, registry)
+                    elif existing["cam_ids"] != signature:
+                        existing["stop_event"].set()
+                        if not existing["thread"].is_alive():
+                            _start_facial_sector(setor, cameras, recognizer, registry)
+                    elif not existing["thread"].is_alive():
                         _start_facial_sector(setor, cameras, recognizer, registry)
 
-                for setor in list(_active_facial_sectors.keys()):
-                    if setor not in sectors or not sectors[setor]:
-                        _active_facial_sectors[setor]["stop_event"].set()
-                        _active_facial_sectors[setor]["thread"].join(timeout=8)
-                        del _active_facial_sectors[setor]
+                for key in list(_active_facial_sectors):
+                    if key not in desired:
+                        existing = _active_facial_sectors[key]
+                        existing["stop_event"].set()
+                        if not existing["thread"].is_alive():
+                            del _active_facial_sectors[key]
         time.sleep(SECTOR_CHECK_INTERVAL_S)
 
 
 def _start_facial_sector(setor: str, cameras: list[dict], recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry):
+    key = _camera_pipeline_key(setor, cameras)
     stop_event = threading.Event()
-    t = threading.Thread(
+    thread = threading.Thread(
         target=_run_facial_sector,
         args=(setor, cameras, stop_event, recognizer, registry),
-        daemon=True,
-        name=f"facial-{setor}",
+        daemon=True, name=f"facial-{key}",
     )
-    _active_facial_sectors[setor] = {"thread": t, "stop_event": stop_event}
-    t.start()
-    print(f"[FACIAL] setor '{setor}': iniciado.")
+    _active_facial_sectors[key] = {
+        "thread": thread, "stop_event": stop_event, "setor": setor,
+        "cam_ids": _camera_pipeline_signature(setor, cameras),
+    }
+    thread.start()
+    print(f"[FACIAL] {key}: reconhecimento independente iniciado | setor='{setor}'.")
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────

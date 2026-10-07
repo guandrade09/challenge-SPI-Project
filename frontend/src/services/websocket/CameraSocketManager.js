@@ -91,7 +91,7 @@ class CameraSocketManager {
           frameWidth: message.frame_width, frameHeight: message.frame_height,
         });
         break;
-      case 'pose': store.setPose(setor, message.source || 'frontal', message.pessoas ?? []); break;
+      case 'pose': store.setPose(setor, message.source || 'frontal', message.pessoas ?? [], message.camera_id); break;
       case 'verdict': store.setVerdict(setor, message); break;
       case 'metrics': store.setMetrics(setor, message); break;
       case 'queda': store.addQuedaEvent(setor, message); break;

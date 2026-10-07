@@ -83,7 +83,7 @@ async function fetchFrame(path) {
   return response.blob();
 }
 
-async function annotatedFrame(blob, details, source) {
+async function annotatedFrame(blob, details, source, hasLateralFrame) {
   const url = URL.createObjectURL(blob);
   try {
     const image = new Image();
@@ -95,7 +95,7 @@ async function annotatedFrame(blob, details, source) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas indisponível.');
     ctx.drawImage(image, 0, 0);
-    drawIncidentOverlays(ctx, details, source, canvas.width, canvas.height);
+    drawIncidentOverlays(ctx, details, source, canvas.width, canvas.height, { hasLateralFrame });
     return await new Promise((resolve, reject) => {
       canvas.toBlob((result) => result ? resolve(result) : reject(new Error('Falha ao renderizar um frame.')), 'image/png');
     });
@@ -108,8 +108,8 @@ export async function downloadIncidentsZip(incidents, mode) {
   if (!['normal', 'bounding', 'both'].includes(mode)) throw new Error('Tipo de download inválido.');
   const files = [];
   for (const [index, incident] of incidents.entries()) {
-    const paths = [['frontal', incident.img_path]];
-    if (incident.img_path_lateral) paths.push(['lateral', incident.img_path_lateral]);
+    const paths = [[incident.details?.image_source || incident.details?.frames?.frontal?.source || 'frontal', incident.img_path]];
+    if (incident.img_path_lateral) paths.push([incident.details?.frames?.lateral?.source || 'lateral', incident.img_path_lateral]);
     for (const [source, path] of paths) {
       if (!path) throw new Error('Um incidente selecionado não possui frame.');
       const blob = await fetchFrame(path);
@@ -119,7 +119,7 @@ export async function downloadIncidentsZip(incidents, mode) {
         files.push({ name: `original/${name}.${extension(blob, path)}`, bytes: new Uint8Array(await blob.arrayBuffer()) });
       }
       if (mode !== 'normal') {
-        const rendered = await annotatedFrame(blob, incident.details, source);
+        const rendered = await annotatedFrame(blob, incident.details, source, !!incident.img_path_lateral);
         files.push({ name: `bounding_box/${name}.png`, bytes: new Uint8Array(await rendered.arrayBuffer()) });
       }
     }

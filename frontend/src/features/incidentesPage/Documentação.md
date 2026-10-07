@@ -1,6 +1,6 @@
 # Histórico de Incidentes — documentação técnica
 
-Atualizado em 30/09/2026 a partir do código do projeto `frontend/src/features/incidentesPage`.
+Atualizado em 07/10/2026 a partir do código do projeto `frontend/src/features/incidentesPage`.
 
 ## Visão geral
 
@@ -13,7 +13,9 @@ A página lista incidentes recebidos de `detectionService.list()`. O backend sal
 | `IncidentesPage.jsx` | Carregamento, agrupamento, filtros, paginação, seleção e coordenação de download e exclusão. |
 | `components/IncidentFilters.jsx` | Select de EPI/estado, chips removíveis, filtros de fonte e câmera, Só alertas, Selecionar todos, Downloads e Deletar selecionados. |
 | `components/IncidentCard.jsx` | Prévia, seleção pelo clique no card, checkbox no canto superior esquerdo, realce e botões de detalhes e exclusão individual. |
-| `components/IncidentModal.jsx` | Detalhes do incidente em portal; vistas frontal e lateral e métricas. |
+| `components/IncidentModal.jsx` | Detalhes em portal, organizados por imagem e câmera. |
+| `components/IncidentCameraDetails.jsx` | EPIs, REBA e zona exclusivos da câmera da imagem ao lado. |
+| `utils/frameOverlayData.js` | Associação por `source`/`camera_id`, seleção do tracking por vista e compatibilidade com registros antigos. |
 | `components/IncidentDownloadModal.jsx` | Portal com as três opções de exportação, quantidade selecionada e estados de processamento/erro. |
 | `components/IncidentDeleteModal.jsx` | Confirmação de exclusão individual ou em lote, com estados de processamento/erro. |
 | `components/IncidentCanvas.jsx` | Imagem e canvas da prévia de detalhes. |
@@ -33,6 +35,18 @@ A página lista incidentes recebidos de `detectionService.list()`. O backend sal
 O payload de `detectionService.list()` pode ser um array ou objeto com `data` ou `incidents`. Cada linha agora expõe seu `id` do SQLite, além de `timestamp`, `label`, `confidence`, `source`, `camera_id`, `img_path`, opcionalmente `img_path_lateral`, `criticidade` e `details`. `details` pode incluir `epi[]` (com `label`, `confidence`, `bbox`), `ergonomia[]` (REBA, queda, bbox, keypoints) e `zona[]` (invasão e geometria). A página usa `incidentKey` após o agrupamento; o `id` da primeira linha funciona como representante do card para a exclusão, enquanto o backend expande o grupo completo.
 
 O Select oferece valores de EPI extraídos de `details.epi[].label` e dos rótulos agrupados, removendo sufixos como `AUSENTE` e `ERRADO`. Os estados disponíveis são **Segura**, **Atenção** e **Crítica**. A classificação usa `criticidade` ou `details.status`: `MONITORANDO` → Segura; `ALERTA_CRITICO`/`ALERTA_MULTIPLO` → Crítica; demais valores iniciados por `ALERTA` → Atenção. Registros antigos sem estado usam queda, invasão ou REBA ≥ 7 para Crítica; EPI ausente/errado ou REBA ≥ 4 para Atenção; caso contrário, Segura.
+
+## Coerência das imagens e detalhes no popup
+
+Cada vista do popup reúne sua imagem, controles de marcações e detalhes da mesma câmera. `details.frames` descreve os slots de imagem `frontal` (imagem principal) e `lateral` (segunda imagem), com `source` real, `camera_id`, `width`, `height`, `sampled_at` e eventuais `analysis_errors`. Uma imagem principal pode pertencer à câmera lateral quando ela é a única do setor; `details.image_source` e `frames.frontal.source` identificam esse caso.
+
+`getIncidentCameraDetails` seleciona EPI e zona pela câmera e utiliza `details.tracking[source]` como fonte de REBA, caixa e esqueleto. Isso evita mostrar o score agregado de uma vista junto das coordenadas de outra. A renderização usa as dimensões registradas para converter coordenadas à resolução da imagem. Imagem e canvas compartilham `object-contain` e a mesma resolução natural.
+
+O orquestrador preserva cada resultado assíncrono junto ao frame analisado. Na confirmação, envia a evidência para um worker da própria câmera, com fila limitada a oito tarefas pendentes. Os alertas e marcações ao vivo continuam enquanto esse worker prepara o histórico. Ele salva o snapshot da análise que originou o incidente e calcula a camada complementar nesse mesmo snapshot, quando necessário. O veredito salvo considera apenas riscos presentes nessa evidência. Se a camada complementar falhar, ela fica vazia, e seu aviso aparece na câmera correspondente. Os dados faciais mais recentes não substituem o label `PESSOA` porque não comprovam a identidade no instante do snapshot.
+
+Desde 07/10/2026, cada câmera cadastrada tem captura, análise, confirmação e persistência próprias, identificadas pelo `camera_id`. Duas câmeras do mesmo setor não precisam detectar juntas, nem a lateral depende de uma frontal conectada ou cadastrada. Os novos incidentes contêm a evidência da câmera que confirmou o risco; o suporte a duas imagens permanece para registros antigos. O frontend ao vivo também guarda pose, veredito e métricas por ID, para que um resultado da outra câmera não substitua o seu. A causa, os limites da fila e os testes estão descritos em `orquestrador/README.md`.
+
+Registros antigos com duas imagens e EPI/zona sem identificação de câmera têm esses detalhes listados separadamente, sem marcações atribuídas por suposição. Coordenadas antigas calculadas sobre um frame diferente não podem ser corrigidas sem a imagem original daquela análise. A sincronização vale para novos incidentes após reiniciar o orquestrador.
 
 ## Estado e fluxo da página
 
@@ -68,7 +82,7 @@ O filtro legado **Só alertas** permanece com sua regra anterior: invasão de zo
 
 O botão **Downloads** abre um modal com **Baixar com Bounding Box**, **Baixar normal** e **Baixar ambos**. Sem incidentes selecionados, as três ações ficam desabilitadas. Durante a preparação, o modal indica o estado e bloqueia novos cliques. Falhas aparecem no modal; o ZIP só é oferecido após todos os frames serem processados.
 
-Para cada incidente selecionado, `incidentExport` usa `streamService.imagePathToUrl` e busca o frame frontal; inclui também o lateral quando `img_path_lateral` está presente. A opção normal grava os bytes originais. A opção marcada desenha no canvas na resolução nativa e salva PNG. O desenho é o mesmo do modal: caixas de EPI, caixas/REBA/esqueleto da vista lateral e overlay de zona quando houver geometria. A opção **Baixar ambos** inclui as duas versões em pastas separadas:
+Para cada incidente selecionado, `incidentExport` usa `streamService.imagePathToUrl` e busca o frame frontal; inclui também o lateral quando `img_path_lateral` está presente. A opção normal grava os bytes originais. A opção marcada desenha no canvas na resolução nativa e salva PNG. O desenho é o mesmo do modal: caixas de EPI, REBA/esqueleto e zona pertencentes à câmera de cada imagem. A imagem principal usa a fonte indicada em seus metadados, inclusive quando a câmera única é lateral. A opção **Baixar ambos** inclui as duas versões em pastas separadas:
 
 ```text
 incidentes.zip
@@ -107,7 +121,8 @@ React 19, `react-dom` (portais), `lucide-react`, Zustand (`useUiStore`), `detect
 - Verificações funcionais com dados sintéticos: filtros por EPI e alerta, composição com fonte e câmera, classificação do estado e resultado com 23 incidentes (mais de uma página de 20): **passaram**.
 - ZIP sintético com arquivos nas duas pastas: geração, extração e conferência dos bytes: **passaram**. Com frames/canvas simulados, os fluxos **normal**, **bounding box** e **ambos** incluíram as vistas frontal e lateral nas pastas esperadas.
 - `npm run lint` do frontend inteiro: **não passou** por erros já existentes em outros módulos (por exemplo, câmera, eventos, home, stores). Eles não foram alterados neste trabalho.
-- Não houve teste manual da interface contra um backend com incidentes reais nem exclusão de dados reais nesta execução.
+- Em 06/10/2026, o popup foi conferido no navegador com uma cópia local de um incidente salvo e com imagens sintéticas 4:3 e verticais. A separação de detalhes por câmera, a navegação e o alinhamento das marcações foram verificados. Nenhum incidente real foi alterado ou excluído.
+- Em 07/10/2026, passaram 33 testes Python do orquestrador e 18 testes JavaScript do store de câmeras e das marcações dos incidentes. Os testes simularam uma câmera bloqueada, cadastro/remoção independente e evidência demorada com alertas ao vivo continuando. O build do frontend e o lint direcionado de estado/WebSocket/overlay também passaram. A captura RTSP física não fez parte dessa validação.
 
 ## Próximos passos sugeridos
 

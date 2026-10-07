@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, ShieldAlert } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { eventService } from '../../services/eventService';
+import { EventValidationModal } from './components/EventValidationModal';
 import { 
   EventMetricsCard, 
   EventsTable, 
@@ -16,12 +17,18 @@ export function EventosPage() {
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [validationEvent, setValidationEvent] = useState(null);
   
   const eventsRef = useRef([]);
+  const validationOverridesRef = useRef(new Map());
 
   const areEventsEqual = (a, b) => {
     if (a.length !== b.length) return false;
-    return a.every((item, index) => item.id === b[index]?.id && item.status === b[index]?.status);
+    return a.every((item, index) => {
+      const next = b[index];
+      return ['id', 'origem', 'status', 'timestamp', 'tipo', 'gravidade', 'setor', 'camera', 'imagem', 'imagemLateral', 'imagemSource', 'detectionDetails', 'detalhes', 'analise', 'label', 'confidence', 'urgency', 'epi_ausente', 'reba_nivel']
+        .every((field) => JSON.stringify(item[field]) === JSON.stringify(next?.[field]));
+    });
   };
 
   const fetchEvents = async () => {
@@ -29,7 +36,11 @@ export function EventosPage() {
     if (isFirstLoad) setIsLoading(true);
 
     try {
-      const realEvents = await eventService.listEvents();
+      const incomingEvents = await eventService.listEvents();
+      const realEvents = incomingEvents.map((event) => {
+        const validatedStatus = validationOverridesRef.current.get(`${event.origem}:${event.id}`);
+        return validatedStatus ? { ...event, status: validatedStatus } : event;
+      });
 
       if (!areEventsEqual(eventsRef.current, realEvents)) {
         eventsRef.current = realEvents;
@@ -60,6 +71,8 @@ export function EventosPage() {
   const selectedEvent = events.find((e) => e.id === selectedEventId) || events[0] || null;
 
   const handleValidateEvent = (id, newStatus) => {
+    const event = eventsRef.current.find((item) => item.id === id);
+    if (event) validationOverridesRef.current.set(`${event.origem}:${id}`, newStatus);
     setEvents((prev) => {
       const updated = prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item));
       eventsRef.current = updated;
@@ -129,7 +142,7 @@ export function EventosPage() {
 
         <section className="flex flex-col gap-6">
 
-          <EventDetailsCard event={selectedEvent} />
+          <EventDetailsCard event={selectedEvent} onValidate={setValidationEvent} />
 
           <CriticalActionCard
             events={events}
@@ -139,6 +152,17 @@ export function EventosPage() {
           
         </section>
       </main>
+      {validationEvent && (
+        <EventValidationModal
+          key={validationEvent.id}
+          event={validationEvent}
+          onClose={() => setValidationEvent(null)}
+          onValidate={(id, status, payload) => {
+            handleValidateEvent(id, status, payload);
+            setValidationEvent(null);
+          }}
+        />
+      )}
     </div>
   );
 }
