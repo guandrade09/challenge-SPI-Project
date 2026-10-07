@@ -1,4 +1,4 @@
-export const CustomTooltip = ({ active, payload }) => {
+export const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const dataItem = payload[0].payload;
 
@@ -9,14 +9,9 @@ export const CustomTooltip = ({ active, payload }) => {
       if (rawDate) {
         const d = new Date(rawDate);
         if (!isNaN(d.getTime())) {
-          return d.toLocaleString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          });
+          const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          return `${date} às ${time}`;
         }
       }
 
@@ -25,7 +20,7 @@ export const CustomTooltip = ({ active, payload }) => {
       
       if (date && time) return `${date} às ${time}`;
       if (time) return `Horário: ${time}`;
-      return "Data/Hora N/A";
+      return item?.range ? `Confiança: ${item.range}` : (label ?? "");
     };
 
     return (
@@ -34,17 +29,11 @@ export const CustomTooltip = ({ active, payload }) => {
           {formatTimestamp(dataItem)}
         </p>
 
-        {dataItem?.threadName && (
-          <p className="text-gray-400 italic text-[10px]">
-            {`Thread: ${dataItem.threadName}`}
-          </p>
-        )}
-
         {payload.map((entry, index) => {
           const isPercentage = ["cpu", "precisao"].includes(entry.dataKey);
           return (
             <p key={`item-${index}`} style={{ color: entry.color }} className="font-medium">
-              {`${entry.name}: ${entry.value}${isPercentage ? "%" : ""}`}
+              {`${entry.name}: ${typeof entry.value === 'number' ? entry.value.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : entry.value}${isPercentage ? "%" : ""}`}
             </p>
           );
         })}

@@ -68,7 +68,7 @@ export const AreaDetectionChart = ({
           <Area
             type="monotone"
             dataKey="processamento"
-            name="Carga de Processamento"
+            name="Detecções Registradas"
             stroke="var(--chart-proc)"
             fillOpacity={1}
             fill={`url(#colorProc-${theme})`}
@@ -76,7 +76,7 @@ export const AreaDetectionChart = ({
           <Area
             type="monotone"
             dataKey="alertas"
-            name="Alertas Detectados"
+            name="Detecções com confiança > 80%"
             stroke="var(--chart-alertas)"
             strokeWidth={theme === "dynamic" ? 2 : 3}
             fillOpacity={1}

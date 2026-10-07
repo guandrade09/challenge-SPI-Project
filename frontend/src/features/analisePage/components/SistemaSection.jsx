@@ -1,9 +1,9 @@
 import React from 'react';
-import { Server, AreaChart, Layers, Cpu, Activity, Clock } from 'lucide-react';
+import { Server, Layers, Cpu, Activity } from 'lucide-react';
 import { AnalysisCard } from './AnalysisCard';
+import { EpiAbsenceAnalysis } from './EpiAbsenceAnalysis';
 import {
   ResourceMonitor,
-  AreaDetectionChart,
   DetectionComposedChart,
 } from '../../../components/graficos';
 import { ThreadSelector } from '../../../components/shared/ThreadSelector';
@@ -33,13 +33,17 @@ export function SistemaSection({
         icon={Server}
         title={`Recursos do Sistema (${getThreadLabel(currentThread)})`}
         badgeText="Telemetria Realtime"
-        headerAction={ThreadToggleButton}
         chartComponent={
-          <ResourceMonitor
-            data={realTimeResourceData}
-            theme={theme}
-            linesConfig={metricsConfig}
-          />
+          <div className="flex h-full w-full flex-col gap-3">
+            {ThreadToggleButton}
+            <div className="min-h-0 flex-1">
+              <ResourceMonitor
+                data={realTimeResourceData}
+                theme={theme}
+                linesConfig={metricsConfig}
+              />
+            </div>
+          </div>
         }
         infoItems={[
           {
@@ -57,30 +61,13 @@ export function SistemaSection({
         ]}
       />
 
-      {/* CARD 2: ANÁLISE COMPOSTA */}
-      <AnalysisCard
-        theme={theme}
-        icon={AreaChart}
-        title="Análise Composta de Eventos e Processamento"
-        badgeText="Série Temporal"
-        chartComponent={
-          <AreaDetectionChart data={hourlyData} theme={theme} />
-        }
-        infoItems={[
-          {
-            icon: Clock,
-            title: 'Volume Diário por Faixa Horária',
-            description:
-              'Mapeia a densidade de eventos e quadros analisados hora a hora para identificar horários de pico operacional.',
-          },
-        ]}
-      />
+      <EpiAbsenceAnalysis items={detStats?.raw} theme={theme} />
 
       {/* CARD 3: ANÁLISE DE EVENTOS */}
       <AnalysisCard
         theme={theme}
         icon={Layers}
-        title="Análise de Eventos (Alertas vs Total Processado)"
+        title="Detecções e Confiança do Modelo"
         badgeText="Composto Multieixo"
         chartComponent={
           <DetectionComposedChart data={hourlyData} theme={theme} />
@@ -88,9 +75,9 @@ export function SistemaSection({
         infoItems={[
           {
             icon: Activity,
-            title: 'Taxa de Conversão em Alertas',
+            title: 'Volume e Confiança',
             description:
-              'Relaciona o total de frames/objetos analisados com o total de alertas críticos gerados no mesmo período.',
+              'Compara o total de detecções registradas com aquelas acima de 80% de confiança e a confiança média no mesmo minuto.',
           },
         ]}
       />

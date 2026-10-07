@@ -69,7 +69,7 @@ export const DetectionComposedChart = ({
           <Bar
             yAxisId="left"
             dataKey="processamento"
-            name="Carga de Processamento"
+            name="Detecções Registradas"
             barSize={16}
             fill="var(--chart-proc)"
             radius={[4, 4, 0, 0]}
@@ -78,7 +78,7 @@ export const DetectionComposedChart = ({
             yAxisId="left"
             type="monotone"
             dataKey="alertas"
-            name="Alertas Detectados"
+            name="Detecções com confiança > 80%"
             stroke="var(--chart-alertas)"
             strokeWidth={2}
             dot={{ stroke: "var(--chart-alertas)", fill: "var(--chart-alertas)", r: 3 }}
@@ -88,7 +88,7 @@ export const DetectionComposedChart = ({
             yAxisId="right"
             type="monotone"
             dataKey="precisao"
-            name="Precisão IA (%)"
+            name="Confiança Média"
             stroke={theme === "dynamic" ? "var(--chart-text)" : "#22c55e"}
             strokeWidth={2}
             strokeDasharray="4 4"

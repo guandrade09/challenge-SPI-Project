@@ -111,7 +111,7 @@ export const CameraPage = () => {
     const savedPreset = useCameraPresetsStore.getState().presets[cameraId];
     const previousEpis = normalizeEpiList(Array.isArray(savedPreset)
       ? savedPreset
-      : (savedPreset?.selectedEpis ?? []));
+      : (savedPreset?.selectedEpis ?? camera.epis ?? []));
     const nextEpis = previousEpis.includes(epiId)
       ? previousEpis.filter((item) => item !== epiId)
       : [...previousEpis, epiId];

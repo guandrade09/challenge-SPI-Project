@@ -57,7 +57,7 @@ export const DetectionLineChart = ({
           <Line
             type="monotone"
             dataKey="alertas"
-            name="Alertas Detectados"
+            name="Detecções com confiança > 80%"
             stroke={theme === "dynamic" ? "var(--chart-normal-node)" : "var(--chart-alertas)"}
             strokeWidth={2}
             dot={{ stroke: "var(--chart-alertas)", fill: "var(--chart-alertas)", r: 3 }}

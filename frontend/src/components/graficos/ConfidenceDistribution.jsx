@@ -1,3 +1,4 @@
+import { CustomTooltip } from './utils/Tooltip';
 import {
   BarChart,
   Bar,
@@ -7,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  LabelList,
 } from 'recharts';
 
 export const ConfidenceDistribution = ({ data = [], theme = "dynamic" }) => {
@@ -20,32 +22,24 @@ export const ConfidenceDistribution = ({ data = [], theme = "dynamic" }) => {
   return (
     <div className={`panel-theme-${theme} flex flex-col h-full w-full p-1`}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+        <BarChart data={data} margin={{ top: 25, right: 10, left: -25, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
           <XAxis dataKey="range" tick={{ fill: 'var(--chart-text)', fontSize: 9, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: 'var(--chart-text)', fontSize: 9 }} axisLine={false} tickLine={false} />
+          <YAxis allowDecimals={false} tick={{ fill: 'var(--chart-text)', fontSize: 9 }} axisLine={false} tickLine={false} />
           
-          <Tooltip 
-            cursor={{ fill: 'transparent' }} 
-            contentStyle={{ 
-              backgroundColor: 'var(--chart-tooltip-bg)',
-              border: 'none',
-              borderRadius: '12px', 
-              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.3)', 
-              fontSize: '11px' 
-            }} 
-          />
-          
-          <Bar dataKey="quantidade" radius={[4, 4, 0, 0]}>
+          <Tooltip cursor={{ fill: 'transparent' }} content={<CustomTooltip />} />
+
+          <Bar name="Decisões registradas" dataKey="quantidade" radius={[4, 4, 0, 0]}>
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={getBarColor(entry.range)} className="transition-all duration-300 hover:opacity-80" />
             ))}
+            <LabelList dataKey="quantidade" position="top" fill="var(--chart-text)" fontSize={11} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
 
       <div className="text-[8px] font-bold text-center mt-2 uppercase tracking-widest panel-text-sub">
-        Distribuição de Assertividade (Real-time)
+        Decisões registradas por faixa de confiança
       </div>
     </div>
   );

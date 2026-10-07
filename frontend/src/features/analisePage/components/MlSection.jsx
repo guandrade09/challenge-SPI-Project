@@ -12,7 +12,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { AnalysisCard } from './AnalysisCard';
-import { DashboardChart, DetectionBarChart, DetectionLineChart } from '../../../components/graficos';
+import { DashboardChart, DetectionBarChart, AreaDetectionChart } from '../../../components/graficos';
 
 export function MlSection({ detStats, loading, theme = 'dynamic' }) {
   if (loading && !detStats) {
@@ -81,25 +81,25 @@ export function MlSection({ detStats, loading, theme = 'dynamic' }) {
         ]}
       />
 
-      {/* CARD 3: Tendência Temporal de Alertas */}
+      {/* CARD 3: Volume de detecções */}
       <AnalysisCard
         theme={theme}
         icon={TrendingUp}
-        title="Evolução Temporal da Geração de Alertas"
-        badgeText="Gráfico de Linha Contínua"
+        title="Volume de Detecções Registradas"
+        badgeText="Série Temporal"
         chartComponent={
-          <DetectionLineChart data={lineData} theme={theme} />
+          <AreaDetectionChart data={lineData} theme={theme} />
         }
         infoItems={[
           {
             icon: Activity,
-            title: 'Picos de Incidência',
-            description: 'Mapeia os horários com maior volume de alertas gerados pelos algoritmos de visão computacional.',
+            title: 'Volume por Data e Horário',
+            description: 'Agrupa as detecções registradas por minuto, separando os dias para identificar os períodos de maior volume.',
           },
           {
             icon: AlertTriangle,
-            title: 'Anomalias de Horário',
-            description: 'Surtos de alertas fora do horário comercial podem representar acessos não autorizados ou alteração nas condições do ambiente.',
+            title: 'Confiança do Modelo',
+            description: 'Compara o total de detecções com as que têm confiança acima de 80% no mesmo período.',
           },
         ]}
       />
