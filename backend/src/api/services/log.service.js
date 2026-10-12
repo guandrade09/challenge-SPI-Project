@@ -1,4 +1,5 @@
-import logMonitorService from "../../services/log-monitor.service.js";
+import logMonitorService, { identifyLogEntries } from "../../services/log-monitor.service.js";
+import { AppError } from "../utils/appError.js";
 
 function formatLogTimestamp(value) {
   const date = new Date(value);
@@ -26,9 +27,19 @@ function formatLogTimestamp(value) {
 export async function readLogs() {
   const entries = await logMonitorService.readEntries();
   return Array.isArray(entries)
-    ? entries.map((entry) => ({
+    ? identifyLogEntries(entries).map((entry) => ({
+        id: entry.id,
         timestamp: formatLogTimestamp(entry.timestamp),
+        rawTimestamp: entry.timestamp,
         line: entry.line ?? entry.logs ?? entry.message ?? "",
       }))
     : [];
+}
+
+export async function deleteLog(id) {
+  if (typeof id !== 'string' || !/^(?:[a-f0-9-]{36}|legacy-[a-f0-9]{64}-\d+)$/.test(id)) {
+    throw new AppError("Informe um ID válido de log.", 400);
+  }
+  if (!await logMonitorService.removeEntry(id)) throw new AppError("Log não encontrado.", 404);
+  return { deletedRows: 1 };
 }

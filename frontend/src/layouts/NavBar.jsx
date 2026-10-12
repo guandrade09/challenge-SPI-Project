@@ -88,13 +88,14 @@ export const NavBar = ({ theme }) => {
 
             {/* Opções de Configuração */}
             <div className="flex flex-col gap-1">
-              <button 
+              <Link
+                to="/configuracoes"
                 onClick={() => setIsConfigOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors w-full text-left"
               >
                 <Settings size={16} className="text-gray-400" />
                 <span>Configurações do Sistema</span>
-              </button>
+              </Link>
 
               <button 
                 onClick={() => setIsConfigOpen(false)}

@@ -57,7 +57,7 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
 
   return (
     <>
-      <div className={`flex flex-col p-4 rounded-2xl border ${style.panel} relative overflow-hidden shadow-md transition-colors`}>
+      <div data-testid="validation-card" className={`flex flex-col p-4 rounded-2xl border ${style.panel} relative overflow-hidden shadow-md transition-colors`}>
         <div className={`absolute top-0 right-0 px-3 py-1 ${style.ribbon} text-white text-[9px] font-mono font-bold uppercase tracking-wider rounded-bl-lg shadow-sm`}>
           {style.label}
         </div>
@@ -143,6 +143,7 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
             <p className="text-[11px] text-theme-muted">
               {priority === 'critica' ? 'Queda ou invasão em zona de risco: valide esta ocorrência com prioridade.' : 'Detecção abaixo de 80% de confiança: confira o frame e valide a ocorrência.'}
             </p>
+            <p className="text-[11px] text-theme-muted">A fila inclui apenas detecções pendentes: confiança abaixo de 80%, queda ou invasão de zona.</p>
 
             <div className="grid grid-cols-2 gap-2 mt-1">
               <IconButtonModal

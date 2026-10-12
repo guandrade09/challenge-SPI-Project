@@ -81,7 +81,7 @@ export const DetectionPanel = ({
               {epiConfigError}
             </p>
           )}
-          {options.map((option) => {
+          {options.filter((option) => option.id !== 'queda').map((option) => {
             const isChecked = activeEpis.includes(option.id);
 
             return (

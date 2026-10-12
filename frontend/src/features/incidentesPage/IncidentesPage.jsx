@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import detectionService from '../../services/detectionService';
+import cameraService from '../../services/cameraService';
 import { IncidentCard, IncidentFilters, IncidentModal } from './components';
 import IncidentDownloadModal from './components/IncidentDownloadModal';
 import IncidentDeleteModal from './components/IncidentDeleteModal';
 import { groupIncidentRows, incidentKey } from './utils/groupIncidents';
-import { filterIncidents, getFilterOptions } from './utils/incidentFiltering';
+import { filterIncidents, getCameraOptions, getFilterOptions } from './utils/incidentFiltering';
 import { downloadIncidentsZip } from './utils/incidentExport';
 
 const PAGE_SIZE = 20;
@@ -18,6 +19,8 @@ export default function IncidentesPage() {
   const [activeFilters, setActiveFilters] = useState([]);
   const [filterSource, setFilterSource] = useState('');
   const [filterCamera, setFilterCamera] = useState('');
+  const [registeredCameras, setRegisteredCameras] = useState([]);
+  const [timeRange, setTimeRange] = useState({ start: '', end: '' });
   const [filterAlert, setFilterAlert] = useState(false);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState(null);
@@ -32,6 +35,9 @@ export default function IncidentesPage() {
 
   useEffect(() => {
     let mounted = true;
+    cameraService.getCameras().then((cameras) => {
+      if (mounted) setRegisteredCameras(Array.isArray(cameras) ? cameras : []);
+    }).catch((error) => console.error('Erro ao carregar nomes das câmeras:', error));
     (async () => {
       try {
         const payload = await detectionService.list();
@@ -47,11 +53,11 @@ export default function IncidentesPage() {
   }, []);
 
   const sources = useMemo(() => [...new Set(all.map((d) => d.source).filter(Boolean))], [all]);
-  const cameras = useMemo(() => [...new Set(all.map((d) => d.camera_id).filter(Boolean))], [all]);
+  const cameras = useMemo(() => getCameraOptions(all, registeredCameras), [all, registeredCameras]);
   const options = useMemo(() => getFilterOptions(all), [all]);
   const filtered = useMemo(
-    () => filterIncidents(all, activeFilters, filterSource, filterAlert, filterCamera),
-    [all, activeFilters, filterSource, filterAlert, filterCamera],
+    () => filterIncidents(all, activeFilters, filterSource, filterAlert, filterCamera, timeRange),
+    [all, activeFilters, filterSource, filterAlert, filterCamera, timeRange],
   );
   const selectedFiltered = filtered.filter((incident) => selectedKeys.has(incidentKey(incident)));
   const allFilteredSelected = filtered.length > 0 && selectedFiltered.length === filtered.length;
@@ -150,6 +156,15 @@ export default function IncidentesPage() {
           camera={filterCamera}
           cameras={cameras}
           onCameraChange={(value) => { setFilterCamera(value); setSelectedKeys(new Set()); setPage(0); }}
+          timeRange={timeRange}
+          onTimeRangeChange={(value) => { setTimeRange(value); setSelectedKeys(new Set()); setPage(0); }}
+          onClearFilters={() => {
+            setFilterSource('');
+            setFilterCamera('');
+            setFilterAlert(false);
+            setTimeRange({ start: '', end: '' });
+            changeFilters([]);
+          }}
           onlyAlerts={filterAlert}
           onToggleAlerts={() => { setFilterAlert((value) => !value); setSelectedKeys(new Set()); setPage(0); }}
           selectedCount={selectedFiltered.length}

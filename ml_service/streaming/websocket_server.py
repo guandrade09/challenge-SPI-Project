@@ -200,7 +200,7 @@ def send_frame_lateral(frame):
 
 
 def send_alert(label: str, confidence: float, timestamp: str, setor: str = "",
-               camera_id=None, source: str | None = None):
+               camera_id=None, source: str | None = None, area_id=None, area_name=None):
     msg = json.dumps({
         "type":       "alert",
         "label":      label,
@@ -209,6 +209,7 @@ def send_alert(label: str, confidence: float, timestamp: str, setor: str = "",
         "setor":      setor,
         "camera_id":  camera_id,
         "source":     source,
+        **({"area_id": area_id, "area_name": area_name} if area_id is not None else {}),
     })
     _broadcast_threadsafe(msg)
 
@@ -243,9 +244,10 @@ def send_faces(faces: list, setor: str = "", source: str = "facial", camera_id=N
     _broadcast_threadsafe(msg)
 
 
-def send_zone(camera_id: str, pontos: list, setor: str = ""):
+def send_zone(camera_id: str, pontos: list, setor: str = "", areas=None):
     """Envia o polígono da zona de risco para o frontend desenhar no canvas."""
-    msg = json.dumps({"type": "zone", "camera_id": camera_id, "pontos": pontos, "setor": setor})
+    msg = json.dumps({"type": "zone", "camera_id": camera_id, "pontos": pontos, "setor": setor,
+                      **({"areas": areas} if areas is not None else {})})
     _pose_cache[f"zone:{setor}:{camera_id}"] = msg
     _broadcast_threadsafe(msg)
 

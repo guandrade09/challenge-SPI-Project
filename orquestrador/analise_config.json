@@ -18,12 +18,9 @@
     "ergonomia": true
   },
   "camera:1": {
-    "epis": [
-      "queda",
-      "capacete"
-    ],
+    "epis": [],
     "ergonomia": true,
-    "rotation": 180
+    "rotation": 0
   },
   "camera:13": {
     "epis": [],
@@ -42,8 +39,13 @@
     "ergonomia": true
   },
   "camera:2": {
-    "epis": [],
+    "epis": [
+      "capacete",
+      "oculos",
+      "mascara",
+      "auricular"
+    ],
     "ergonomia": true,
-    "rotation": 0
+    "rotation": 270
   }
 }

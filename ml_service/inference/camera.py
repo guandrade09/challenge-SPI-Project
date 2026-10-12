@@ -56,8 +56,7 @@ class Camera:
             self.cap = cv2.VideoCapture(source)
 
         if not self.is_opened():
-            # libera o handle antes de falhar — com reconexão automática, cada tentativa
-            # falha criaria um handle novo sem liberar o anterior
+            # Libera o handle antes de falhar, inclusive em tentativas manuais.
             try:
                 self.cap.release()
             except Exception:

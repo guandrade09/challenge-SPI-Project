@@ -87,7 +87,25 @@ class ZoneChecker:
             "pontos":            zone["pontos"],
             "epis_obrigatorios": zone.get("epis_obrigatorios", []),
             "epis_certo_labels": zone.get("epis_certo_labels", []),
+            **({"areas": zone["config_areas"]} if "config_areas" in zone else {}),
         }
+
+    def configure_areas(self, camera_id: str, areas: list[dict]) -> None:
+        if not 1 <= len(areas) <= 4:
+            raise ValueError("configure de 1 a 4 áreas por câmera")
+        prepared, configs, ids = [], [], set()
+        validator = ZoneChecker(model_path=None)
+        for area in areas:
+            area_id = area["id"]
+            if type(area_id) is not int or not 1 <= area_id <= 4 or area_id in ids:
+                raise ValueError("identificador de área inválido ou repetido")
+            ids.add(area_id)
+            validator.configure(camera_id, area["nome"], area["pontos"],
+                                area.get("epis_obrigatorios"), area.get("epis_certo_labels"))
+            prepared.append({**validator._zones[camera_id], "area_id": area_id})
+            configs.append({**validator.get(camera_id), "id": area_id,
+                            **({"box": area["box"]} if "box" in area else {})})
+        self._zones[camera_id] = {**prepared[0], "areas": prepared, "config_areas": configs}
 
     def delete(self, camera_id: str) -> bool:
         return self._zones.pop(camera_id, None) is not None
@@ -97,6 +115,16 @@ class ZoneChecker:
         zone = self._zones.get(camera_id)
         if zone is None:
             raise KeyError(f"camera '{camera_id}' sem zona configurada")
+
+        people = []
+        for area in zone.get("areas", [zone]):
+            _, checked = self._check_zone_results(area, results)
+            for person in checked:
+                people.append({**person, "area_id": area.get("area_id", 1),
+                               "nome": area["nome"], "pontos": area["pontos"]})
+        return zone["nome"], people
+
+    def _check_zone_results(self, zone, results):
 
         if not results or results[0].keypoints is None:
             return zone["nome"], []

@@ -1,11 +1,14 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { Maximize2, Minimize2, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, Square, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Maximize2, Minimize2, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, Square, RefreshCw, Target } from 'lucide-react';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 import { makeStreamKey, useCameraStreamStore } from '../../../store/useCameraStreamStore';
 import { cameraSocketManager } from '../../../services/websocket/CameraSocketManager';
-import { RiskAreaOverlay } from "../components/RiskAreaOverlay";
+import { RiskAreasOverlay } from './RiskAreasOverlay';
+import { normalizeRiskAreas, riskAreasFromZone } from '../../../utils/riskAreas';
 import { DetectionsOverlay } from "../components/DetectionsOverlay";
 import { FaceBoxesOverlay } from "../components/FaceBoxesOverlay";
+import { CameraControlButton } from './CameraControlButton';
+import { LiveVerdictBadge } from './LiveVerdictBadge';
 
 const DEFAULT_TEST_FRAME = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="100%" height="100%" fill="%23121212"/><grid width="100%" height="100%" stroke="%23333" stroke-width="1"/><circle cx="640" cy="360" r="100" fill="none" stroke="%2300ff88" stroke-width="2"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%2300ff88" font-family="monospace" font-size="28" font-weight="bold">FRAME DE TESTE CAM - SIMULAÇÃO LOCAL</text></svg>`;
 
@@ -19,7 +22,6 @@ const CORNER_CLASSES = [
 export function CameraView({
   camera,
   onToggleMaximize,
-  isEditingRiskArea,
   onNextCamera,
   onPrevCamera,
   totalCameras = 0,
@@ -38,10 +40,9 @@ export function CameraView({
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
   const [reconnectError, setReconnectError] = useState('');
 
-  const setRiskAreaForCamera = useCameraPresetsStore((s) => s.setRiskAreaForCamera);
-  const riskBox = useCameraPresetsStore((s) =>
-    camera?.id ? s.presets[camera.id]?.riskArea || camera?.riskArea || null : null
-  );
+  const preset = useCameraPresetsStore((s) => s.presets[camera?.id]);
+  const setZonesVisible = useCameraPresetsStore((s) => s.setRiskAreasVisibleForCamera);
+  const showZones = preset?.showRiskAreas !== false;
 
   // ── Conexão: assina o gerenciador único de WebSocket (não abre socket próprio) ──
   useEffect(() => {
@@ -53,9 +54,11 @@ export function CameraView({
   const setor  = camera?.setor;
   const source = camera?.papel || 'frontal'; // 'frontal' | 'lateral'
   const cameraId = camera?.id;
+  const zone = useCameraStreamStore((s) => s.zones[makeStreamKey(cameraId, setor, source)]);
   const streamKey = makeStreamKey(cameraId, setor, source);
 
   const frameUrl  = useCameraStreamStore((s) => s.getFrame(cameraId, setor, source));
+  const verdict = useCameraStreamStore((s) => s.getVerdict(cameraId, setor, source));
   const wsConnected = useCameraStreamStore((s) => s.connected);
   const streamStatus = useCameraStreamStore((s) => s.streamStatus[streamKey]);
   // resolução real do frame (vem no cabeçalho de cada frame) — necessária para mapear a
@@ -63,6 +66,8 @@ export function CameraView({
   // Seletores primitivos: o objeto de meta muda a cada frame.
   const metaWidth  = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.width);
   const metaHeight = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.height);
+  const riskAreas = zone ? riskAreasFromZone(zone, metaWidth, metaHeight)
+    : normalizeRiskAreas(preset?.riskAreas ?? preset?.riskArea ?? camera?.riskArea);
   // disponíveis para painéis irmãos (AlertPanel/DetectionPanel) lerem pelo mesmo setor;
   // aqui só usamos o que o próprio card precisa renderizar
   // const pose = useCameraStreamStore((s) => s.pose[setor]?.[source] ?? []);
@@ -106,19 +111,6 @@ export function CameraView({
     }
   };
 
-  const handleSaveRiskBox = useCallback(async (newBox) => {
-    const previousBox = riskBox;
-    if (cameraId) setRiskAreaForCamera(cameraId, newBox);
-    try {
-      await cameraSocketManager.sendRequest({
-        type: 'set_risk_area', cameraId, setor, source, riskArea: newBox,
-      });
-    } catch (error) {
-      if (cameraId) setRiskAreaForCamera(cameraId, previousBox);
-      console.warn('Não foi possível atualizar a área de risco:', error);
-    }
-  }, [cameraId, riskBox, setor, setRiskAreaForCamera, source]);
-
   // fonte real do stream (mock tem prioridade só quando ativado manualmente)
   const displaySrc = useMockStream ? DEFAULT_TEST_FRAME : (frameUrl || null);
   const isStreamActive = useMockStream || (!!frameUrl && wsConnected);
@@ -147,37 +139,20 @@ export function CameraView({
           <div key={i} className={`absolute w-3 h-3 z-20 pointer-events-none ${isStreamActive ? 'border-[var(--p-subtext)]' : 'border-[var(--p-border)]'} ${classes}`} />
         ))}
 
-        <div className="absolute top-2 left-2 right-2 z-30 flex items-center justify-between pointer-events-none">
-          <div className="px-2 py-1 rounded bg-black/70 backdrop-blur-md border border-white/20 font-mono text-[10px] text-white uppercase tracking-wider truncate max-w-[65%] pointer-events-auto">
+        <div className="absolute top-3 left-3 right-3 z-30 flex min-w-0 items-center justify-between gap-2 pointer-events-none">
+          <div data-testid="camera-identity" className="min-w-0 truncate rounded-lg border border-white/20 bg-black/75 px-2.5 py-1.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-md pointer-events-auto">
             {camera?.nome || 'CÂMERA'}
           </div>
 
-          <div className="flex items-center gap-1 pointer-events-auto">
+          <div role="toolbar" aria-label="Controles da câmera" className="flex shrink-0 items-center gap-1 pointer-events-auto">
+            <CameraControlButton icon={Target} onClick={() => setZonesVisible(cameraId, !showZones)}
+              pressed={showZones} label={showZones ? 'Ocultar zona' : 'Exibir zona'} />
             {onToggleDetections && (
-              <button
-                type="button"
-                onClick={() => onToggleDetections(cameraId)}
-                aria-pressed={showDetections}
-                className={`p-1.5 rounded bg-black/80 hover:bg-emerald-600 text-white border backdrop-blur-md transition-all active:scale-95 cursor-pointer shadow-lg ${showDetections ? 'border-emerald-400/60' : 'border-white/20'}`}
-                title={showDetections ? 'Ocultar detecções' : 'Exibir detecções'}
-              >
-                {showDetections
-                  ? <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                  : <EyeOff className="w-3.5 h-3.5 text-white/70" />}
-              </button>
+              <CameraControlButton icon={showDetections ? Eye : EyeOff} onClick={() => onToggleDetections(cameraId)}
+                pressed={showDetections} label={showDetections ? 'Ocultar detecções' : 'Exibir detecções'} />
             )}
-            <button
-              type="button"
-              onClick={handleToggleLayout}
-              className="p-1.5 rounded bg-black/80 hover:bg-emerald-600 text-white border border-white/20 backdrop-blur-md transition-all active:scale-95 cursor-pointer shadow-lg flex items-center gap-1"
-              title={layoutMode === 'single' ? "Alternar para Modo Grade (2x2)" : "Alternar para Câmera Única"}
-            >
-              {layoutMode === 'single' ? (
-                <LayoutGrid className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white" />
-              ) : (
-                <Square className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white" />
-              )}
-            </button>
+            <CameraControlButton icon={layoutMode === 'single' ? LayoutGrid : Square} onClick={handleToggleLayout}
+              label={layoutMode === 'single' ? 'Alternar para Modo Grade (2x2)' : 'Alternar para Câmera Única'} />
           </div>
         </div>
 
@@ -205,15 +180,17 @@ export function CameraView({
           <>
             {showDetections && <DetectionsOverlay cameraId={cameraId} setor={setor} source={source} />}
             {showDetections && <FaceBoxesOverlay cameraId={cameraId} setor={setor} source={source} />}
-            <RiskAreaOverlay
-              initialBox={riskBox}
-              isEditing={isEditingRiskArea}
-              onSaveBox={handleSaveRiskBox}
+            {showZones && <RiskAreasOverlay
+              areas={riskAreas}
               frameWidth={useMockStream ? 1280 : (metaWidth || null)}
               frameHeight={useMockStream ? 720 : (metaHeight || null)}
-            />
+            />}
           </>
         )}
+
+        {isStreamActive && showDetections && verdict && <div className="absolute bottom-3 left-3 right-14 z-30 pointer-events-auto">
+          <LiveVerdictBadge verdict={verdict} />
+        </div>}
 
         {!isStreamActive && (
           <div className="relative z-10 text-center select-none p-3 rounded bg-[var(--p-bg)] border border-[var(--p-border)] shadow-xl backdrop-blur-sm mx-2 flex flex-col items-center gap-2">

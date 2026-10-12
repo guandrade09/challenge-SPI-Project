@@ -4,6 +4,23 @@ const validBox = (bbox) => Array.isArray(bbox) && bbox.length === 4 && bbox.ever
   && bbox[2] > bbox[0] && bbox[3] > bbox[1];
 
 const list = (value) => Array.isArray(value) ? value : [];
+const validPolygon = (points) => Array.isArray(points) && points.length >= 3
+  && points.every((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y));
+
+export function getIncidentImageSource(details, slot = 'frontal') {
+  return (slot === 'frontal' ? details?.image_source : null) || details?.frames?.[slot]?.source || slot;
+}
+
+export function normalizeIncidentDetails(details, { cameraId, hasLateralFrame = false, primarySource } = {}) {
+  if (!details) return null;
+  if (hasLateralFrame || cameraId == null) return details;
+  const source = primarySource || getIncidentImageSource(details);
+  const frame = getIncidentFrameMetadata(details, source);
+  if (frame?.camera_id != null) return details;
+  const slot = Object.entries(details.frames || {}).find(([key, value]) => (value.source || key) === source)?.[0] || 'frontal';
+  return { ...details, image_source: source, frames: { ...details.frames,
+    [slot]: { ...frame, source, camera_id: cameraId } } };
+}
 
 export function getIncidentFrameMetadata(details, source) {
   return Object.entries(details?.frames || {}).find(([key, frame]) => (frame?.source || key) === source)?.[1];
@@ -47,5 +64,13 @@ export function getFrameOverlayData(details, source, { hasLateralFrame = false }
   const reba = camera.ergonomia.filter((person) => validBox(person?.bbox) ||
     (Array.isArray(person?.keypoints) && person.keypoints.length >= 17 && person.keypoints.some((point) =>
       Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1]) && point[2] >= KP_CONF_THRESHOLD)));
-  return { epi, reba };
+  const fallback = details?.zona_config;
+  const fallbackMatches = fallback && (fallback.source ? fallback.source === source :
+    !hasLateralFrame && Object.keys(details?.frames || {}).length <= 1)
+    && (fallback.camera_id == null || camera.cameraId == null || String(fallback.camera_id) === String(camera.cameraId));
+  const zona = camera.zona.filter((zone) => zone.invadiu).map((zone) => ({ ...zone,
+    pontos: validPolygon(zone.pontos) ? zone.pontos : fallbackMatches ? fallback.pontos : [],
+    nome: zone.nome || (fallbackMatches ? fallback.nome : null),
+  })).filter((zone) => validPolygon(zone.pontos));
+  return { epi, reba, zona };
 }

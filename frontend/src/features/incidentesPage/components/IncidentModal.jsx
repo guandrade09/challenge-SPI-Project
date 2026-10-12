@@ -11,22 +11,24 @@ import { useUiStore } from '../../../store/useUiStore';
 import IncidentCanvas from './IncidentCanvas';
 import { OverlayVisibilityControls } from './OverlayVisibilityControls';
 import { IncidentCameraDetails } from './IncidentCameraDetails';
-import { getIncidentCameraDetails, getUnassignedCameraDetails } from '../utils/frameOverlayData';
+import { getIncidentCameraDetails, getUnassignedCameraDetails, getIncidentImageSource, normalizeIncidentDetails } from '../utils/frameOverlayData';
+import { parseDetectionDetails } from '../../../utils/eventDetails';
 
 export function IncidentModal({ incident, onClose, onPrev, onNext, index = 0, total = 1 }) {
   const currentTheme = useUiStore((s) => s.theme);
   const [showEpi, setShowEpi] = useState(true);
   const [showReba, setShowReba] = useState(true);
+  const [showZone, setShowZone] = useState(true);
   const bodyRef = useRef(null);
 
   if (!incident) return null;
 
   const imgUrl = streamService.imagePathToUrl(incident.img_path);
   const lateralUrl = streamService.imagePathToUrl(incident.img_path_lateral);
-  const d = incident.details;
-
   const hasLateralFrame = !!incident.img_path_lateral;
-  const primarySource = d?.image_source || d?.frames?.frontal?.source || 'frontal';
+  const parsed = parseDetectionDetails(incident.details);
+  const primarySource = getIncidentImageSource(parsed);
+  const d = normalizeIncidentDetails(parsed, { cameraId: incident.camera_id, hasLateralFrame, primarySource });
   const views = [{ source: primarySource, imgUrl, primary: true }];
   if (hasLateralFrame) views.push({ source: d?.frames?.lateral?.source || 'lateral', imgUrl: lateralUrl, primary: false });
   const unassigned = getUnassignedCameraDetails(d, { hasLateralFrame });
@@ -49,6 +51,7 @@ export function IncidentModal({ incident, onClose, onPrev, onNext, index = 0, to
         
         {/* Container Principal do Modal */}
         <div
+          role="dialog" aria-modal="true" aria-label="Detalhes do incidente"
           className="relative z-10 w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 border-theme-divider"
           style={{ 
             backgroundColor: 'var(--p-bg)', 
@@ -123,8 +126,8 @@ export function IncidentModal({ incident, onClose, onPrev, onNext, index = 0, to
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                     <div className="lg:col-span-7 flex flex-col gap-2">
-                      <OverlayVisibilityControls details={d} source={source} hasLateralFrame={hasLateralFrame} showEpi={showEpi} showReba={showReba} onToggleEpi={() => setShowEpi((visible) => !visible)} onToggleReba={() => setShowReba((visible) => !visible)} />
-                      <IncidentCanvas imgUrl={frameUrl} details={d} source={source} hasLateralFrame={hasLateralFrame} showEpi={showEpi} showReba={showReba} />
+                      <OverlayVisibilityControls details={d} source={source} hasLateralFrame={hasLateralFrame} showEpi={showEpi} showReba={showReba} showZone={showZone} onToggleEpi={() => setShowEpi((visible) => !visible)} onToggleReba={() => setShowReba((visible) => !visible)} onToggleZone={() => setShowZone((visible) => !visible)} />
+                      <IncidentCanvas imgUrl={frameUrl} details={d} source={source} hasLateralFrame={hasLateralFrame} showEpi={showEpi} showReba={showReba} showZone={showZone} />
                     </div>
                     <div className="lg:col-span-5">
                       <IncidentCameraDetails cameraDetails={cameraDetails} source={source} />

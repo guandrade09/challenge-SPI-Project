@@ -12,14 +12,16 @@ export const PopupModal = ({
   maxWidth = "max-w-md",
   actions = [],
   theme = "dynamic",
-  className = ""
+  className = "",
+  fullscreen = false,
+  bodyClassName = ""
 }) => {
   if (!isOpen) return null;
 
   const activeThemeClass = `panel-theme-${theme}`;
 
   return createPortal(
-    <div className={`fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 ${activeThemeClass}`}>
+    <div className={`fixed inset-0 z-[9999] flex items-center justify-center ${fullscreen ? 'p-0' : 'p-3 sm:p-4'} ${activeThemeClass}`}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
@@ -28,7 +30,8 @@ export const PopupModal = ({
 
       {/* Modal Card */}
       <div 
-        className={`relative w-full ${maxWidth} max-h-[90vh] flex flex-col rounded-xl shadow-2xl border border-theme-divider overflow-hidden animate-in zoom-in-95 duration-200 ${className}`}
+        role="dialog" aria-modal="true" aria-label={title}
+        className={`relative w-full ${fullscreen ? 'h-[100dvh] max-w-none' : `${maxWidth} max-h-[90vh] rounded-xl`} flex flex-col shadow-2xl border border-theme-divider overflow-hidden animate-in zoom-in-95 duration-200 ${className}`}
         style={{ backgroundColor: 'var(--p-bg)', borderColor: 'var(--p-border)' }}
       >
         
@@ -70,7 +73,7 @@ export const PopupModal = ({
         </div>
 
         {/* Body (Rola internamente caso o conteúdo ou teclado seja maior que a tela) */}
-        <div className="p-4 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar">
+        <div className={`${bodyClassName || 'p-4 sm:p-6 md:p-8'} ${fullscreen ? 'flex-1 min-h-0' : ''} overflow-y-auto custom-scrollbar`}>
           {children}
         </div>
       </div>

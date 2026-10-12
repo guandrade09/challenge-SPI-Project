@@ -3,6 +3,7 @@ import { useCameraStreamStore } from '../../../store/useCameraStreamStore';
 import { isMissingEpiDetection } from '../../../utils/epiConfig';
 import { useElementSize } from '../../../hooks/useElementSize';
 import { getCoverTransform, frameToContainer } from '../../../utils/coverTransform';
+import { formatLiveIncidentLabel } from '../../../utils/liveIncidentLabels';
 
 // Conexões do esqueleto COCO (pares de índices de keypoints)
 const SKELETON_CONNECTIONS = [
@@ -22,7 +23,6 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
     [rawDetections]
   );
   const poseData = useCameraStreamStore((s) => s.getPose(cameraId, setor, source));
-  const verdict = useCameraStreamStore((s) => s.getVerdict(cameraId, setor, source));
   // seletores primitivos: o objeto de meta é recriado a cada frame e re-renderizaria sempre
   const metaWidth = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.width);
   const metaHeight = useCameraStreamStore((s) => s.getFrameMeta(cameraId, setor, source)?.height);
@@ -40,42 +40,8 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
 
   if (!visible) return null;
 
-  const isCritical = verdict?.status === 'ALERTA_CRITICO' || verdict?.status === 'ALERTA_MULTIPLO';
-  const isAlert = verdict?.status === 'ALERTA' || isCritical;
-
   return (
     <div ref={setContainerEl} className="absolute inset-0 pointer-events-none overflow-hidden z-20 select-none">
-      {/* ── 1. BADGE DE STATUS / VEREDITO NO TOPO ── */}
-      {verdict && (
-        <div className="absolute top-10 left-2 z-30 flex items-center gap-1.5 pointer-events-auto">
-          <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold tracking-wider uppercase backdrop-blur-md border shadow-lg transition-all duration-300 ${
-              isCritical
-                ? 'bg-red-600/90 border-red-400 text-white animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.7)]'
-                : isAlert
-                ? 'bg-amber-600/90 border-amber-400 text-white'
-                : 'bg-black/60 border-emerald-500/50 text-emerald-400'
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isCritical
-                  ? 'bg-white animate-ping'
-                  : isAlert
-                  ? 'bg-amber-300 animate-pulse'
-                  : 'bg-emerald-400'
-              }`}
-            />
-            <span>{verdict.status || 'MONITORANDO'}</span>
-            {verdict.reasons?.length > 0 && (
-              <span className="opacity-90 font-normal text-[10px] lowercase text-white/90">
-                ({verdict.reasons.join(', ')})
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* ── 2. SVG OVERLAY PARA POSE / ESQUELETO ERGONÔMICO ── */}
       {transform && poseData.length > 0 && (
         <svg
@@ -162,8 +128,8 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                       fontWeight="bold"
                     >
                       {pessoa.queda
-                        ? 'QUEDA!'
-                        : `REBA: ${pessoa.reba_score ?? 1} (${pessoa.reba_level || 'OK'})`}
+                        ? 'Queda'
+                        : formatLiveIncidentLabel(`reba_${pessoa.reba_level || 'baixo'}_${pessoa.reba_score ?? 1}`)}
                     </text>
                   </g>
                 )}
@@ -211,9 +177,9 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
             >
               {/* Tag com Nome e Confiança */}
               <div
-                className={`absolute -top-4 left-0 px-1.5 py-0.2 rounded font-mono text-[9px] font-bold uppercase tracking-wider whitespace-nowrap backdrop-blur-sm ${tagBg}`}
+                className={`absolute -top-4 left-0 px-1.5 py-0.2 rounded font-mono text-[9px] font-bold whitespace-nowrap backdrop-blur-sm ${tagBg}`}
               >
-                {det.label} {det.confidence ? `${Math.round(det.confidence * 100)}%` : ''}
+                {formatLiveIncidentLabel(det.label)} {det.confidence ? `${Math.round(det.confidence * 100)}%` : ''}
               </div>
             </div>
           );

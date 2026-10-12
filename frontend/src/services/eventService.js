@@ -3,13 +3,19 @@ import { formatTs, formatIncidentLabel, capitalizeWords } from '../utils/formatL
 import { streamService } from './streamService';
 import { analyzeEventLog, parseEventDate, parseDetectionDetails } from '../utils/eventDetails';
 import { getValidationUrgency, normalizeConfidence, requiresEventValidation } from '../utils/eventValidation';
+import { getIncidentImageSource, normalizeIncidentDetails } from '../features/incidentesPage/utils/frameOverlayData';
 
 export const eventService = {
   listEvents: async () => {
-    const [logsRes, detectionsRes] = await Promise.allSettled([
+    const [logsRes, detectionsRes, camerasRes] = await Promise.allSettled([
       api.get('/logs'),
-      api.get('/detections')
+      api.get('/detections'),
+      api.get('/cameras')
     ]);
+
+    const camerasPayload = camerasRes.status === 'fulfilled' ? camerasRes.value.data : null;
+    const cameras = Array.isArray(camerasPayload) ? camerasPayload : camerasPayload?.data || [];
+    const camerasById = new Map(cameras.map((camera) => [String(camera.id), camera]));
 
     // Extração segura de Array idêntica ao IncidentesPage
     const logsPayload = logsRes.status === 'fulfilled' ? logsRes.value.data : null;
@@ -28,7 +34,8 @@ export const eventService = {
       const isAlta = /critico|erro|danger|sem capacete|falha/i.test(message);
       const isMedia = /alerta|warning|ausencia/i.test(message);
 
-      const rawDate = parseEventDate(entry.timestamp);
+      const rawDate = parseEventDate(entry.rawTimestamp || entry.timestamp);
+      const camera = camerasById.get(String(entry.camera_id ?? entry.camera));
       const logAnalysis = analyzeEventLog(message);
       const rawTipo = entry.tipo || entry.event_type || logAnalysis.tipo;
       
@@ -37,6 +44,7 @@ export const eventService = {
 
       return {
         id: entry.id ?? `LOG-${index + 1001}`,
+        deleteId: entry.id ?? null,
         origem: 'Log',
         rawDate,
         timestamp: rawDate ? formatTs(rawDate) : '—',
@@ -44,8 +52,9 @@ export const eventService = {
         gravidade: entry.gravidade || (isAlta ? 'alta' : isMedia ? 'media' : 'baixa'),
         setor: capitalizeWords(entry.setor || entry.sector || 'Sistema Central'),
         camera: entry.camera || entry.camera_id || 'N/A',
+        nome: camera?.nome || entry.camera_nome || entry.camera_name || entry.nome || null,
         status: entry.status || (isAlta ? 'Pendente' : 'Validado'),
-        imagem: streamService.imagePathToUrl(rawImg),
+        imagem: rawImg ? streamService.imagePathToUrl(rawImg) : null,
         detalhes: message,
         analise: logAnalysis.analise
       };
@@ -56,17 +65,22 @@ export const eventService = {
       const rawLabel = entry.label ?? entry.class_name ?? entry.type ?? 'Objeto Detectado';
       const formattedLabel = formatIncidentLabel(rawLabel);
       
-      const detectionDetails = parseDetectionDetails(entry.details || entry.detalhes);
+      const parsedDetails = parseDetectionDetails(entry.details || entry.detalhes);
+      const imagemSource = getIncidentImageSource(parsedDetails, !entry.img_path && entry.img_path_lateral ? 'lateral' : 'frontal');
+      const detectionDetails = normalizeIncidentDetails(parsedDetails, { cameraId: entry.camera_id,
+        primarySource: imagemSource, hasLateralFrame: !!entry.img_path && !!entry.img_path_lateral });
       const validationData = { origem: 'Detecção', label: rawLabel, confidence: normalizeConfidence(entry.confidence), detectionDetails };
       const urgency = getValidationUrgency(validationData);
 
       const rawDate = parseEventDate(entry.timestamp);
+      const camera = camerasById.get(String(entry.camera_id ?? entry.camera));
       
       // Aponta para o campo exato img_path retornado do SQLite/API
       const rawImg = entry.img_path || entry.img_path_lateral || entry.imagem || entry.snapshot_url || entry.image_url || entry.image_path || entry.frame_path || entry.frame || null;
 
       return {
         id: entry.id ?? `DET-${index + 1001}`,
+        deleteId: Number.isSafeInteger(entry.id) && entry.id > 0 ? entry.id : null,
         origem: 'Detecção',
         label: rawLabel,
         confidence: validationData.confidence,
@@ -77,12 +91,14 @@ export const eventService = {
         timestamp: rawDate ? formatTs(rawDate) : '—',
         tipo: entry.tipo ? capitalizeWords(entry.tipo) : formattedLabel,
         gravidade: urgency === 'critica' ? 'alta' : urgency === 'alerta' ? 'media' : 'baixa',
-        setor: capitalizeWords(entry.setor || entry.sector || 'Área Monitorada'),
+        setor: capitalizeWords(entry.setor || entry.sector || camera?.setor || 'Área Monitorada'),
         camera: entry.camera || entry.camera_id || 'CAM-IA',
+        nome: camera?.nome || entry.camera_nome || entry.camera_name || entry.nome || null,
         status: entry.status || (requiresEventValidation(validationData) ? 'Pendente' : 'Validado'),
         imagem: rawImg ? streamService.imagePathToUrl(rawImg) : null,
         imagemLateral: entry.img_path_lateral ? streamService.imagePathToUrl(entry.img_path_lateral) : null,
-        imagemSource: !entry.img_path && entry.img_path_lateral ? 'lateral' : 'frontal',
+        imagemSource,
+        imagemLateralSource: getIncidentImageSource(parsedDetails, 'lateral'),
         detectionDetails,
         detalhes: entry.detalhes || entry.details || `Detecção registrada: ${formattedLabel}`
       };
@@ -90,5 +106,13 @@ export const eventService = {
 
     const allEvents = [...normalizedLogs, ...normalizedDetections];
     return allEvents.sort((a, b) => b.rawDate - a.rawDate);
+  },
+  remove: async (event) => {
+    if (event.deleteId == null || !['Log', 'Detecção'].includes(event.origem)) {
+      throw new Error('Não foi possível identificar esta ocorrência para exclusão.');
+    }
+    const resource = event.origem === 'Log' ? 'logs' : 'detections';
+    const response = await api.delete(`/${resource}/${encodeURIComponent(event.deleteId)}`);
+    return response.data;
   },
 };

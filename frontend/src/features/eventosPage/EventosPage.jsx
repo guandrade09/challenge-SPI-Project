@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, ShieldAlert } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { eventService } from '../../services/eventService';
 import { EventValidationModal } from './components/EventValidationModal';
+import { EventDeleteModal } from './components/EventDeleteModal';
+import { EventLogModal } from './components/EventLogModal';
+import { getPendingValidationEvents } from '../../utils/eventValidation';
 import { 
   EventMetricsCard, 
   EventsTable, 
@@ -11,6 +14,12 @@ import {
   EventosPageSkeleton 
 } from './components';
 
+const areEventsEqual = (a, b) => a.length === b.length && a.every((item, index) => {
+  const next = b[index];
+  return ['id', 'deleteId', 'origem', 'status', 'timestamp', 'tipo', 'gravidade', 'setor', 'camera', 'nome', 'imagem', 'imagemLateral', 'imagemSource', 'imagemLateralSource', 'detectionDetails', 'detalhes', 'analise', 'label', 'confidence', 'urgency', 'epi_ausente', 'reba_nivel']
+    .every((field) => JSON.stringify(item[field]) === JSON.stringify(next?.[field]));
+});
+
 export function EventosPage() {
   const currentTheme = useUiStore((s) => s.theme);
   
@@ -18,25 +27,46 @@ export function EventosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [validationEvent, setValidationEvent] = useState(null);
+  const [deleteEvent, setDeleteEvent] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteNotice, setDeleteNotice] = useState('');
   
   const eventsRef = useRef([]);
   const validationOverridesRef = useRef(new Map());
+  const contentRef = useRef(null);
+  const fetchVersionRef = useRef(0);
+  const hasLoadedRef = useRef(false);
 
-  const areEventsEqual = (a, b) => {
-    if (a.length !== b.length) return false;
-    return a.every((item, index) => {
-      const next = b[index];
-      return ['id', 'origem', 'status', 'timestamp', 'tipo', 'gravidade', 'setor', 'camera', 'imagem', 'imagemLateral', 'imagemSource', 'detectionDetails', 'detalhes', 'analise', 'label', 'confidence', 'urgency', 'epi_ausente', 'reba_nivel']
-        .every((field) => JSON.stringify(item[field]) === JSON.stringify(next?.[field]));
-    });
-  };
+  useEffect(() => {
+    const element = contentRef.current;
+    if (!element) return;
+    let frame;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const documentTop = element.getBoundingClientRect().top + window.scrollY;
+        const height = `${Math.max(320, window.innerHeight - documentTop - 24)}px`;
+        if (element.style.getPropertyValue('--events-content-height') !== height) {
+          element.style.setProperty('--events-content-height', height);
+        }
+      });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(element.parentElement);
+    window.addEventListener('resize', measure);
+    measure();
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', measure); };
+  }, [isLoading]);
 
-  const fetchEvents = async () => {
-    const isFirstLoad = eventsRef.current.length === 0;
+  const fetchEvents = useCallback(async () => {
+    const version = ++fetchVersionRef.current;
+    const isFirstLoad = !hasLoadedRef.current;
     if (isFirstLoad) setIsLoading(true);
 
     try {
       const incomingEvents = await eventService.listEvents();
+      if (version !== fetchVersionRef.current) return;
       const realEvents = incomingEvents.map((event) => {
         const validatedStatus = validationOverridesRef.current.get(`${event.origem}:${event.id}`);
         return validatedStatus ? { ...event, status: validatedStatus } : event;
@@ -48,25 +78,22 @@ export function EventosPage() {
       }
     } catch (error) {
       console.error("Erro ao buscar eventos/logs em tempo real:", error);
-      if (eventsRef.current.length === 0) {
+      if (version === fetchVersionRef.current && eventsRef.current.length === 0) {
         setEvents([]);
       }
     } finally {
-      if (isFirstLoad) setIsLoading(false);
+      if (isFirstLoad && version === fetchVersionRef.current) {
+        hasLoadedRef.current = true;
+        setIsLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchEvents();
     const interval = setInterval(fetchEvents, 15000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (events.length > 0 && !selectedEventId) {
-      setSelectedEventId(events[0].id);
-    }
-  }, [events, selectedEventId]);
+  }, [fetchEvents]);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) || events[0] || null;
 
@@ -78,6 +105,32 @@ export function EventosPage() {
       eventsRef.current = updated;
       return updated;
     });
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!deleteEvent || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError('');
+    try {
+      const result = await eventService.remove(deleteEvent);
+      // Uma leitura iniciada antes da exclusão não deve restaurar o registro na tela.
+      fetchVersionRef.current += 1;
+      const key = `${deleteEvent.origem}:${deleteEvent.id}`;
+      validationOverridesRef.current.delete(key);
+      const updated = eventsRef.current.filter((event) => `${event.origem}:${event.id}` !== key);
+      eventsRef.current = updated;
+      setEvents(updated);
+      if (selectedEventId === deleteEvent.id) setSelectedEventId(null);
+      if (validationEvent?.id === deleteEvent.id && validationEvent?.origem === deleteEvent.origem) setValidationEvent(null);
+      setDeleteNotice(result.filesNotRemoved
+        ? 'Ocorrência excluída. O arquivo do frame não pôde ser removido do servidor.'
+        : 'Ocorrência excluída.');
+      setDeleteEvent(null);
+    } catch (error) {
+      setDeleteError(error.response?.data?.error || error.message || 'Não foi possível excluir a ocorrência.');
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   if (isLoading) {
@@ -94,11 +147,13 @@ export function EventosPage() {
       {/* 1. HEADER */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-theme-divider pb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl text-[var(--p-text-title)] font-theme-title">
+          <h1 style={{ fontSize: 'clamp(1.25rem, 2vw, 1.6rem)', margin: 0 }} className="text-[var(--p-text-title)] font-theme-title">
             Central de Eventos & Ocorrências
           </h1>
         </div>
       </header>
+
+      {deleteNotice && <p role="status" className="rounded-lg border border-theme-divider bg-[var(--p-header-bg)] px-3 py-2 text-sm text-theme-main">{deleteNotice}</p>}
 
       {/* 2. OS 4 INDICADORES (MÉTRICAS) */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -111,7 +166,7 @@ export function EventosPage() {
         />
         <EventMetricsCard
           title="Pendentes de Validação"
-          value={events.filter((e) => e.status === 'Pendente').length}
+          value={getPendingValidationEvents(events).length}
           icon={AlertTriangle}
           colorClass="border-amber bg-amber-500/10 text-amber-500"
           valueColorClass="text-amber-500"
@@ -133,26 +188,31 @@ export function EventosPage() {
       </section>
 
       {/* 3. CONTEÚDO PRINCIPAL */}
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+      <main ref={contentRef} data-testid="events-content" className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-6 lg:min-h-0 lg:h-[var(--events-content-height)]">
         <EventsTable
           events={events}
-          selectedEventId={selectedEventId}
+          selectedEventId={selectedEvent?.id}
           onSelectEvent={setSelectedEventId}
         />
 
-        <section className="flex flex-col gap-6">
+        <section className="flex min-w-0 flex-col gap-6 [&>*]:shrink-0 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain custom-scrollbar">
 
-          <EventDetailsCard event={selectedEvent} onValidate={setValidationEvent} />
+          <EventDetailsCard event={selectedEvent} onValidate={setValidationEvent} onDelete={(event) => {
+            setDeleteError('');
+            setDeleteNotice('');
+            setDeleteEvent(event);
+          }} />
 
           <CriticalActionCard
             events={events}
             onValidate={handleValidateEvent}
-            selectedEventId={selectedEventId}
+            selectedEventId={selectedEvent?.id}
           />
           
         </section>
       </main>
-      {validationEvent && (
+      {validationEvent?.origem === 'Log' && <EventLogModal event={validationEvent} onClose={() => setValidationEvent(null)} />}
+      {validationEvent?.origem === 'Detecção' && (
         <EventValidationModal
           key={validationEvent.id}
           event={validationEvent}
@@ -163,6 +223,10 @@ export function EventosPage() {
           }}
         />
       )}
+      {deleteEvent && <EventDeleteModal
+        event={deleteEvent} busy={deleteBusy} error={deleteError}
+        onClose={() => { if (!deleteBusy) setDeleteEvent(null); }} onConfirm={handleDeleteEvent}
+      />}
     </div>
   );
 }

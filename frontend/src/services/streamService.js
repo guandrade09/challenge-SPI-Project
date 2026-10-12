@@ -7,7 +7,7 @@ export const streamService = {
     if (!imgPath || typeof imgPath !== 'string') return imgNotFound;
 
     // 1. Se já for uma URL absoluta (http/https/data:image), retorna direto
-    if (/^(http|https|data:image):/i.test(imgPath)) {
+    if (/^(?:https?:|data:image\/)/i.test(imgPath)) {
       return imgPath;
     }
 

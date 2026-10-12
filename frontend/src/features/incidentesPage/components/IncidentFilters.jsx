@@ -1,4 +1,5 @@
 import { Download, Filter, ListChecks, Trash2, X } from 'lucide-react';
+import { capitalizeFilterText } from '../utils/incidentFiltering';
 
 export function IncidentFilters({
   activeFilters,
@@ -11,6 +12,9 @@ export function IncidentFilters({
   camera,
   cameras = [],
   onCameraChange,
+  timeRange,
+  onTimeRangeChange,
+  onClearFilters,
   onlyAlerts,
   onToggleAlerts,
   selectedCount,
@@ -47,16 +51,21 @@ export function IncidentFilters({
             if (option) onAddFilter(option);
           }}
           className="flex-1 min-w-48 px-3 py-2 bg-[var(--p-header-bg)] border border-[var(--p-border)] rounded-lg text-sm text-theme-main focus:outline-none focus:border-blue-500/50"
-          aria-label="Adicionar filtro de EPI ou estado de alerta"
+          aria-label="Adicionar filtro de EPI, urgência ou ergonomia"
         >
-          <option value="">Filtrar por EPI ou estado de alerta</option>
+          <option value="">EPIs, Urgência e Ergonomia</option>
           <optgroup label="EPIs">
             {available.filter((item) => item.type === 'epi').map((item) => (
               <option key={item.key} value={item.key}>{item.label}</option>
             ))}
           </optgroup>
-          <optgroup label="Estado de alerta">
-            {available.filter((item) => item.type === 'alert').map((item) => (
+          <optgroup label="Urgência">
+            {available.filter((item) => item.type === 'urgency').map((item) => (
+              <option key={item.key} value={item.key}>{item.label}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Ergonomia">
+            {available.filter((item) => item.type === 'ergonomics').map((item) => (
               <option key={item.key} value={item.key}>{item.label}</option>
             ))}
           </optgroup>
@@ -65,10 +74,10 @@ export function IncidentFilters({
           value={source}
           onChange={(event) => onSourceChange(event.target.value)}
           className="px-3 py-2 bg-[var(--p-header-bg)] border border-[var(--p-border)] rounded-lg text-sm text-theme-main focus:outline-none focus:border-blue-500/50"
-          aria-label="Filtrar por fonte ou câmera"
+          aria-label="Filtrar por fonte"
         >
           <option value="">Todas as fontes</option>
-          {sources.map((item) => <option key={item} value={item}>{item}</option>)}
+          {sources.map((item) => <option key={item} value={item}>{capitalizeFilterText(item)}</option>)}
         </select>
         <select
           value={camera}
@@ -77,8 +86,41 @@ export function IncidentFilters({
           aria-label="Filtrar por câmera"
         >
           <option value="">Todas as câmeras</option>
-          {cameras.map((item) => <option key={item} value={item}>{item}</option>)}
+          {cameras.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
+      </div>
+      <div className="flex flex-wrap gap-3 items-end">
+        <label className="flex flex-col gap-1 text-xs text-theme-muted">
+          De (data e hora)
+          <input
+            type="datetime-local"
+            value={timeRange.start}
+            max={timeRange.end || undefined}
+            onChange={(event) => onTimeRangeChange({ ...timeRange, start: event.target.value })}
+            className="min-w-0 max-w-full px-3 py-2 bg-[var(--p-header-bg)] border border-[var(--p-border)] rounded-lg text-sm text-theme-main focus:outline-none focus:border-blue-500/50"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-theme-muted">
+          Até (data e hora)
+          <input
+            type="datetime-local"
+            value={timeRange.end}
+            min={timeRange.start || undefined}
+            onChange={(event) => onTimeRangeChange({ ...timeRange, end: event.target.value })}
+            className="min-w-0 max-w-full px-3 py-2 bg-[var(--p-header-bg)] border border-[var(--p-border)] rounded-lg text-sm text-theme-main focus:outline-none focus:border-blue-500/50"
+          />
+        </label>
+        <button type="button" onClick={onClearFilters}
+          disabled={!activeFilters.length && !source && !camera && !onlyAlerts && !timeRange.start && !timeRange.end}
+          className="px-3 py-2 rounded-lg text-sm border border-[var(--p-border)] text-theme-muted hover:text-theme-main disabled:opacity-40">
+          Limpar filtros
+        </button>
+      </div>
+      {timeRange.start && timeRange.end && timeRange.start > timeRange.end && (
+        <p role="alert" className="text-sm text-red-500">A data inicial deve ser anterior à data final.</p>
+      )}
+      <p className="text-xs text-theme-muted">Opções do mesmo grupo ampliam a busca; grupos diferentes, fonte, câmera e período são combinados.</p>
+      <div className="flex flex-wrap gap-3 items-center">
         <button
           type="button"
           onClick={onToggleAlerts}

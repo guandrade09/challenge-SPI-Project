@@ -37,3 +37,23 @@ export function parseEventDate(timestamp) {
   const date = normalized ? new Date(normalized) : null;
   return date && !Number.isNaN(date.getTime()) ? date : null;
 }
+
+export function formatEventLongDate(value) {
+  const date = parseEventDate(value);
+  if (!date) return 'Data não disponível';
+  const timeZone = 'America/Sao_Paulo';
+  const day = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone }).format(date);
+  const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', timeZone }).format(date);
+  return `${day}, ${time}`;
+}
+
+export function getEventDetectionSummary(event) {
+  if (event?.origem === 'Log') return event.tipo || 'Log do sistema';
+  const details = parseDetectionDetails(event?.detectionDetails || event?.detalhes) || {};
+  const label = String(event?.label || event?.tipo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const categories = [];
+  if (/epi|capacete|colete|mascara|oculos|auricular|bota|luva|protetor|cinto|respirador/.test(label) || (Array.isArray(details.epi) && details.epi.length)) categories.push('EPI');
+  if (/ergonomia|ergonomico|reba|queda/.test(label) || (Array.isArray(details.ergonomia) && details.ergonomia.length)) categories.push('Ergonomia');
+  if (/zona|invasao/.test(label) || (Array.isArray(details.zona) && details.zona.some((zone) => zone?.invadiu === true || zone?.invadiu === 1))) categories.push('Zona de Risco');
+  return categories.join(' • ') || event?.tipo || 'Detecção registrada';
+}

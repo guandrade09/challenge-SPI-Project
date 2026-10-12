@@ -61,6 +61,22 @@ export const useCameraPresetsStore = create(
         };
       }),
 
+      setRiskAreasForCamera: (cameraId, riskAreas) => set((state) => {
+        if (cameraId == null) return state;
+        if (!Array.isArray(riskAreas) || riskAreas.length > 4) throw new Error('Limite de quatro áreas por câmera.');
+        const existing = state.presets[cameraId];
+        const current = Array.isArray(existing) ? { ...DEFAULT_PRESET, selectedEpis: existing } : (existing || DEFAULT_PRESET);
+        return { presets: { ...state.presets, [cameraId]: { ...current, riskAreas,
+          riskArea: riskAreas[0]?.box || null } } };
+      }),
+
+      setRiskAreasVisibleForCamera: (cameraId, visible) => set((state) => {
+        if (cameraId == null) return state;
+        const existing = state.presets[cameraId];
+        const current = Array.isArray(existing) ? { ...DEFAULT_PRESET, selectedEpis: existing } : (existing || DEFAULT_PRESET);
+        return { presets: { ...state.presets, [cameraId]: { ...current, showRiskAreas: visible } } };
+      }),
+
       setRotationForCamera: (cameraId, rotation) => set((state) => {
         if (!cameraId) return state;
         const existing = state.presets[cameraId];

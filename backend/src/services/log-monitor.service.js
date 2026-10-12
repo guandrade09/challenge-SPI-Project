@@ -1,9 +1,21 @@
 import fs from "fs/promises";
 import path from "path";
+import { createHash, randomUUID } from "node:crypto";
 
-class LogMonitorService {
-  constructor() {
-    this.logsDir = path.join(process.cwd(), "logs");
+export function identifyLogEntries(entries) {
+  const occurrences = new Map();
+  return entries.map((entry) => {
+    if (entry.id) return entry;
+    const hash = createHash('sha256').update(JSON.stringify(entry)).digest('hex');
+    const occurrence = occurrences.get(hash) || 0;
+    occurrences.set(hash, occurrence + 1);
+    return { ...entry, id: `legacy-${hash}-${occurrence}` };
+  });
+}
+
+export class LogMonitorService {
+  constructor(logsDir = path.join(process.cwd(), "logs")) {
+    this.logsDir = logsDir;
     this.logsFile = path.join(this.logsDir, "realtime-log.json");
     this.maxEntries = 15;
     this.started = false;
@@ -62,11 +74,24 @@ class LogMonitorService {
 
   appendEntry(entry) {
     const task = this.writeQueue.then(async () => {
-      const entries = await this.readEntries();
-      entries.push(entry);
+      const entries = identifyLogEntries(await this.readEntries());
+      entries.push({ ...entry, id: entry.id || randomUUID() });
       await this.writeEntries(this.trimEntries(entries));
     });
     // a fila não pode ficar "envenenada" por uma falha; o chamador ainda recebe o erro
+    this.writeQueue = task.catch(() => {});
+    return task;
+  }
+
+  removeEntry(id) {
+    const task = this.writeQueue.then(async () => {
+      const entries = await this.readEntries();
+      const index = identifyLogEntries(entries).findIndex((entry) => entry.id === id);
+      if (index < 0) return false;
+      // Mantém os IDs históricos ao excluir, inclusive quando existem logs iguais.
+      await this.writeEntries(identifyLogEntries(entries).filter((_, entryIndex) => entryIndex !== index));
+      return true;
+    });
     this.writeQueue = task.catch(() => {});
     return task;
   }

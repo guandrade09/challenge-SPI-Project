@@ -18,6 +18,7 @@ import threading
 import time
 import base64
 import json
+import math
 from copy import deepcopy
 import cv2
 import requests
@@ -131,6 +132,41 @@ class SimpleDebouncer:
             self._counter = 0
             return True
         return False
+
+
+# ── Confirmação da zona por observação ─────────────────────────────────────────
+def _check_zone_observation(checker, zone_id, results, debouncer, observations):
+    """Confirma entrada em três inferências distintas, nunca repetindo a pose em cache."""
+    config = checker.get(zone_id)
+    previous = observations.get(zone_id)
+    if config is None or results is None:
+        debouncer.update(False)
+        observations.pop(zone_id, None)
+        return [], False
+    points = config.get("areas", config["pontos"])
+    if previous is None:
+        debouncer.update(False)
+        counters = {}
+    else:
+        counters = previous[2]
+    _, people = checker.check_from_results(zone_id, results)
+    if previous is not None and previous[0] is results and previous[1] is points:
+        return people, False
+    confirmed = set()
+    areas = config.get("areas") or [{"id": 1, "pontos": config["pontos"]}]
+    signatures = {area["id"]: tuple((p["x"], p["y"]) for p in area["pontos"]) for area in areas}
+    for area_id in list(counters):
+        if area_id not in signatures:
+            counters.pop(area_id)
+    for area_id in signatures:
+        counter = counters.setdefault(area_id, debouncer if area_id == 1 else
+            SimpleDebouncer(debouncer.required, debouncer.cooldown))
+        if previous is not None and previous[3].get(area_id) != signatures[area_id]:
+            counter.update(False)
+        if counter.update(any(p.get("invadiu") and p.get("area_id", 1) == area_id for p in people)):
+            confirmed.add(area_id)
+    observations[zone_id] = (results, points, counters, signatures)
+    return [{**p, "confirmed": p.get("area_id", 1) in confirmed} for p in people], bool(confirmed)
 
 
 # ── Helpers REBA ───────────────────────────────────────────────────────────────
@@ -368,14 +404,15 @@ def _load_zona(zone_checker, camera_id: str, setor: str = "", allow_local: bool 
         print(f"[ZONA] Nenhuma zona para {camera_id}")
         return False
     try:
-        zone_checker.configure(
-            camera_id,
-            config["nome"],
-            config["pontos"],
-            epis_obrigatorios=config.get("epis_obrigatorios", []),
-            epis_certo_labels=config.get("epis_certo_labels", []),
-        )
-        send_zone(camera_id, config["pontos"], setor=setor)
+        if config.get("areas"):
+            zone_checker.configure_areas(camera_id, config["areas"])
+        else:
+            zone_checker.configure(
+                camera_id, config["nome"], config["pontos"],
+                epis_obrigatorios=config.get("epis_obrigatorios", []),
+                epis_certo_labels=config.get("epis_certo_labels", []),
+            )
+        send_zone(camera_id, config.get("pontos", []), setor=setor, areas=config.get("areas"))
         return True
     except Exception as e:
         print(f"[ZONA] Erro ao aplicar config: {e}")
@@ -448,6 +485,20 @@ def _register_camera_retry_event(camera_id, setor: str, source: str) -> threadin
     return event
 
 
+def _risk_area_points(box, width, height):
+    try:
+        x, y, w, h = (float(box[key]) for key in ("x", "y", "width", "height"))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Área inválida") from exc
+    if (not all(math.isfinite(v) for v in (x, y, w, h)) or w <= 0 or h <= 0
+            or min(x, y) < -1e-6 or x + w > 100 + 1e-6 or y + h > 100 + 1e-6):
+        raise ValueError("Área deve estar dentro de 0..100%")
+    return [{"x": x * width / 100, "y": y * height / 100},
+            {"x": (x + w) * width / 100, "y": y * height / 100},
+            {"x": (x + w) * width / 100, "y": (y + h) * height / 100},
+            {"x": x * width / 100, "y": (y + h) * height / 100}]
+
+
 def _make_ws_message_handler(zone_checker):
     async def handle(payload: dict):
         message_type = payload.get("type")
@@ -492,15 +543,44 @@ def _make_ws_message_handler(zone_checker):
         setor = payload.get("setor") or ""
         risk_area = payload.get("riskArea")
 
+        if "riskAreas" in payload:
+            areas = payload["riskAreas"]
+            if not isinstance(areas, list) or len(areas) > 4:
+                raise ValueError("São permitidas até quatro áreas por câmera")
+            if areas:
+                shape = _camera_frame_shapes.get(camera_id)
+                if shape is None:
+                    raise ValueError("A câmera ainda não forneceu dimensões de frame")
+                configs, ids = [], set()
+                for area in areas:
+                    if not isinstance(area, dict):
+                        raise ValueError("Área inválida")
+                    area_id, name = area.get("id"), area.get("nome")
+                    if (type(area_id) is not int or not 1 <= area_id <= 4 or area_id in ids
+                            or not isinstance(name, str) or not 1 <= len(name.strip()) <= 60):
+                        raise ValueError("Informe identificadores únicos de 1 a 4 e nomes de até 60 caracteres")
+                    ids.add(area_id)
+                    points = _risk_area_points(area.get("box"), *shape)
+                    configs.append({"id": area_id, "nome": name.strip(), "pontos": points, "box": area["box"]})
+                response = await asyncio.to_thread(requests.post, BACKEND_ZONAS_URL,
+                    json={"camera_id": zone_camera_id, "areas": configs}, timeout=2)
+                response.raise_for_status()
+                zone_checker.configure_areas(zone_camera_id, configs)
+                send_zone(zone_camera_id, configs[0]["pontos"], setor=setor, areas=configs)
+                return {"type": "zone_updated", "ok": True, "removed": False,
+                        "request_id": request_id, "camera_id": zone_camera_id, "setor": setor, "areas": configs}
+            risk_area = None
+
         if risk_area is None:
+            response = await asyncio.to_thread(
+                requests.delete, f"{BACKEND_ZONAS_URL}/{zone_camera_id}", timeout=2,
+            )
+            # 404 significa que a zona já foi removida; outras falhas precisam
+            # chegar ao usuário, sem confirmar uma remoção que não foi persistida.
+            if response.status_code != 404:
+                response.raise_for_status()
             zone_checker.delete(zone_camera_id)
-            try:
-                await asyncio.to_thread(
-                    requests.delete, f"{BACKEND_ZONAS_URL}/{zone_camera_id}", timeout=2,
-                )
-            except Exception as exc:
-                print(f"[ZONA] Aviso ao remover persistência: {exc}")
-            send_zone(zone_camera_id, [], setor=setor)
+            send_zone(zone_camera_id, [], setor=setor, areas=[])
             return {"type": "zone_updated", "ok": True, "removed": True,
                     "request_id": request_id, "camera_id": zone_camera_id, "setor": setor}
 
@@ -614,16 +694,13 @@ def _capture_loop(
     source: str = "frontal",
 ):
     camera = None
-    current_source = None
-    last_check = 0.0
+    # Sentinela: nenhuma origem foi consultada ainda. Após falha, mantemos
+    # a origem tentada para não tratar a mesma URL como um cadastro novo.
+    current_source = _KEEP_SOURCE
+    last_check = None
     last_frame_sent_at = 0.0
     retry_event = _register_camera_retry_event(camera_id, setor, source)
 
-    # Reconexão automática com backoff exponencial (1, 2, 4, 8s... até
-    # RECHECK_CAMERA_INTERVAL_S), tudo dentro desta mesma thread — não cria outros loops
-    # e não bloqueia as demais câmeras (cada câmera tem sua própria thread de captura).
-    failures = 0
-    next_attempt_at = 0.0
     last_status = None
 
     def _status(status, reason=None):
@@ -633,11 +710,6 @@ def _capture_loop(
             return
         last_status = (status, reason)
         send_stream_status(camera_id, setor, source, status, reason)
-
-    def _schedule_retry():
-        nonlocal failures, next_attempt_at
-        failures += 1
-        next_attempt_at = time.time() + min(RECHECK_CAMERA_INTERVAL_S, 2 ** min(failures - 1, 4))
 
     def _release_camera():
         nonlocal camera
@@ -649,19 +721,18 @@ def _capture_loop(
             camera = None
 
     def _drop_camera(reason, message):
-        # stream caiu (leitura falhou / parou): libera o handle e agenda nova tentativa
+        # Preserva a origem: aguarda comando manual ou alteração de cadastro.
         print(f"[CAMERA] {label}: {message}")
         _release_camera()
         _status("offline", reason)
-        _schedule_retry()
 
     def _reconnect(new_source):
-        nonlocal camera, current_source, failures, next_attempt_at
+        nonlocal camera, current_source
         _release_camera()
+        current_source = new_source
         if new_source is None:
             current_source = None
             _status("offline", "origem_nao_configurada")
-            _schedule_retry()
             return
         try:
             camera = Camera(source=new_source)
@@ -672,52 +743,43 @@ def _capture_loop(
             camera.cap.set(cv2.CAP_PROP_FRAME_WIDTH, max_width or 640)
             camera.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             current_source = new_source
-            failures = 0
-            next_attempt_at = 0.0
             print(f"[CAMERA] {label}: conectado em {new_source}")
             _status("online")
         except Exception as e:
             print(f"[CAMERA] {label}: falha ao abrir {new_source} ({e})")
             _release_camera()
-            current_source = None  # sem fonte ativa → o backoff força nova tentativa
             _status("offline", "falha_ao_abrir")
-            _schedule_retry()
 
     try:
         while not (stop_event and stop_event.is_set()):
             now = time.time()
             retry_requested = retry_event.is_set()
             if retry_requested:
-                # pedido manual: tenta já, sem esperar o backoff, e sempre reporta o resultado
+                # Pedido manual: tenta já e sempre reporta o resultado.
                 retry_event.clear()
-                failures = 0
-                next_attempt_at = 0.0
                 last_status = None
-            offline_retry_due = camera is None and now >= next_attempt_at
-            periodic_check = camera is not None and now - last_check >= RECHECK_CAMERA_INTERVAL_S
-            if retry_requested or offline_retry_due or periodic_check:
+            periodic_check = last_check is None or now - last_check >= RECHECK_CAMERA_INTERVAL_S
+            if retry_requested or periodic_check:
                 last_check = now
                 new_source = resolve_source_fn()
                 if new_source is _KEEP_SOURCE:
                     # Backend indisponível (falha transitória de rede): não dá para saber a fonte
-                    # agora. Câmera conectada → mantém como está (não reconecta à toa); offline →
-                    # não há o que tentar, então só agenda a próxima tentativa (backoff).
+                    # agora. Preserva a última origem, sem abrir a câmera novamente.
                     if camera is None:
                         _status("offline", "backend_indisponivel")
-                        _schedule_retry()
                     elif retry_requested:
                         _status("online")  # o pedido manual não fez nada: desfaz o "reconectando"
-                elif retry_requested or camera is None or new_source != current_source:
+                elif retry_requested or new_source != current_source:
                     if retry_requested:
                         print(f"[CAMERA] {label}: nova tentativa solicitada pelo usuário.")
-                    elif camera is not None:
-                        print(f"[CAMERA] {label}: cadastro mudou ({current_source} → {new_source}), reconectando...")
+                    elif current_source is not _KEEP_SOURCE:
+                        print(f"[CAMERA] {label}: cadastro mudou ({current_source} -> {new_source}), reconectando...")
                     else:
-                        print(f"[CAMERA] {label}: tentando reconectar (falhas seguidas até aqui: {failures})...")
+                        print(f"[CAMERA] {label}: iniciando conexão.")
                     _reconnect(new_source)
 
             if camera is not None and not camera.is_opened():
-                _drop_camera("stream_parou", "stream parou; nova tentativa automática agendada.")
+                _drop_camera("stream_parou", "stream parou; aguardando nova tentativa do usuário.")
                 continue
 
             if camera is None:
@@ -728,7 +790,7 @@ def _capture_loop(
             if stop_event and stop_event.is_set():
                 break
             if not ret:
-                _drop_camera("falha_de_leitura", "leitura falhou; nova tentativa automática agendada.")
+                _drop_camera("falha_de_leitura", "leitura falhou; aguardando nova tentativa do usuário.")
                 continue
 
             rotation = config_server.camera_rotation(setor, camera_id)
@@ -789,7 +851,7 @@ def _run_sector(
 
 def _build_incident_evidence(views, pose_observations, epi_detector, pose_model,
                              pose_analyzer, inference_lock, zone_checker,
-                             confirmed_zone_ids, ergo_confirmed):
+                             confirmed_zone_ids, ergo_confirmed, confirmed_area_ids=None):
     """Monta imagens e detalhes usando um único instante por câmera."""
     def run_pose(snapshot):
         with inference_lock:
@@ -828,8 +890,9 @@ def _build_incident_evidence(views, pose_observations, epi_detector, pose_model,
         if zone_id in confirmed_zone_ids and zone_config and observation["raw"] is not None:
             _, people_in_zone = zone_checker.check_from_results(zone_id, observation["raw"])
             for person in people_in_zone:
-                if person.get("invadiu"):
-                    zones.append({**person, **zone_config, "source": source,
+                if person.get("invadiu") and (confirmed_area_ids is None or
+                        person.get("area_id", 1) in confirmed_area_ids.get(zone_id, [])):
+                    zones.append({**zone_config, **person, "source": source,
                                   "camera_id": view["camera_id"], "zone_id": zone_id,
                                   "epi_available": prefixes != [] and "epi" not in observation["analysis_errors"],
                                   "epi_labels": {d.label for d in observation["detections"]}})
@@ -870,6 +933,7 @@ def _build_incident_evidence(views, pose_observations, epi_detector, pose_model,
         "ergonomia": [person for people in tracking.values() for person in people],
         "zona": [
             {"pessoa_id": person.get("pessoa_id"), "invadiu": True,
+             "area_id": person.get("area_id", 1),
              "nome": person.get("nome", "Zona de Risco"), "pontos": person.get("pontos", []),
              "source": person["source"], "camera_id": person["camera_id"],
              "epis_ausentes": [label for label in person.get("epis_certo_labels", [])
@@ -896,15 +960,18 @@ def _persist_incident_job(job, models, inference_lock, stop_event):
         return
     zone_snapshot = ZoneChecker(model_path=None)
     for zone_id, config in job["zone_configs"].items():
-        zone_snapshot.configure(
-            zone_id, config["nome"], config["pontos"],
-            epis_obrigatorios=config.get("epis_obrigatorios", []),
-            epis_certo_labels=config.get("epis_certo_labels", []),
-        )
+        if config.get("areas"):
+            zone_snapshot.configure_areas(zone_id, config["areas"])
+        else:
+            zone_snapshot.configure(
+                zone_id, config["nome"], config["pontos"],
+                epis_obrigatorios=config.get("epis_obrigatorios", []),
+                epis_certo_labels=config.get("epis_certo_labels", []),
+            )
     evidence = _build_incident_evidence(
         job["views"], job["pose_observations"], models["epi_detector"], models["pose_model"],
         models["pose_analyzer"], inference_lock, zone_snapshot,
-        job["confirmed_zone_ids"], job["ergo_confirmed"],
+        job["confirmed_zone_ids"], job["ergo_confirmed"], job.get("confirmed_area_ids"),
     )
     if stop_event.is_set() or not evidence["verdict"].reasons:
         return
@@ -997,6 +1064,7 @@ def _run_sector_pipeline(
         zone_id: SimpleDebouncer(required_frames=FRAMES_ZONA, cooldown_frames=COOLDOWN_ZONA)
         for zone_id in zone_camera_ids
     }
+    zona_observations = {}
     queda_debouncer = SimpleDebouncer(required_frames=6, cooldown_frames=120)
     _last_verdict_key = None
     _last_verdict_t   = 0.0
@@ -1068,7 +1136,8 @@ def _run_sector_pipeline(
             _primary_prefixes = epi_prefixes_ativos(setor, primary_camera_id)
             _ergonomia_ativa = ergonomia_ativa(setor, primary_camera_id)
             _lateral_prefixes = epi_prefixes_ativos(setor, lateral_camera_id) if has_lateral else []
-            queda_ativa = "QUEDA" in (_primary_prefixes or []) or "QUEDA" in (_lateral_prefixes or [])
+            # Queda independe dos EPIs; a preferência de popup é aplicada no cliente.
+            queda_ativa = True
             if _primary_prefixes != []:
                 # EPI na câmera frontal
                 _epi_state["counter"] += 1
@@ -1209,9 +1278,7 @@ def _run_sector_pipeline(
             ergo_em_risco  = [p for p in ergo_pessoas if _pessoa_em_risco_ergo(p)] if _ergonomia_ativa else []
             ergo_confirmed = ergo_debouncer.update(len(ergo_em_risco) > 0)
 
-            # "queda" é só mais uma chave no mesmo mecanismo de toggle dos EPIs (config_server.
-            # EPI_KEY_TO_PREFIX) — reaproveita _primary_prefixes/_lateral_prefixes já calculados
-            # acima, sem lógica paralela de ativação.
+            # A análise continua ativa mesmo quando o operador silencia o popup.
             queda_detectada = queda_ativa and any(p.get("queda", False) for p in ergo_pessoas)
             queda_confirmed = queda_debouncer.update(queda_detectada)
 
@@ -1223,14 +1290,20 @@ def _run_sector_pipeline(
             zona_confirmadas = []
             for zone_id, zone_results, zone_source, zone_camera_id in zone_inputs:
                 zone_config = zone_checker.get(zone_id)
+                debouncer = zona_debouncers.setdefault(
+                    zone_id,
+                    SimpleDebouncer(required_frames=FRAMES_ZONA, cooldown_frames=COOLDOWN_ZONA),
+                )
+                pessoas_da_zona, confirmed = _check_zone_observation(
+                    zone_checker, zone_id, zone_results, debouncer, zona_observations,
+                )
                 if zone_config is None or zone_results is None:
                     continue
-                _, pessoas_da_zona = zone_checker.check_from_results(zone_id, zone_results)
                 pessoas_da_zona = [
                     {
                         **p,
-                        "nome": zone_config.get("nome", "Zona de Risco"),
-                        "pontos": zone_config.get("pontos", []),
+                        "nome": p.get("nome", zone_config.get("nome", "Zona de Risco")),
+                        "pontos": p.get("pontos", zone_config.get("pontos", [])),
                         "source": zone_source,
                         "camera_id": zone_camera_id,
                         "zone_id": zone_id,
@@ -1239,12 +1312,8 @@ def _run_sector_pipeline(
                 ]
                 invasores = [p for p in pessoas_da_zona if p.get("invadiu")]
                 zona_pessoas.extend(pessoas_da_zona)
-                debouncer = zona_debouncers.setdefault(
-                    zone_id,
-                    SimpleDebouncer(required_frames=FRAMES_ZONA, cooldown_frames=COOLDOWN_ZONA),
-                )
-                if debouncer.update(bool(invasores)):
-                    zona_confirmadas.extend(invasores)
+                if confirmed:
+                    zona_confirmadas.extend(p for p in invasores if p.get("confirmed"))
 
             zona_confirmed = bool(zona_confirmadas)
 
@@ -1282,8 +1351,8 @@ def _run_sector_pipeline(
                     source="lateral" if has_lateral else primary_source,
                 )
 
-            for zone_id in dict.fromkeys(p["zone_id"] for p in zona_confirmadas):
-                invasor = next(p for p in zona_confirmadas if p["zone_id"] == zone_id)
+            for zone_id, area_id in dict.fromkeys((p["zone_id"], p.get("area_id", 1)) for p in zona_confirmadas):
+                invasor = next(p for p in zona_confirmadas if p["zone_id"] == zone_id and p.get("area_id", 1) == area_id)
                 send_alert(
                     label="Zona de Risco",
                     confidence=1.0,
@@ -1291,6 +1360,7 @@ def _run_sector_pipeline(
                     setor=setor,
                     camera_id=invasor.get("camera_id"),
                     source=invasor.get("source"),
+                    area_id=area_id, area_name=invasor.get("nome"),
                 )
 
             # 5. Envia metadados de ML ao WebSocket (detecções de EPI e pose/esqueleto)
@@ -1372,6 +1442,8 @@ def _run_sector_pipeline(
                 job = {
                     "views": views, "pose_observations": dict(pose_result["views"]),
                     "confirmed_zone_ids": frozenset(person["zone_id"] for person in zona_confirmadas),
+                    "confirmed_area_ids": {zone_id: frozenset(p.get("area_id", 1) for p in zona_confirmadas
+                        if p["zone_id"] == zone_id) for zone_id in zone_camera_ids},
                     "zone_configs": zone_configs, "ergo_confirmed": ergo_confirmed,
                     "timestamp": timestamp, "setor": setor,
                 }

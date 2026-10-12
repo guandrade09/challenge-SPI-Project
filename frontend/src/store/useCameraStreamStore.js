@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useSystemConfigStore } from './useSystemConfigStore.js';
 
 const EMPTY_ARRAY = Object.freeze([]);
 
@@ -19,6 +20,7 @@ export const useCameraStreamStore = create((set, get) => ({
   alertas: {},
   quedaEvents: {},
   fallAlertQueue: [],
+  riskAlertQueue: [],
   zones: {},
   zoneUpdates: {},
   streamStatus: {},
@@ -74,7 +76,7 @@ export const useCameraStreamStore = create((set, get) => ({
       ? makeStreamKey(metrics.camera_id, setor, metrics.source) : setor]: metrics },
   })),
   setZone: (setor, cameraId, zone) => {
-    const key = makeStreamKey(cameraId, setor, 'frontal');
+    const key = makeStreamKey(cameraId == null ? null : String(cameraId).replace(/^cam_/, ''), setor, 'frontal');
     set((state) => ({ zones: { ...state.zones, [key]: zone } }));
   },
   setZoneUpdate: (requestId, update) => set((state) => ({ zoneUpdates: { ...state.zoneUpdates, [requestId || 'latest']: update } })),
@@ -82,7 +84,19 @@ export const useCameraStreamStore = create((set, get) => ({
     const key = makeStreamKey(cameraId, setor, source);
     set((state) => ({ streamStatus: { ...state.streamStatus, [key]: status } }));
   },
-  addAlerta: (setor, alerta) => set((state) => ({ alertas: { ...state.alertas, [setor]: [...(state.alertas[setor] || []), alerta].slice(-100) } })),
+  addAlerta: (setor, alerta) => set((state) => {
+    const eventId = alerta.event_id || `zona:${alerta.camera_id ?? 'camera'}:${alerta.area_id ?? 1}:${alerta.timestamp ?? Date.now()}`;
+    const event = { ...alerta, event_id: eventId, setor: alerta.setor || setor };
+    const isInvasion = alerta.label === 'Zona de Risco';
+    return {
+      alertas: { ...state.alertas, [setor]: [...(state.alertas[setor] || []), event].slice(-100) },
+      riskAlertQueue: useSystemConfigStore.getState().invasionPopupEnabled && isInvasion && !state.riskAlertQueue.some((item) => item.event_id === eventId)
+        ? [...state.riskAlertQueue, event].slice(-20) : state.riskAlertQueue,
+    };
+  }),
+  dismissRiskAlert: (eventId) => set((state) => ({
+    riskAlertQueue: state.riskAlertQueue.filter((event) => event.event_id !== eventId),
+  })),
   addQuedaEvent: (setor, event) => set((state) => {
     const eventId = event.event_id || `${event.camera_id ?? 'camera'}:${event.timestamp ?? Date.now()}`;
     const normalizedEvent = { ...event, event_id: eventId, setor: event.setor || setor };
@@ -92,7 +106,7 @@ export const useCameraStreamStore = create((set, get) => ({
         ...state.quedaEvents,
         [setor]: [...(state.quedaEvents[setor] || []), normalizedEvent].slice(-100),
       },
-      fallAlertQueue: alreadyQueued
+      fallAlertQueue: !useSystemConfigStore.getState().fallPopupEnabled || alreadyQueued
         ? state.fallAlertQueue
         : [...state.fallAlertQueue, normalizedEvent].slice(-20),
     };
@@ -151,3 +165,9 @@ export const useCameraStreamStore = create((set, get) => ({
   // do Zustand e re-renderiza o componente a cada mudança no store (ex.: a cada frame de
   // vídeo), travando a página.
 }));
+
+// Descartar pendências ao silenciar evita reapresentar alertas antigos ao reativar.
+useSystemConfigStore.subscribe((state, previous) => {
+  if (previous.fallPopupEnabled && !state.fallPopupEnabled) useCameraStreamStore.setState({ fallAlertQueue: [] });
+  if (previous.invasionPopupEnabled && !state.invasionPopupEnabled) useCameraStreamStore.setState({ riskAlertQueue: [] });
+});

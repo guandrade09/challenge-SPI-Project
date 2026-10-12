@@ -4,6 +4,7 @@ import {
   searchDetection,
   searchDetectionByDay,
   deleteDetections,
+  deleteDetectionEvent,
 } from "../services/detection.service.js";
 
 import { ErrorHandler } from "../utils/appError.js";
@@ -103,6 +104,14 @@ export async function remove(req, res) {
   try {
     const result = await deleteDetections(req.body?.ids);
     return res.status(200).json(result);
+  } catch (error) {
+    return ErrorHandler.handle(res, error);
+  }
+}
+
+export async function removeEvent(req, res) {
+  try {
+    return res.status(200).json(await deleteDetectionEvent(Number(req.params.id)));
   } catch (error) {
     return ErrorHandler.handle(res, error);
   }

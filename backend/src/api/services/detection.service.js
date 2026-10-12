@@ -9,6 +9,7 @@ import {
   getDetectionsByLabel,
   getDetectionsByDay,
   deleteIncidentGroups,
+  deleteDetectionRow,
 } from "../repositories/detection.repository.js";
 import { base64ToImage, normalizeBrasiliaTimestamp } from "../utils/convert.js";
 import { createFolderByTimestamp } from "../utils/folder.js";
@@ -198,4 +199,13 @@ export async function deleteDetections(ids) {
     deletedIncidents: result.deletedIncidents,
     ...cleanup,
   };
+}
+
+export async function deleteDetectionEvent(id) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new AppError("Informe um ID válido de ocorrência.", 400);
+  }
+  const result = await deleteDetectionRow(id);
+  const cleanup = await removeOrphanFrames(result.orphanPaths);
+  return { deletedRows: result.deletedRows, ...cleanup };
 }

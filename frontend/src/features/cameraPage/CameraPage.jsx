@@ -14,6 +14,7 @@ import { DETECTION_CONFIG } from '../../enums/enums';
 import { cameraSocketManager } from '../../services/websocket/CameraSocketManager';
 import { epiConfigService } from '../../services/epiConfigService';
 import { normalizeEpiList } from '../../utils/epiConfig';
+import { RiskAreaModal } from './components/RiskAreaModal';
 
 const EMPTY_ARRAY = [];
 
@@ -234,7 +235,7 @@ export const CameraPage = () => {
                   cameras={cameras}
                   currentCamera={currentCamera}
                   activeEpiName={activeEpiName}
-                  isEditingRiskArea={isEditingRiskArea}
+                  isEditingRiskArea={false}
                   onSelectCamera={handleSelectCamera}
                   onNextCamera={handleNextCamera}
                   onPrevCamera={handlePrevCamera}
@@ -281,6 +282,8 @@ export const CameraPage = () => {
           />
         </main>
       </div>
+      {isEditingRiskArea && currentCamera && <RiskAreaModal key={currentCamera.id} camera={currentCamera}
+        theme={currentTheme} onClose={() => setIsEditingRiskArea(false)} />}
     </div>
   );
 };

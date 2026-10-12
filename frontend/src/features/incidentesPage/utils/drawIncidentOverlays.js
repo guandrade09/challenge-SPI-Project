@@ -1,8 +1,8 @@
 import { drawSkeleton, KP_CONF_THRESHOLD } from './skeletonUtils.js';
 import { normalizeConfidence } from '../../../utils/eventValidation.js';
-import { getFrameOverlayData, getIncidentCameraDetails, getIncidentFrameMetadata } from './frameOverlayData.js';
+import { getFrameOverlayData, getIncidentFrameMetadata } from './frameOverlayData.js';
 
-export function drawIncidentOverlays(ctx, details, source, width, height, { hasLateralFrame = false, showEpi = true, showReba = true } = {}) {
+export function drawIncidentOverlays(ctx, details, source, width, height, { hasLateralFrame = false, showEpi = true, showReba = true, showZone = true } = {}) {
   const canvas = { width, height };
     if (!details) return;
     const overlays = getFrameOverlayData(details, source, { hasLateralFrame });
@@ -77,7 +77,7 @@ export function drawIncidentOverlays(ctx, details, source, width, height, { hasL
       });
 
     // 3. DESENHO DA ZONA DE RISCO INVADIDA
-    const zonaInvadida = getIncidentCameraDetails(details, source, { hasLateralFrame }).zona.find((z) => z.invadiu);
+    for (const zonaInvadida of showZone ? overlays.zona : []) {
     const zonaConfig = zonaInvadida || details.zona_config;
     const zonePoints = zonaConfig?.source && zonaConfig.source !== source ? [] : (zonaConfig?.pontos || []).map(
       (point) => ({ x: point.x * scaleX, y: point.y * scaleY }),
@@ -104,6 +104,7 @@ export function drawIncidentOverlays(ctx, details, source, width, height, { hasL
       ctx.fillRect(labelX, labelY - fontSize - 16, tw + 16, fontSize + 12);
       ctx.fillStyle = '#ffffff';
       ctx.fillText(text, labelX + 8, labelY - 8);
+    }
     }
 }
 

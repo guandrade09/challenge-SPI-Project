@@ -21,6 +21,13 @@ export function getCoverTransform(containerW, containerH, frameW, frameH) {
   };
 }
 
+export function getContainTransform(containerW, containerH, frameW, frameH) {
+  if (!(containerW > 0 && containerH > 0 && frameW > 0 && frameH > 0)) return null;
+  const scale = Math.min(containerW / frameW, containerH / frameH);
+  return { scale, offsetX: (containerW - frameW * scale) / 2,
+    offsetY: (containerH - frameH * scale) / 2, frameW, frameH, containerW, containerH };
+}
+
 // pixel do frame → pixel do container
 export function frameToContainer(t, x, y) {
   return { x: t.offsetX + x * t.scale, y: t.offsetY + y * t.scale };

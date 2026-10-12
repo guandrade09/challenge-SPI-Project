@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { cameraSocketManager } from '../../services/websocket/CameraSocketManager';
 import { useCameraPresetsStore } from '../../store/useCameraPresetsStore';
 import { useCameraStreamStore } from '../../store/useCameraStreamStore';
+import { useSystemConfigStore } from '../../store/useSystemConfigStore';
 
 const normalizeCameraId = (cameraId) => {
   if (typeof cameraId === 'string' && /^cam_\d+$/.test(cameraId)) {
@@ -20,8 +21,17 @@ const formatTimestamp = (timestamp) => {
 
 export function GlobalFallAlert() {
   const navigate = useNavigate();
-  const fallAlert = useCameraStreamStore((state) => state.fallAlertQueue[0] || null);
-  const dismissFallAlert = useCameraStreamStore((state) => state.dismissFallAlert);
+  const fallEvent = useCameraStreamStore((state) => state.fallAlertQueue[0] || null);
+  const riskEvent = useCameraStreamStore((state) => state.riskAlertQueue[0] || null);
+  const dismissFall = useCameraStreamStore((state) => state.dismissFallAlert);
+  const dismissRisk = useCameraStreamStore((state) => state.dismissRiskAlert);
+  const fallEnabled = useSystemConfigStore((state) => state.fallPopupEnabled);
+  const invasionEnabled = useSystemConfigStore((state) => state.invasionPopupEnabled);
+  const visibleFall = fallEnabled ? fallEvent : null;
+  const visibleRisk = invasionEnabled ? riskEvent : null;
+  const fallAlert = visibleFall || visibleRisk;
+  const isInvasion = !visibleFall && !!visibleRisk;
+  const dismissFallAlert = isInvasion ? dismissRisk : dismissFall;
   const setLastCameraId = useCameraPresetsStore((state) => state.setLastCameraId);
 
   useEffect(() => {
@@ -54,7 +64,7 @@ export function GlobalFallAlert() {
           type="button"
           onClick={() => dismissFallAlert(fallAlert.event_id)}
           className="absolute right-3 top-4 rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
-          aria-label="Fechar alerta de queda"
+          aria-label={isInvasion ? 'Fechar alerta de invasão' : 'Fechar alerta de queda'}
         >
           <X className="h-5 w-5" />
         </button>
@@ -64,10 +74,11 @@ export function GlobalFallAlert() {
             <AlertTriangle className="h-8 w-8 animate-pulse text-red-400" />
           </div>
           <p className="mb-1 font-mono text-xs font-bold uppercase tracking-[0.2em] text-red-400">Alerta crítico</p>
-          <h2 id="fall-alert-title" className="text-2xl font-black tracking-tight">Queda detectada</h2>
+          <h2 id="fall-alert-title" className="text-2xl font-black tracking-tight">{isInvasion ? 'Invasão da zona de risco' : 'Queda detectada'}</h2>
           <p id="fall-alert-description" className="mt-3 text-sm leading-6 text-slate-300">
-            Foi identificada uma possível queda no setor <strong className="text-white">{fallAlert.setor || 'não informado'}</strong>.
+            {isInvasion ? 'Uma pessoa entrou na área de risco delimitada no setor ' : 'Foi identificada uma possível queda no setor '}<strong className="text-white">{fallAlert.setor || 'não informado'}</strong>.
           </p>
+          {isInvasion && fallAlert.area_name && <p className="mt-2 text-sm font-semibold">Área: {fallAlert.area_name}</p>}
 
           <dl className="mt-5 grid grid-cols-2 gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
             <div>

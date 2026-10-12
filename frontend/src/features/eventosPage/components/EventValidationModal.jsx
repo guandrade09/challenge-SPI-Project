@@ -5,6 +5,8 @@ import PopupModal from '../../../components/shared/PopupModal';
 import IconButtonModal from '../../../components/shared/IconButtonModal';
 import { getValidationAlert } from '../../../utils/eventValidation';
 import { OverlayVisibilityControls } from '../../incidentesPage/components/OverlayVisibilityControls';
+import { useUiStore } from '../../../store/useUiStore';
+import { getIncidentImageSource, getFrameOverlayData } from '../../incidentesPage/utils/frameOverlayData';
 
 const ALERT_TEXT_COLORS = { critica: 'text-red-400', alerta: 'text-amber-500', epi: 'text-blue-400' };
 
@@ -14,9 +16,15 @@ export function EventValidationModal({ event, onClose, onValidate, initialFeedba
   const [customComment, setCustomComment] = useState('');
   const [showEpi, setShowEpi] = useState(true);
   const [showReba, setShowReba] = useState(true);
-  const [frameSource, setFrameSource] = useState(event.imagemSource || 'frontal');
-  const hasTwoFrames = event.imagemLateral && event.imagemSource !== 'lateral';
-  const frameUrl = frameSource === 'lateral' && hasTwoFrames ? event.imagemLateral : event.imagem;
+  const [showZone, setShowZone] = useState(true);
+  const currentTheme = useUiStore((state) => state.theme);
+  const [frameSlot, setFrameSlot] = useState('principal');
+  const hasTwoFrames = !!event.imagemLateral && event.imagemLateral !== event.imagem;
+  const frames = [{ slot: 'principal', source: event.imagemSource || getIncidentImageSource(event.detectionDetails), url: event.imagem }];
+  if (hasTwoFrames) frames.push({ slot: 'lateral', source: event.imagemLateralSource || getIncidentImageSource(event.detectionDetails, 'lateral'), url: event.imagemLateral });
+  const selectedFrame = frames.find((frame) => frame.slot === frameSlot) || frames[0];
+  const frameSource = selectedFrame.source, frameUrl = selectedFrame.url;
+  const overlays = getFrameOverlayData(event.detectionDetails, frameSource, { hasLateralFrame: hasTwoFrames });
   const validationAlert = getValidationAlert(event);
 
   const handleFinalSubmit = (status) => {
@@ -54,15 +62,16 @@ export function EventValidationModal({ event, onClose, onValidate, initialFeedba
       title={`Auditoria da IA — Evento #${event.id}`}
       icon={Cpu}
       maxWidth="max-w-2xl"
+      theme={currentTheme}
     >
       <div className="flex flex-col gap-4">
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           {hasTwoFrames && (
             <div className="flex gap-2">
-              {['frontal', 'lateral'].map((source) => (
-                <button key={source} type="button" aria-pressed={frameSource === source} onClick={() => setFrameSource(source)} className={`px-3 py-2 rounded-lg border text-xs ${frameSource === source ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-theme-divider text-theme-muted'}`}>
-                  {source === 'frontal' ? 'Câmera frontal' : 'Câmera lateral'}
+              {frames.map(({ slot, source }) => (
+                <button key={slot} type="button" aria-pressed={frameSlot === slot} onClick={() => setFrameSlot(slot)} className={`px-3 py-2 rounded-lg border text-xs ${frameSlot === slot ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-theme-divider text-theme-muted'}`}>
+                  Câmera {source}
                 </button>
               ))}
             </div>
@@ -73,8 +82,10 @@ export function EventValidationModal({ event, onClose, onValidate, initialFeedba
             hasLateralFrame={!!hasTwoFrames}
             showEpi={showEpi}
             showReba={showReba}
+            showZone={showZone}
             onToggleEpi={() => setShowEpi((visible) => !visible)}
             onToggleReba={() => setShowReba((visible) => !visible)}
+            onToggleZone={() => setShowZone((visible) => !visible)}
           />
         </div>
 
@@ -86,6 +97,7 @@ export function EventValidationModal({ event, onClose, onValidate, initialFeedba
             source={frameSource}
             showEpi={showEpi}
             showReba={showReba}
+            showZone={showZone}
             hasLateralFrame={!!hasTwoFrames}
           />
 
@@ -122,7 +134,7 @@ export function EventValidationModal({ event, onClose, onValidate, initialFeedba
             </div>
           )}
         </div>
-        {!event.detectionDetails && <p className="text-xs text-theme-muted">Esta ocorrência não possui coordenadas de detecção salvas para exibir as marcações.</p>}
+        {!overlays.epi.length && !overlays.reba.length && !overlays.zona.length && <p className="text-xs text-theme-muted">Esta imagem não possui coordenadas salvas de EPI, REBA ou Zona de Risco. Os controles ficam indisponíveis para esta câmera.</p>}
 
         {/* INFORMAÇÕES DO EVENTO ATUAL */}
         <div className="p-3 rounded-lg bg-[var(--p-header-bg)] border border-theme-divider text-xs grid grid-cols-2 gap-2 font-mono">

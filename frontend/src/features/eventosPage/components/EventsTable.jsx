@@ -3,12 +3,11 @@ import { Filter, X, Check, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, Arro
 import { Card, CardHeader } from '../../../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../components/ui/Table';
 
-const ITEMS_PER_PAGE = 10;
 const STATUS_TABS = ['Todos', 'Pendente', 'Validado', 'Descartado'];
 
 export function EventsTable({ events, selectedEventId, onSelectEvent }) {
   // Estados para os filtros das colunas
-  const [filters, setFilters] = useState({
+  const [filters, setFilterState] = useState({
     status: 'Todos',
     origem: 'Todos',
     horaInicio: '',
@@ -20,17 +19,36 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
   });
 
   // Estado da Paginação
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageInput, setPageInput] = useState('1');
+  const [currentPage, setPageState] = useState(1);
+  const [pageInput, setPageInput] = useState(null);
+  const setFilters = (update) => { setFilterState(update); setPageState(1); setPageInput(null); };
 
   // Controle do menu popover de filtro aberto
   const [openDropdown, setOpenDropdown] = useState(null);
   const dropdownRef = useRef(null);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const measuredPageSize = useRef(10);
 
-  // Reseta para a página 1 quando os filtros mudam
   useEffect(() => {
-    setCurrentPage(1);
-  }, [filters]);
+    const element = dropdownRef.current;
+    const measure = () => {
+      const row = element.querySelector('tbody tr');
+      const header = element.querySelector('thead');
+      if (!row || !header) return;
+      const spacing = parseFloat(getComputedStyle(element.querySelector('table')).borderSpacing.split(' ')[1]) || 0;
+      const rowHeight = row.getBoundingClientRect().height + spacing;
+      const available = element.clientHeight - header.getBoundingClientRect().height - 20;
+      const size = Math.max(3, Math.floor(available / Math.max(40, rowHeight)));
+      if (size !== measuredPageSize.current) {
+        measuredPageSize.current = size;
+        setItemsPerPage(size); setPageState(1); setPageInput(null);
+      }
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => observer.disconnect();
+  }, [events.length]);
 
   // Fecha o popover ao clicar fora dele
   useEffect(() => {
@@ -89,7 +107,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
       if (filters.setorCamera.trim() !== '') {
         const querySetor = filters.setorCamera.toLowerCase();
         const matchSetor = evt.setor?.toLowerCase().includes(querySetor);
-        const matchCamera = evt.camera?.toLowerCase().includes(querySetor) || evt.nome?.toLowerCase().includes(querySetor);
+        const matchCamera = String(evt.camera ?? '').toLowerCase().includes(querySetor) || evt.nome?.toLowerCase().includes(querySetor);
         if (!matchSetor && !matchCamera) return false;
       }
 
@@ -108,13 +126,13 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
 
   // 2. Paginação e Cálculos de Exibição
   const totalItems = filteredEvents.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
 
-  // Sincroniza o valor do input numérico com a página atual válida
-  useEffect(() => {
-    setPageInput(String(safeCurrentPage));
-  }, [safeCurrentPage]);
+  const setCurrentPage = (update) => {
+    setPageState(typeof update === 'function' ? update(safeCurrentPage) : update);
+    setPageInput(null);
+  };
 
   // Validação do Input Numérico de Página
   const handlePageInputChange = (e) => {
@@ -122,15 +140,14 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
   };
 
   const handlePageInputSubmit = () => {
-    const parsedPage = parseInt(pageInput, 10);
+    const parsedPage = parseInt(pageInput ?? safeCurrentPage, 10);
     if (!isNaN(parsedPage)) {
       // Clampa o valor digitado entre 1 e totalPages
       const validPage = Math.min(Math.max(parsedPage, 1), totalPages);
       setCurrentPage(validPage);
-      setPageInput(String(validPage));
     } else {
       // Em caso de valor inválido ou em branco, restaura a página atual
-      setPageInput(String(safeCurrentPage));
+      setPageInput(null);
     }
   };
 
@@ -141,12 +158,12 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
   };
 
   const paginatedEvents = useMemo(() => {
-    const start = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-    return filteredEvents.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredEvents, safeCurrentPage]);
+    const start = (safeCurrentPage - 1) * itemsPerPage;
+    return filteredEvents.slice(start, start + itemsPerPage);
+  }, [filteredEvents, safeCurrentPage, itemsPerPage]);
 
-  const startItem = totalItems === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
-  const endItem = Math.min(safeCurrentPage * ITEMS_PER_PAGE, totalItems);
+  const startItem = totalItems === 0 ? 0 : (safeCurrentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(safeCurrentPage * itemsPerPage, totalItems);
 
   // Filtros ativos extras
   const activeFiltersCount = useMemo(() => {
@@ -162,13 +179,13 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
   }, [filters]);
 
   return (
-    <Card className="lg:col-span-2 shadow-md flex flex-col justify-between">
-      <div className="flex flex-col flex-1">
+    <Card className="lg:col-span-2 min-w-0 min-h-80 h-[65dvh] lg:h-full lg:min-h-0 shadow-md flex flex-col">
+      <div className="flex min-h-0 min-w-0 flex-col flex-1">
         {/* HEADER UNIFICADO EM UMA FILEIRA (ESQUERDA: FILTROS / DIREITA: PAGINAÇÃO E ABAS) */}
-        <CardHeader className="flex flex-row items-center justify-between gap-4 py-2.5 px-4 border-b border-theme-divider overflow-x-auto custom-scrollbar">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3 py-2.5 px-4 border-b border-theme-divider">
           
           {/* LADO ESQUERDO: ABAS DE STATUS + CONTADOR + LIMPAR FILTROS */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex max-w-full items-center gap-3 overflow-x-auto custom-scrollbar">
             {/* Abas de Navegação por Status */}
             <div className="flex items-center gap-1 bg-[var(--p-bg)] p-1 rounded-lg border border-theme-divider">
               {STATUS_TABS.map((tab) => {
@@ -207,7 +224,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
           </div>
 
           {/* LADO DIREITO: PESQUISA POR INPUT NUMÉRICO + SETAS DE NAVEGAÇÃO + ABAS DE PÁGINAS */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex max-w-full items-center gap-2 overflow-x-auto custom-scrollbar">
             
             {/* INPUT NUMÉRICO PARA INSERIR A PÁGINA COM VALIDAÇÃO */}
             <div className="flex items-center gap-1.5 bg-[var(--p-bg)] px-2 py-1 rounded-lg border border-theme-divider text-xs text-theme-muted">
@@ -216,7 +233,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
                 type="number"
                 min={1}
                 max={totalPages}
-                value={pageInput}
+                value={pageInput ?? String(safeCurrentPage)}
                 onChange={handlePageInputChange}
                 onBlur={handlePageInputSubmit}
                 onKeyDown={handleKeyDown}
@@ -277,9 +294,9 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
         </CardHeader>
 
         {/* TABELA DE OCORRÊNCIAS */}
-        <div className="overflow-x-auto flex-1 custom-scrollbar p-2" ref={dropdownRef}>
+        <div data-testid="events-list-scroll" className="min-h-0 min-w-0 overflow-auto overscroll-contain flex-1 custom-scrollbar p-2" ref={dropdownRef}>
           <Table className="border-separate border-spacing-y-1.5 min-w-full">
-            <TableHeader className="border-none">
+            <TableHeader className="sticky top-0 z-10 border-none bg-[var(--p-header-bg)]">
               <TableRow className="hover:bg-transparent">
                 {/* STATUS */}
                 <TableHead className="py-2 px-4 relative">
@@ -507,6 +524,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
                   return (
                     <TableRow
                       key={evt.id}
+                      data-event-id={`${evt.origem}:${evt.id}`}
                       onClick={() => onSelectEvent(evt.id)}
                       className={`group cursor-pointer transition-all duration-200 ${
                         isSelected

@@ -87,6 +87,32 @@ function _parseDetails(row) {
   return row;
 }
 
+// Eventos representa uma linha por detecção; sua exclusão não remove o grupo inteiro.
+export async function deleteDetectionRow(id, providedDb = null) {
+  const db = providedDb || await openConnection();
+  let transactionOpen = false;
+  try {
+    await db.exec("BEGIN IMMEDIATE");
+    transactionOpen = true;
+    const row = await db.get("SELECT img_path, img_path_lateral FROM detections WHERE id = ?", id);
+    if (!row) throw new AppError(`Ocorrência ${id} não encontrada.`, 404);
+    const result = await db.run("DELETE FROM detections WHERE id = ?", id);
+    const orphanPaths = [];
+    for (const filePath of new Set([row.img_path, row.img_path_lateral].filter(Boolean))) {
+      const reference = await db.get("SELECT 1 FROM detections WHERE img_path = ? OR img_path_lateral = ? LIMIT 1", filePath, filePath);
+      if (!reference) orphanPaths.push(filePath);
+    }
+    await db.exec("COMMIT");
+    transactionOpen = false;
+    return { deletedRows: result.changes, orphanPaths };
+  } catch (error) {
+    if (transactionOpen) await db.exec("ROLLBACK");
+    throw error;
+  } finally {
+    if (!providedDb) await db.close();
+  }
+}
+
 // Recebe um ID representante por card e remove todas as linhas que compõem
 // cada incidente. A conexão separada impede intercalamento com outras consultas.
 export async function deleteIncidentGroups(ids, providedDb = null) {

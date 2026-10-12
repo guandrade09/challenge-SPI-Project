@@ -9,3 +9,11 @@ export async function listLogs(req, res) {
     return ErrorHandler.handle(res, error);
   }
 }
+
+export async function removeLog(req, res) {
+  try {
+    return res.status(200).json(await logService.deleteLog(req.params.id));
+  } catch (error) {
+    return ErrorHandler.handle(res, error);
+  }
+}

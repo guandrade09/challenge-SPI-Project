@@ -1,5 +1,6 @@
 import React from 'react';
-import { Target, Check, Trash2, Camera, Video, CheckCircle2, ShieldAlert, RotateCw } from 'lucide-react';
+import { Target, Camera, Video, CheckCircle2, ShieldAlert, RotateCw } from 'lucide-react';
+import { normalizeRiskAreas } from '../../../utils/riskAreas';
 import { ButtonAddCam } from './ButtonAddCam';
 import { ButtonDeleteCam } from './ButtonDeleteCam';
 import { ButtonEditCam } from './ButtonEditCam';
@@ -21,8 +22,6 @@ export const CameraManagementPanel = ({
   onSelectCamera,
   isEditingRiskArea,
   setIsEditingRiskArea,
-  hasRiskArea,
-  onClearRiskArea,
   onAddCamera,
   onDeleteCamera,
   onEditCamera,
@@ -32,23 +31,13 @@ export const CameraManagementPanel = ({
   const ROTATION_OPTIONS = [0, 90, 180, 270];
   const presets = useCameraPresetsStore((state) => state.presets);
   const getRiskAreaForCamera = useCameraPresetsStore((state) => state.getRiskAreaForCamera);
+  const currentPreset = presets[currentCamera?.id];
+  const hasRiskArea = normalizeRiskAreas(currentPreset?.riskAreas ?? currentPreset?.riskArea).length > 0;
 
   const handleSelect = (cam) => {
     if (onSelectCamera) {
       setIsEditingRiskArea(false);
       onSelectCamera(cam);
-    }
-  };
-
-  // Trata a ação de limpar a área de risco
-  const handleClear = () => {
-    // 1. Dispara o evento customizado para o RiskAreaOverlay resetar o box visual na tela
-    const event = new CustomEvent('clear_risk_area');
-    window.dispatchEvent(event);
-
-    // 2. Executa a função repassada via prop para atualizar o estado/store pai
-    if (onClearRiskArea) {
-      onClearRiskArea();
     }
   };
 
@@ -116,7 +105,7 @@ export const CameraManagementPanel = ({
             // Normaliza os itens caso venham como objeto { id: 'colete' } ou string 'colete'
             const normalizedEpis = rawEpis
               .map((item) => (typeof item === 'object' && item !== null ? item.id || item.name : item))
-              .filter(Boolean);
+              .filter((epi) => epi && epi !== 'queda');
 
             // Mapeia para os nomes amigáveis (Colete, Óculos, etc)
             const activeEpiNames = normalizedEpis
@@ -218,36 +207,16 @@ export const CameraManagementPanel = ({
           </span>
         </div>
 
-        {!isEditingRiskArea ? (
+        {(
           <button
             type="button"
             onClick={() => setIsEditingRiskArea(true)}
-            disabled={!currentCamera}
+            disabled={!currentCamera || isEditingRiskArea}
             className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-400 text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <Target size={15} className="text-amber-400" />
-            <span>{hasRiskArea ? 'Editar Área' : 'Delimitar Área'}</span>
+            <span>{hasRiskArea ? 'Editar Áreas' : 'Delimitar Área'}</span>
           </button>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEditingRiskArea(false)}
-              className="icon-btn-success text-xs font-semibold uppercase tracking-wider gap-1.5"
-            >
-              <Check size={14} />
-              <span>Concluir</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleClear}
-              className="icon-btn-danger text-xs font-semibold uppercase tracking-wider gap-1.5 cursor-pointer"
-            >
-              <Trash2 size={14} />
-              <span>Limpar</span>
-            </button>
-          </div>
         )}
       </div>
 

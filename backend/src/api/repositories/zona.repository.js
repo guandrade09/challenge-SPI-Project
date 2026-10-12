@@ -22,7 +22,10 @@ export async function findZona(camera_id) {
     [camera_id]
   );
   if (!row) return null;
-  return { ...row, pontos: JSON.parse(row.pontos) };
+  const stored = JSON.parse(row.pontos);
+  return Array.isArray(stored)
+    ? { ...row, pontos: stored }
+    : { ...row, areas: stored.areas, pontos: stored.areas?.[0]?.pontos || [] };
 }
 
 export async function deleteZona(camera_id) {
