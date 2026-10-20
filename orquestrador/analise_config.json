@@ -47,5 +47,12 @@
     ],
     "ergonomia": true,
     "rotation": 270
+  },
+  "camera:23": {
+    "epis": [
+      "capacete"
+    ],
+    "ergonomia": true,
+    "rotation": 0
   }
 }
