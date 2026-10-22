@@ -55,7 +55,11 @@ class VLCCamera:
                 "Verifique se o VLC está instalado e se seus plugins estão acessíveis."
             )
         self._player = self._instance.media_player_new()
-        media = self._instance.media_new(url)
+        # :rtsp-tcp força o RTP (vídeo) a trafegar na mesma conexão TCP do RTSP,
+        # em vez de UDP — necessário em redes que liberam o handshake RTSP mas
+        # bloqueiam/descartam UDP (ex: rede de sala/campus compartilhada), onde
+        # a câmera "conecta" mas nenhum frame novo chega depois do primeiro.
+        media = self._instance.media_new(url, ":rtsp-tcp")
         self._player.set_media(media)
         self._player.video_set_format("RV32", width, height, width * 4)
 

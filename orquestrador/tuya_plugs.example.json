@@ -1,0 +1,14 @@
+{
+  "principal": {
+    "device_id": "COLOQUE_O_DEVICE_ID",
+    "local_key": "COLOQUE_A_LOCAL_KEY",
+    "ip": "192.168.0.10",
+    "version": 3.4
+  },
+  "teste": {
+    "device_id": "COLOQUE_O_DEVICE_ID",
+    "local_key": "COLOQUE_A_LOCAL_KEY",
+    "ip": "192.168.0.11",
+    "version": 3.5
+  }
+}

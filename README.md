@@ -99,6 +99,43 @@ A solução foi projetada com base nas seguintes normas regulamentadoras brasile
 
 ---
 
+## 🔌 Hardware de Alerta (Sinaleiro ESP32 + Tomada Tuya)
+
+Além do alerta na tela, o sistema aciona um **sinaleiro físico** e pode **cortar a energia** de uma máquina:
+
+| Estado | Quando acende | Buzzer | Tomada |
+|---|---|---|---|
+| 🔴 Vermelho | Queda **ou** invasão de zona de risco | Soa | **Desliga** |
+| 🟠 Laranja | EPI ausente | Soa | Não altera |
+| 🟡 Amarelo | Neutro (firmware do ESP32) | Não soa | Não altera |
+| 🟢 Verde | Tudo limpo por 15 frames seguidos | Não soa | Religa, se estava cortada |
+
+- **Componentes:** ESP32 com LEDs vermelho/laranja/amarelo/verde + buzzer (controlado por HTTP) e tomada inteligente Tuya (controlada pela rede local via [`tinytuya`](https://github.com/jasonacox/tinytuya)).
+- **Várias câmeras, um só sinaleiro:** basta uma câmera em risco para alertar; o verde só acende quando todas as câmeras com pessoas estão limpas.
+- **Webcam do notebook:** na tela de câmeras, a opção "Usar webcam do notebook" cadastra a webcam local (índice `0`, `1`, ...) como câmera.
+- **Código:** [`orquestrador/hardware_alert.py`](orquestrador/hardware_alert.py) · teste manual do ESP32: [`orquestrador/test_esp32_led.py`](orquestrador/test_esp32_led.py)
+
+### Configuração rápida
+
+```powershell
+pip install -r requirements.txt          # inclui tinytuya
+
+cd orquestrador
+copy tuya_plugs.example.json tuya_plugs.json   # preencha device_id, local_key, ip e version
+                                               # (tuya_plugs.json está no .gitignore — nunca commitar)
+
+$env:ESP_IP     = "<ip do ESP32 nesse wifi>"
+$env:PLUG_ATIVA = "teste"                      # ou "principal"
+$env:PLUG_IP    = "<ip da tomada nesse wifi>"  # descubra com: python -m tinytuya scan
+
+python test_esp32_led.py                       # opcional: testa LEDs e buzzer
+python main.py
+```
+
+Sem o `tuya_plugs.json`, o orquestrador funciona normalmente com o sinaleiro, só sem cortar a tomada. Detalhes em [docs/atualizacoes-hardware-webcam.md](docs/atualizacoes-hardware-webcam.md).
+
+---
+
 ## 📄 Documentação Técnica
 
 - [🎭 Diagrama de Casos de Uso](docs/UML.md)
@@ -106,6 +143,7 @@ A solução foi projetada com base nas seguintes normas regulamentadoras brasile
 - [📋 Levantamento de Requisitos](docs/REQUISITOS.md)
 - [🧩 Diagrama de Classes](docs/classes.md)
 - [💻 Mapeamento de Telas](docs/mapeamento.md)
+- [🔌 Hardware: sinaleiro, tomada Tuya e webcam local](docs/atualizacoes-hardware-webcam.md)
 
 ---
 

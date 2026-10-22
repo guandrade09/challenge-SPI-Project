@@ -55,6 +55,7 @@ from zone_checker import ZoneChecker
 from ml_facial.face_recognizer import FaceRecognizer, FuncionarioFaceRegistry
 import config_server
 from config_server import epi_prefixes_ativos, ergonomia_ativa
+import hardware_alert
 
 # ── Configuração ───────────────────────────────────────────────────────────────
 BACKEND_URL               = "http://localhost:3000/api/detections"
@@ -646,6 +647,15 @@ def _resolve_sectors() -> dict[str, list[dict]] | None:
 _KEEP_SOURCE = object()
 
 
+def _as_local_device(stream_url):
+    """streamUrl puramente numérica ("0", "1", ...) = webcam local cadastrada pelo
+    frontend (opção "webcam do notebook"). Vira int pra Camera abrir com CAP_DSHOW,
+    mesma convenção do CAMERA_SOURCE de ambiente."""
+    if isinstance(stream_url, str) and stream_url.strip().isdigit():
+        return int(stream_url.strip())
+    return stream_url
+
+
 def _make_resolve_fn(setor: str, papel: str, env_var: str | None = None, default=None):
     """Retorna uma função que resolve a URL atual da câmera com o papel dado no setor.
     Devolve _KEEP_SOURCE se o backend estiver indisponível (não reconectar à toa)."""
@@ -663,7 +673,7 @@ def _make_resolve_fn(setor: str, papel: str, env_var: str | None = None, default
         sector_cams = [c for c in cameras if (c.get("setor") or "default") == setor]
         cam = next((c for c in sector_cams if c.get("papel") == papel), None)
         if cam:
-            return cam["streamUrl"]
+            return _as_local_device(cam["streamUrl"])
         return default
     return resolve
 
@@ -678,7 +688,7 @@ def _make_camera_resolve_fn(camera_id):
         except Exception:
             return _KEEP_SOURCE
         camera = next((item for item in cameras if str(item.get("id")) == str(camera_id)), None)
-        return camera.get("streamUrl") if camera else None
+        return _as_local_device(camera.get("streamUrl")) if camera else None
     return resolve
 
 
@@ -1096,6 +1106,7 @@ def _run_sector_pipeline(
         ),
     )
     incident_worker.start()
+    hardware_key = f"{setor}/{primary_camera_id}"
 
     try:
         while not stop_event.is_set():
@@ -1317,6 +1328,18 @@ def _run_sector_pipeline(
 
             zona_confirmed = bool(zona_confirmadas)
 
+            # Sinaleiro físico (ESP32) + tomada Tuya — ver orquestrador/hardware_alert.py.
+            # Queda/zona é "grave" (desliga a tomada); EPI ausente só alerta (laranja + buzzer).
+            # Usa o risco AO VIVO do frame, não os *_confirmed (debounce com cooldown pra
+            # log no banco) — senão o sinaleiro pisca vermelho/verde no meio do risco.
+            # Cada câmera tem seu pipeline; o hardware_alert agrega todas num sinaleiro só.
+            hardware_alert.report_sector(
+                hardware_key,
+                epi_alert=bool(epi_incidents),
+                grave_alert=bool(queda_detectada or any(p.get("invadiu") for p in zona_pessoas)),
+                pessoa_presente=bool(ergo_pessoas) or bool(epi_dets),
+            )
+
             # 4. Verdict em tempo real (envia quando status/reasons mudam ou heartbeat a cada 1s)
             zona_em_risco = [p for p in zona_pessoas if p["invadiu"]]
             live_verdict  = _aggregate(epi_incidents, ergo_em_risco, zona_em_risco, epi_dets=epi_dets)
@@ -1459,6 +1482,8 @@ def _run_sector_pipeline(
                 lat_total_ms = (time.perf_counter() - t_start) * 1000
                 _send_metrics(lat_total_ms, 0.0, lat_pose_ms, pck_pose, conf_media_epi, setor=setor, camera_id=primary_camera_id, source=primary_source)
     finally:
+        # Não deixa flag velha desta câmera travando o sinaleiro fora do verde.
+        hardware_alert.remover_setor(hardware_key)
         incident_worker.stop()
 
 # ── Gerenciador de setores ─────────────────────────────────────────────────────

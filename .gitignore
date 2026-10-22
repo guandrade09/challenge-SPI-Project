@@ -48,3 +48,11 @@ tests/
 # Arquivos de contextos
 context/
 
+
+# Credenciais locais das tomadas Tuya (ver orquestrador/tuya_plugs.example.json)
+orquestrador/tuya_plugs.json
+# Resultado de "python -m tinytuya scan"
+snapshot.json
+devices.json
+tinytuya.json
+tuya-raw.json
