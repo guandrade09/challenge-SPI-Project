@@ -1091,7 +1091,7 @@ def _run_sector_pipeline(
     _last_verdict_t   = 0.0
     _last_metrics_t   = 0.0
 
-    _epi_state         = {"counter": 0, "observation": None, "running": False}
+    _epi_state         = {"counter": 0, "observation": None, "running": False, "lat_ms": 0.0}
     _epi_state_lateral = {"counter": 0, "observation": None, "running": False}
     _empty_pose_result = {"raw": None, "raw_frontal": None, "raw_lateral": None,
                           "lat_ms": 0.0, "pck": None, "views": {},
@@ -1170,7 +1170,9 @@ def _run_sector_pipeline(
                     def _epi_bg(snap=_frame_snap, sampled_at=_sampled_at):
                         try:
                             # o detector só segura o lock na inferência local (não durante o HTTP do Roboflow)
+                            _t_epi = time.perf_counter()
                             detections = epi_detector.run(snap, inference_lock)
+                            _epi_state["lat_ms"] = (time.perf_counter() - _t_epi) * 1000
                             _epi_state["observation"] = {
                                 "frame": snap, "detections": detections, "sampled_at": sampled_at,
                             }
@@ -1479,7 +1481,7 @@ def _run_sector_pipeline(
             if _now_t - _last_metrics_t >= 0.5:
                 _last_metrics_t = _now_t
                 lat_total_ms = (time.perf_counter() - t_start) * 1000
-                _send_metrics(lat_total_ms, 0.0, lat_pose_ms, pck_pose, conf_media_epi, setor=setor, camera_id=primary_camera_id, source=primary_source)
+                _send_metrics(lat_total_ms, _epi_state["lat_ms"], lat_pose_ms, pck_pose, conf_media_epi, setor=setor, camera_id=primary_camera_id, source=primary_source)
     finally:
         incident_worker.stop()
 
