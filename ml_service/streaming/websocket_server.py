@@ -222,9 +222,12 @@ def send_detections(detections: list, setor: str = "", source: str = "frontal", 
     _broadcast_threadsafe(msg)
 
 
-def send_pose(ergo_pessoas: list, source: str = "frontal", setor: str = "", camera_id=None):
+def send_pose(ergo_pessoas: list, source: str = "frontal", setor: str = "", camera_id=None,
+              captured_at: float | None = None):
+    """`captured_at` (time.time() do frame analisado) permite medir a idade da pose/REBA
+    quando chega no cliente."""
     msg = json.dumps({"type": "pose", "pessoas": ergo_pessoas, "source": source,
-                      "setor": setor, "camera_id": camera_id})
+                      "setor": setor, "camera_id": camera_id, "captured_at": captured_at})
     cache_key = f"pose:camera:{camera_id}" if camera_id is not None else f"{setor}:{source}"
     _pose_cache[cache_key] = msg
     _broadcast_threadsafe(msg)

@@ -1117,6 +1117,15 @@ def _run_sector_pipeline(
     last_sent_pose_result = None
     _verdict_cooldown = 0
 
+    def _send_pose_result(result, with_lateral):
+        captured_at = result.get("captured_at")
+        if has_frontal_cam:
+            send_pose(result["pessoas_frontal"], source="frontal", setor=setor, camera_id=primary_camera_id, captured_at=captured_at)
+            if with_lateral:
+                send_pose(result["pessoas_lateral"], source="lateral", setor=setor, camera_id=lateral_camera_id, captured_at=captured_at)
+        else:
+            send_pose(result["pessoas_frontal"], source=primary_source, setor=setor, camera_id=primary_camera_id, captured_at=captured_at)
+
     configured_zone_ids = [zone_id for zone_id in zone_camera_ids if zone_checker.get(zone_id)]
     print(f"[CAMERA] {primary_camera_id}: pipeline ativo | setor='{setor}' | "
           f"source={primary_source} | cameras_zona={zone_camera_ids} | "
@@ -1270,9 +1279,10 @@ def _run_sector_pipeline(
                     _snap_frontal  = frame.copy() if has_lateral else None
                     _dual          = has_lateral
                     _pose_sampled_at = datetime.now().isoformat()
+                    _pose_captured_at = time.time()
 
                     def _pose_bg(snap_pose=_snap_pose, snap_frontal=_snap_frontal, _has_lat=_dual,
-                                 sampled_at=_pose_sampled_at):
+                                 sampled_at=_pose_sampled_at, captured_at=_pose_captured_at):
                         try:
                             with inference_lock:
                                 raw_lat = pose_model(snap_pose, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
@@ -1307,10 +1317,16 @@ def _run_sector_pipeline(
                             result["raw"] = raw_lat
                             result["lat_ms"] = raw_lat[0].speed.get("inference", 0.0)
                             result["pck"] = _calc_pck(raw_lat)
+                            result["captured_at"] = captured_at
                             # Publica todas as vistas e seus snapshots juntas. O leitor nunca
                             # combina a pose frontal nova com a lateral do ciclo anterior.
+                            # Envia já daqui, sem esperar o próximo frame chegar no loop
+                            # (até ~100ms a mais de atraso no REBA com câmeras a ~10fps).
+                            # Marcado antes de publicar pro loop nunca reenviar o mesmo resultado.
+                            result["enviado"] = True
                             _pose_state["result"] = result
                             _publish_person_presence(primary_camera_id, result["raw_frontal"])
+                            _send_pose_result(result, _has_lat)
                         except Exception as e:
                             print(f"[POSE] {setor}: falha na inferência: {e}")
                         finally:
@@ -1440,14 +1456,12 @@ def _run_sector_pipeline(
                      for d in lateral_missing_epi],
                     setor=setor, source="lateral", camera_id=lateral_camera_id,
                 )
+            # Resultados da pose em background já saem de _pose_bg assim que ficam prontos;
+            # aqui só sobra o resultado vazio (pose desligada), pra limpar o esqueleto na tela.
             if pose_result is not last_sent_pose_result:
                 last_sent_pose_result = pose_result
-                if has_frontal_cam:
-                    send_pose(pose_result["pessoas_frontal"], source="frontal", setor=setor, camera_id=primary_camera_id)
-                    if has_lateral:
-                        send_pose(pose_result["pessoas_lateral"], source="lateral", setor=setor, camera_id=lateral_camera_id)
-                else:
-                    send_pose(pose_result["pessoas_frontal"], source=primary_source, setor=setor, camera_id=primary_camera_id)
+                if not pose_result.get("enviado"):
+                    _send_pose_result(pose_result, has_lateral)
 
             # 6. Incident confirmado → beep + banco
             print(
