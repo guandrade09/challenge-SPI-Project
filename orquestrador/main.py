@@ -1613,11 +1613,31 @@ def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: 
             continue
         desired = _camera_pipeline_entries(sectors)
 
+        aguardando_webcam = False
         with _active_sectors_lock:
+            # Encerra as câmeras removidas ANTES de abrir as novas (ver _usa_webcam_local).
+            for key in list(_active_sectors):
+                if key not in desired:
+                    existing = _active_sectors[key]
+                    if not existing["stop_event"].is_set():
+                        print(f"[CAMERA] {key}: removida do cadastro; encerrando somente esta câmera.")
+                    existing["stop_event"].set()
+                    if not existing["thread"].is_alive():
+                        del _active_sectors[key]
+            encerrando = any(
+                e["stop_event"].is_set() and e["thread"].is_alive() for e in _active_sectors.values()
+            )
+
             for key, (setor, cameras) in desired.items():
                 existing = _active_sectors.get(key)
                 signature = _camera_pipeline_signature(setor, cameras)
                 if existing is None:
+                    # Webcam USB só aceita uma captura por vez: abrir enquanto outro pipeline
+                    # ainda segura o dispositivo (ex.: o "default", que usa a webcam 0 quando
+                    # não há câmera cadastrada) derruba o processo inteiro no driver DSHOW.
+                    if encerrando and _usa_webcam_local(cameras):
+                        aguardando_webcam = True
+                        continue
                     _start_sector(setor, cameras, models, inference_lock, zone_checker)
                 elif existing["cam_ids"] != signature:
                     if not existing["stop_event"].is_set():
@@ -1629,16 +1649,17 @@ def _sector_manager(models: dict, inference_lock: threading.Lock, zone_checker: 
                     _start_sector(setor, cameras, models, inference_lock, zone_checker)
                 elif not existing["thread"].is_alive():
                     _start_sector(setor, cameras, models, inference_lock, zone_checker)
+        # Se uma webcam está esperando o pipeline antigo soltar o dispositivo, confere de
+        # novo em 1s em vez de esperar o ciclo inteiro de 30s.
+        time.sleep(1 if aguardando_webcam else SECTOR_CHECK_INTERVAL_S)
 
-            for key in list(_active_sectors):
-                if key not in desired:
-                    existing = _active_sectors[key]
-                    if not existing["stop_event"].is_set():
-                        print(f"[CAMERA] {key}: removida do cadastro; encerrando somente esta câmera.")
-                    existing["stop_event"].set()
-                    if not existing["thread"].is_alive():
-                        del _active_sectors[key]
-        time.sleep(SECTOR_CHECK_INTERVAL_S)
+
+def _usa_webcam_local(cameras: list[dict]) -> bool:
+    """True se o pipeline abre uma webcam local (streamUrl numérica). Sem câmera
+    cadastrada, o pipeline "default" usa CAMERA_SOURCE (webcam 0 por padrão)."""
+    if not cameras:
+        return True
+    return any(isinstance(_as_local_device(c.get("streamUrl")), int) for c in cameras)
 
 
 def _start_sector(setor: str, cameras: list[dict], models: dict, inference_lock: threading.Lock, zone_checker: ZoneChecker):
