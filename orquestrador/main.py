@@ -1583,6 +1583,7 @@ def _run_facial_sector(
     stop_event: threading.Event,
     recognizer: FaceRecognizer,
     registry:   FuncionarioFaceRegistry,
+    inference_lock: threading.Lock,
 ):
     cam_frontal = next((c for c in cameras if c.get("papel") == "frontal"), None)
     if cam_frontal is None and cameras:
@@ -1616,7 +1617,7 @@ def _run_facial_sector(
         # recalcular embeddings (leitura de foto + MTCNN/FaceNet na CPU não é instantâneo),
         # travando a transmissão — foi exatamente isso que causava a demora reportada.
         t0 = time.perf_counter()
-        matches = recognizer.identify(frame, registry.known_embeddings())
+        matches = recognizer.identify(frame, registry.known_embeddings(), inference_lock)
         perf_ms.append((time.perf_counter() - t0) * 1000)
         if len(perf_ms) >= 20:
             print(
@@ -1708,7 +1709,7 @@ _active_facial_sectors: dict[str, dict] = {}
 _active_facial_sectors_lock = threading.Lock()
 
 
-def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry):
+def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry, inference_lock: threading.Lock):
     """Uma thread facial por ID, reutilizando a captura da própria câmera."""
     while True:
         sectors = _resolve_sectors()
@@ -1719,13 +1720,13 @@ def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFace
                     existing = _active_facial_sectors.get(key)
                     signature = _camera_pipeline_signature(setor, cameras)
                     if existing is None:
-                        _start_facial_sector(setor, cameras, recognizer, registry)
+                        _start_facial_sector(setor, cameras, recognizer, registry, inference_lock)
                     elif existing["cam_ids"] != signature:
                         existing["stop_event"].set()
                         if not existing["thread"].is_alive():
-                            _start_facial_sector(setor, cameras, recognizer, registry)
+                            _start_facial_sector(setor, cameras, recognizer, registry, inference_lock)
                     elif not existing["thread"].is_alive():
-                        _start_facial_sector(setor, cameras, recognizer, registry)
+                        _start_facial_sector(setor, cameras, recognizer, registry, inference_lock)
 
                 for key in list(_active_facial_sectors):
                     if key not in desired:
@@ -1736,12 +1737,12 @@ def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFace
         time.sleep(SECTOR_CHECK_INTERVAL_S)
 
 
-def _start_facial_sector(setor: str, cameras: list[dict], recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry):
+def _start_facial_sector(setor: str, cameras: list[dict], recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry, inference_lock: threading.Lock):
     key = _camera_pipeline_key(setor, cameras)
     stop_event = threading.Event()
     thread = threading.Thread(
         target=_run_facial_sector,
-        args=(setor, cameras, stop_event, recognizer, registry),
+        args=(setor, cameras, stop_event, recognizer, registry, inference_lock),
         daemon=True, name=f"facial-{key}",
     )
     _active_facial_sectors[key] = {
@@ -1814,7 +1815,7 @@ def main():
         ).start()
         threading.Thread(
             target=_facial_sector_manager,
-            args=(face_recognizer, face_registry),
+            args=(face_recognizer, face_registry, inference_lock),
             daemon=True,
             name="facial-sector-manager",
         ).start()

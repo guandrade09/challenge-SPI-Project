@@ -91,7 +91,7 @@ class FaceRecognizer:
             embedding = self._resnet(face.unsqueeze(0).to(self.device))
         return embedding[0].cpu().numpy()
 
-    def identify(self, frame: np.ndarray, known: dict[int, dict]) -> list[FaceMatch]:
+    def identify(self, frame: np.ndarray, known: dict[int, dict], lock=None) -> list[FaceMatch]:
         """Detecta todos os rostos do frame e casa CADA UM independentemente com o
         funcionário cadastrado de embedding mais próximo. Só assume essa identidade se a
         distância for <= max_match_distance; caso contrário (ou se `known` estiver vazio)
@@ -100,7 +100,17 @@ class FaceRecognizer:
         único candidato disponível. `known`:
         {funcionario_id: {"nome": str, "embeddings": list[np.ndarray]}} — um funcionário
         pode ter até 3 fotos de referência, cada uma com seu embedding; casa contra a
-        MELHOR delas (menor distância)."""
+        MELHOR delas (menor distância).
+
+        `lock` (opcional): o mesmo lock de inferência do EPI/pose. MTCNN e FaceNet rodando
+        em paralelo com a pose disputam GPU e GIL e atrasam os dois — em fila, a pose caiu
+        de 65ms para 30ms em média (medido com o facial a cada 0.6s)."""
+        if lock is None:
+            return self._identify(frame, known)
+        with lock:
+            return self._identify(frame, known)
+
+    def _identify(self, frame: np.ndarray, known: dict[int, dict]) -> list[FaceMatch]:
         rgb = self._bgr_to_rgb(frame)
         height, width = rgb.shape[:2]
         scale = min(1.0, FACIAL_DETECT_WIDTH / width) if FACIAL_DETECT_WIDTH > 0 else 1.0
