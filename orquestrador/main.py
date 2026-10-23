@@ -101,6 +101,11 @@ FACIAL_IDLE_INTERVAL_S = float(os.environ.get("FACIAL_IDLE_INTERVAL_S", "3.0"))
 # o facial volta pro ritmo normal, como antes desta otimização.
 FACIAL_PRESENCE_MAX_AGE_S = 2.0
 
+# Frames por segundo enviados ao frontend (vídeo ao vivo). Era fixo em ~8fps (envio a cada
+# 0.1s); os frames são pequenos (640x360, ~15KB), então 15fps deixa o vídeo mais fluido
+# sem custo relevante de CPU/rede. Não afeta a taxa de inferência.
+STREAM_FPS = float(os.environ.get("STREAM_FPS", "15"))
+
 REBA_RISCO_MINIMO = 4
 POSE_CONF_MINIMO  = 0.5
 MODEL_IMGSZ       = 320
@@ -826,7 +831,7 @@ def _capture_loop(
             # Cada câmera publica por conta própria: uma frontal offline não pode
             # impedir o vídeo lateral nem a inferência atrasar a transmissão.
             now_frame = time.monotonic()
-            if now_frame - last_frame_sent_at >= 0.1:
+            if now_frame - last_frame_sent_at >= 1.0 / STREAM_FPS:
                 last_frame_sent_at = now_frame
                 if camera_id is not None:
                     _camera_frame_shapes[str(camera_id)] = (int(frame.shape[1]), int(frame.shape[0]))
