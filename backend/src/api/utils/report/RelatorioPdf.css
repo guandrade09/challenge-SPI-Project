@@ -1,0 +1,83 @@
+body {
+  font-family: Arial;
+  margin: 0;
+  background: #f4f6f9;
+}
+
+.container {
+  width: 1000px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+}
+
+.header-content {
+  background: linear-gradient(90deg, #0a3d62, #3c6382);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30px;
+  border-radius: 10px;
+}
+
+.header-text {
+  flex: 1;
+  color: white;
+}
+
+.logo-container {
+  width: 120px;  
+  display: flex;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
+.logo {
+  max-height: 100px; 
+  width: auto;
+  transform: scale(1.8);
+  object-fit: contain;
+  margin-left: 20px;
+}
+
+.section {
+  margin-top: 20px;
+}
+
+.section-title {
+  background: #3c6382;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.grid {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.card {
+  flex: 1;
+  background: #ecf0f1;
+  padding: 15px;
+  border-radius: 10px;
+}
+
+.charts-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+.chart-block {
+  width: 400px;
+}
+
+.chart-block canvas {
+  width: 100%;
+  height: auto ;
+}

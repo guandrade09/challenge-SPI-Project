@@ -1,0 +1,20 @@
+# Dependências (sempre ignore, o Docker deve instalar as dele)
+node_modules
+npm-debug.log
+
+# Build artifacts (pastas geradas pelo Vite/React)
+dist
+build
+
+# Controle de versão
+.git
+.gitignore
+
+# Sistema e IDE
+.DS_Store
+.vscode
+.idea
+
+# Logs e arquivos temporários
+*.log
+tmp

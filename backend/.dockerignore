@@ -1,0 +1,5 @@
+node_modules
+npm-debug.log
+# Ignora o banco local para não sobrescrever o do container por acidente
+src/api/config/database.sqlite
+.git
