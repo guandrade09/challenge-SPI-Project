@@ -6,7 +6,6 @@ import { cameraSocketManager } from '../../../services/websocket/CameraSocketMan
 import { RiskAreasOverlay } from './RiskAreasOverlay';
 import { normalizeRiskAreas, riskAreasFromZone } from '../../../utils/riskAreas';
 import { DetectionsOverlay } from "../components/DetectionsOverlay";
-import { FaceBoxesOverlay } from "../components/FaceBoxesOverlay";
 import { CameraControlButton } from './CameraControlButton';
 import { LiveVerdictBadge } from './LiveVerdictBadge';
 
@@ -179,7 +178,6 @@ export function CameraView({
         {isStreamActive && (
           <>
             {showDetections && <DetectionsOverlay cameraId={cameraId} setor={setor} source={source} />}
-            {showDetections && <FaceBoxesOverlay cameraId={cameraId} setor={setor} source={source} />}
             {showZones && <RiskAreasOverlay
               areas={riskAreas}
               frameWidth={useMockStream ? 1280 : (metaWidth || null)}
