@@ -5,17 +5,6 @@ import { useElementSize } from '../../../hooks/useElementSize';
 import { getCoverTransform, frameToContainer } from '../../../utils/coverTransform';
 import { formatLiveIncidentLabel } from '../../../utils/liveIncidentLabels';
 
-// Conexões do esqueleto COCO (pares de índices de keypoints)
-const SKELETON_CONNECTIONS = [
-  [0, 1], [0, 2], [1, 3], [2, 4],       // Cabeça
-  [5, 6],                               // Ombros
-  [5, 7], [7, 9],                       // Braço esquerdo
-  [6, 8], [8, 10],                      // Braço direito
-  [5, 11], [6, 12], [11, 12],           // Tronco
-  [11, 13], [13, 15],                   // Perna esquerda
-  [12, 14], [14, 16],                   // Perna direita
-];
-
 export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible = true }) {
   const rawDetections = useCameraStreamStore((s) => s.getDetections(cameraId, setor, source));
   const detections = useMemo(
@@ -64,31 +53,8 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
 
             return (
               <g key={`person-${pIdx}`}>
-                {/* Linhas do esqueleto */}
-                {SKELETON_CONNECTIONS.map(([i, j], lineIdx) => {
-                  const kp1 = keypoints[i];
-                  const kp2 = keypoints[j];
-                  if (!kp1 || !kp2 || (kp1[2] ?? kp1.conf ?? 1) < 0.3 || (kp2[2] ?? kp2.conf ?? 1) < 0.3) {
-                    return null;
-                  }
-                  const p1 = toContainer(kp1);
-                  const p2 = toContainer(kp2);
-                  return (
-                    <line
-                      key={`line-${pIdx}-${lineIdx}`}
-                      x1={p1.x}
-                      y1={p1.y}
-                      x2={p2.x}
-                      y2={p2.y}
-                      stroke={rebaColor}
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeOpacity="0.8"
-                    />
-                  );
-                })}
-
-                {/* Pontos das articulações */}
+                {/* Só os pontos das articulações, sem as linhas do esqueleto: deixa a
+                    imagem mais limpa. Sem as linhas, a cor do REBA vai no preenchimento. */}
                 {keypoints.map((kp, kpIdx) => {
                   if (!kp || (kp[2] ?? kp.conf ?? 1) < 0.3) return null;
                   const p = toContainer(kp);
@@ -97,9 +63,9 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                       key={`kp-${pIdx}-${kpIdx}`}
                       cx={p.x}
                       cy={p.y}
-                      r="3.5"
-                      fill="#ffffff"
-                      stroke={rebaColor}
+                      r="6"
+                      fill={rebaColor}
+                      stroke="#ffffff"
                       strokeWidth="1.5"
                     />
                   );
