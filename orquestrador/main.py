@@ -16,6 +16,7 @@ import asyncio
 import queue
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 import base64
 import json
 import math
@@ -1118,6 +1119,13 @@ def _run_sector_pipeline(
     )
     incident_worker.start()
 
+    # Threads fixas pra inferência em background, reaproveitadas a cada ciclo. Criar uma
+    # thread nova por chamada fazia o PyTorch recriar o estado de GPU (handles cuDNN/cuBLAS)
+    # toda vez: a pose ia de ~14ms para ~75ms só por isso (medido no RTX 2050).
+    _cam_key = primary_camera_id or setor
+    pose_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"pose-{_cam_key}")
+    epi_executor  = ThreadPoolExecutor(max_workers=2, thread_name_prefix=f"epi-{_cam_key}")
+
     try:
         while not stop_event.is_set():
             try:
@@ -1180,7 +1188,7 @@ def _run_sector_pipeline(
                             print(f"[EPI] {setor}: falha na inferência: {e}")
                         finally:
                             _epi_state["running"] = False
-                    threading.Thread(target=_epi_bg, daemon=True).start()
+                    epi_executor.submit(_epi_bg)
 
             else:
                 _epi_state["observation"] = None
@@ -1203,7 +1211,7 @@ def _run_sector_pipeline(
                                 print(f"[EPI] {setor}/lateral: falha na inferência: {e}")
                             finally:
                                 _epi_state_lateral["running"] = False
-                        threading.Thread(target=_epi_lat_bg, daemon=True).start()
+                        epi_executor.submit(_epi_lat_bg)
             else:
                 _epi_state_lateral["observation"] = None
 
@@ -1284,10 +1292,12 @@ def _run_sector_pipeline(
                             # combina a pose frontal nova com a lateral do ciclo anterior.
                             _pose_state["result"] = result
                             _publish_person_presence(primary_camera_id, result["raw_frontal"])
+                        except Exception as e:
+                            print(f"[POSE] {setor}: falha na inferência: {e}")
                         finally:
                             _pose_state["running"] = False
 
-                    threading.Thread(target=_pose_bg, daemon=True).start()
+                    pose_executor.submit(_pose_bg)
             else:
                 _pose_state.update({
                     "result": _empty_pose_result,
@@ -1484,6 +1494,8 @@ def _run_sector_pipeline(
                 _send_metrics(lat_total_ms, _epi_state["lat_ms"], lat_pose_ms, pck_pose, conf_media_epi, setor=setor, camera_id=primary_camera_id, source=primary_source)
     finally:
         incident_worker.stop()
+        pose_executor.shutdown(wait=False, cancel_futures=True)
+        epi_executor.shutdown(wait=False, cancel_futures=True)
 
 # ── Gerenciador de setores ─────────────────────────────────────────────────────
 _active_sectors: dict[str, dict] = {}
