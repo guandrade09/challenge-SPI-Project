@@ -214,10 +214,13 @@ def send_alert(label: str, confidence: float, timestamp: str, setor: str = "",
     _broadcast_threadsafe(msg)
 
 
-def send_detections(detections: list, setor: str = "", source: str = "frontal", camera_id=None):
+def send_detections(detections: list, setor: str = "", source: str = "frontal", camera_id=None,
+                    captured_at: float | None = None):
+    """`captured_at` (time.time() do frame analisado pelo EPI) permite ao frontend ancorar
+    as caixas na pose do mesmo instante e movê-las junto com a pessoa."""
     msg = json.dumps({
         "type": "detections", "data": detections, "setor": setor,
-        "source": source or "frontal", "camera_id": camera_id,
+        "source": source or "frontal", "camera_id": camera_id, "captured_at": captured_at,
     })
     _broadcast_threadsafe(msg)
 

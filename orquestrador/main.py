@@ -1205,7 +1205,8 @@ def _run_sector_pipeline(
                     _epi_state["running"]  = True
                     _frame_snap = frame.copy()
                     _sampled_at = datetime.now().isoformat()
-                    def _epi_bg(snap=_frame_snap, sampled_at=_sampled_at):
+                    _captured_at = time.time()
+                    def _epi_bg(snap=_frame_snap, sampled_at=_sampled_at, captured_at=_captured_at):
                         try:
                             # o detector só segura o lock na inferência local (não durante o HTTP do Roboflow)
                             _t_epi = time.perf_counter()
@@ -1213,6 +1214,7 @@ def _run_sector_pipeline(
                             _epi_state["lat_ms"] = (time.perf_counter() - _t_epi) * 1000
                             _epi_state["observation"] = {
                                 "frame": snap, "detections": detections, "sampled_at": sampled_at,
+                                "captured_at": captured_at,
                             }
                         except Exception as e:
                             print(f"[EPI] {setor}: falha na inferência: {e}")
@@ -1233,11 +1235,13 @@ def _run_sector_pipeline(
                         _epi_state_lateral["running"] = True
                         _frame_lat_snap = _last_lateral_frame["frame"].copy()
                         _sampled_at_lat = datetime.now().isoformat()
-                        def _epi_lat_bg(snap=_frame_lat_snap, sampled_at=_sampled_at_lat):
+                        _captured_at_lat = time.time()
+                        def _epi_lat_bg(snap=_frame_lat_snap, sampled_at=_sampled_at_lat, captured_at=_captured_at_lat):
                             try:
                                 detections = epi_detector.run(snap, inference_lock)
                                 _epi_state_lateral["observation"] = {
                                     "frame": snap, "detections": detections, "sampled_at": sampled_at,
+                                    "captured_at": captured_at,
                                 }
                             except Exception as e:
                                 print(f"[EPI] {setor}/lateral: falha na inferência: {e}")
@@ -1456,6 +1460,7 @@ def _run_sector_pipeline(
                   "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
                  for d in primary_missing_epi],
                 setor=setor, source=primary_source, camera_id=primary_camera_id,
+                captured_at=primary_epi_observation.get("captured_at") if primary_epi_observation else None,
             )
             if has_lateral:
                 if ORCH_DEBUG:
@@ -1465,6 +1470,7 @@ def _run_sector_pipeline(
                       "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
                      for d in lateral_missing_epi],
                     setor=setor, source="lateral", camera_id=lateral_camera_id,
+                    captured_at=lateral_epi_observation.get("captured_at") if lateral_epi_observation else None,
                 )
             # Resultados da pose em background já saem de _pose_bg assim que ficam prontos;
             # aqui só sobra o resultado vazio (pose desligada), pra limpar o esqueleto na tela.
