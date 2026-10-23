@@ -106,6 +106,14 @@ FACIAL_PRESENCE_MAX_AGE_S = 2.0
 # sem custo relevante de CPU/rede. Não afeta a taxa de inferência.
 STREAM_FPS = float(os.environ.get("STREAM_FPS", "15"))
 
+# Teto de inferências por segundo POR CÂMERA. Antes era "a cada N frames" (pose a cada 2,
+# EPI a cada 5): com câmeras a ~30fps isso dava ~15 poses/s por câmera, e com 3 câmeras
+# pose+EPI+facial passavam de 1s de GPU por segundo na fila do inference_lock — o EPI
+# esperava ~200ms na fila. Os debouncers contam por frame do loop usando o último
+# resultado, então reduzir a taxa de inferência não atrasa a confirmação dos alertas.
+POSE_MAX_HZ = float(os.environ.get("POSE_MAX_HZ", "8"))
+EPI_MAX_HZ  = float(os.environ.get("EPI_MAX_HZ", "4"))
+
 REBA_RISCO_MINIMO = 4
 POSE_CONF_MINIMO  = 0.5
 MODEL_IMGSZ       = 320
@@ -1175,7 +1183,9 @@ def _run_sector_pipeline(
             if _primary_prefixes != []:
                 # EPI na câmera frontal
                 _epi_state["counter"] += 1
-                if _epi_state["counter"] >= 5 and not _epi_state["running"]:
+                if (_epi_state["counter"] >= 5 and not _epi_state["running"]
+                        and time.monotonic() - _epi_state.get("started_at", 0.0) >= 1.0 / EPI_MAX_HZ):
+                    _epi_state["started_at"] = time.monotonic()
                     _epi_state["counter"]  = 0
                     _epi_state["running"]  = True
                     _frame_snap = frame.copy()
@@ -1201,7 +1211,9 @@ def _run_sector_pipeline(
             # EPI na câmera lateral (quando disponível) — configuração independente
             if has_lateral and _lateral_prefixes != []:
                     _epi_state_lateral["counter"] += 1
-                    if _epi_state_lateral["counter"] >= 5 and not _epi_state_lateral["running"]:
+                    if (_epi_state_lateral["counter"] >= 5 and not _epi_state_lateral["running"]
+                            and time.monotonic() - _epi_state_lateral.get("started_at", 0.0) >= 1.0 / EPI_MAX_HZ):
+                        _epi_state_lateral["started_at"] = time.monotonic()
                         _epi_state_lateral["counter"] = 0
                         _epi_state_lateral["running"] = True
                         _frame_lat_snap = _last_lateral_frame["frame"].copy()
@@ -1249,7 +1261,9 @@ def _run_sector_pipeline(
             zona_ativa_no_setor = any(zone_checker.get(zone_id) for zone_id in zone_camera_ids)
             if _ergonomia_ativa or zona_ativa_no_setor or queda_ativa:
                 _pose_state["counter"] += 1
-                if _pose_state["counter"] >= 2 and not _pose_state["running"]:
+                if (_pose_state["counter"] >= 2 and not _pose_state["running"]
+                        and time.monotonic() - _pose_state.get("started_at", 0.0) >= 1.0 / POSE_MAX_HZ):
+                    _pose_state["started_at"] = time.monotonic()
                     _pose_state["counter"] = 0
                     _pose_state["running"] = True
                     _snap_pose     = frame_pose.copy()
