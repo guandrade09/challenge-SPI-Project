@@ -13,6 +13,8 @@ Este documento descreve o que foi adicionado ou alterado nesta rodada de mudanç
 
 ## 1. Sinaleiro físico e tomada Tuya
 
+> **Atualização (23/10/2026): a tomada Tuya Wi-Fi foi substituída por uma tomada Zigbee** por causa da latência. O orquestrador não controla mais a tomada: o firmware do ESP32 do sinaleiro avisa um ESP32-C6 via ESP-NOW, e o C6 liga/desliga a tomada via Zigbee. A regra também mudou: **vermelho e laranja desligam** a tomada, **verde liga**, amarelo não altera. Foram removidos do orquestrador o `tinytuya`, o `tuya_plugs.json` e as variáveis `PLUG_ATIVA`, `PLUG_IP` e `TUYA_PLUGS_FILE`. As partes deste documento sobre a Tuya ficam só como histórico.
+
 **Arquivo novo:** [`orquestrador/hardware_alert.py`](../orquestrador/hardware_alert.py)
 
 O módulo é portado da Fase 03 e adaptado ao orquestrador atual. Cada câmera roda o seu pipeline, e todas compartilham o mesmo hardware físico.

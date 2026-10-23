@@ -1407,8 +1407,9 @@ def _run_sector_pipeline(
 
             zona_confirmed = bool(zona_confirmadas)
 
-            # Sinaleiro físico (ESP32) + tomada Tuya — ver orquestrador/hardware_alert.py.
-            # Queda/zona é "grave" (desliga a tomada); EPI ausente só alerta (laranja + buzzer).
+            # Sinaleiro físico (ESP32) — ver orquestrador/hardware_alert.py.
+            # Queda/zona é "grave" (vermelho); EPI ausente é laranja. Os dois tocam o buzzer
+            # e desligam a tomada (quem corta a tomada é o firmware do ESP32, via ESP32-C6/Zigbee).
             # Usa o risco AO VIVO do frame, não os *_confirmed (debounce com cooldown pra
             # log no banco) — senão o sinaleiro pisca vermelho/verde no meio do risco.
             # Cada câmera tem seu pipeline; o hardware_alert agrega todas num sinaleiro só.
