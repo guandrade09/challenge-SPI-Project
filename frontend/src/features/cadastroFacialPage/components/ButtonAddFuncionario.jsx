@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Loader2, X, ScanFace, ImagePlus } from 'lucide-react';
+import { Plus, Loader2, X, ScanFace, ImagePlus, Camera } from 'lucide-react';
 import { PopupModal, IconButtonModal } from '../../../components/shared';
+import { WebcamCapture } from './WebcamCapture';
 
 const MAX_FOTOS = 3; // espelha backend/src/api/models/funcionario.model.js (MAX_FOTOS_FUNCIONARIO)
 
@@ -27,6 +28,7 @@ export function ButtonAddFuncionario({
   const [cargo, setCargo] = useState('');
   const [fotos, setFotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleClose = () => {
@@ -37,6 +39,7 @@ export function ButtonAddFuncionario({
     setSetor('');
     setCargo('');
     setFotos([]);
+    setShowCamera(false);
   };
 
   const handleOpen = (e) => {
@@ -54,6 +57,10 @@ export function ButtonAddFuncionario({
 
   const handleRemoveFoto = (idx) => {
     setFotos((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleCapture = (dataUrl) => {
+    setFotos((prev) => [...prev, dataUrl].slice(0, MAX_FOTOS));
   };
 
   const handleSubmit = async (e) => {
@@ -121,12 +128,32 @@ export function ButtonAddFuncionario({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isSubmitting}
+                  title="Escolher foto do computador"
                   className="w-20 h-20 rounded-lg border-2 border-dashed border-theme-divider flex items-center justify-center overflow-hidden bg-[var(--p-bg)] hover:border-[var(--p-subtext)] transition-colors disabled:opacity-50 shrink-0"
                 >
                   <ImagePlus size={20} className="text-theme-muted" />
                 </button>
               )}
+              {fotos.length < MAX_FOTOS && !showCamera && (
+                <button
+                  type="button"
+                  onClick={() => setShowCamera(true)}
+                  disabled={isSubmitting}
+                  title="Tirar foto com a câmera do computador"
+                  className="w-20 h-20 rounded-lg border-2 border-dashed border-theme-divider flex items-center justify-center overflow-hidden bg-[var(--p-bg)] hover:border-[var(--p-subtext)] transition-colors disabled:opacity-50 shrink-0"
+                >
+                  <Camera size={20} className="text-theme-muted" />
+                </button>
+              )}
             </div>
+            {showCamera && (
+              <WebcamCapture
+                remaining={MAX_FOTOS - fotos.length}
+                disabled={isSubmitting}
+                onCapture={handleCapture}
+                onClose={() => setShowCamera(false)}
+              />
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -137,7 +164,7 @@ export function ButtonAddFuncionario({
               className="hidden"
             />
             <span className="text-theme-muted text-[10px] font-theme-body">
-              {fotos.length}/{MAX_FOTOS} fotos — rosto de frente, bem iluminado. Mais fotos (ângulos/luz diferentes) melhoram a precisão.
+              {fotos.length}/{MAX_FOTOS} fotos (arquivo ou câmera) — rosto de frente, bem iluminado. Mais fotos (ângulos/luz diferentes) melhoram a precisão.
             </span>
           </div>
 

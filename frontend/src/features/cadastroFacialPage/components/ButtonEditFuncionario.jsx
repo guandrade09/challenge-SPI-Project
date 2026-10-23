@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pencil, Loader2, X, Save, ImagePlus } from 'lucide-react';
+import { Pencil, Loader2, X, Save, ImagePlus, Camera } from 'lucide-react';
 import { PopupModal, IconButtonModal } from '../../../components/shared';
+import { WebcamCapture } from './WebcamCapture';
 import { streamService } from '../../../services/streamService';
 
 const MAX_FOTOS = 3; // espelha backend/src/api/models/funcionario.model.js (MAX_FOTOS_FUNCIONARIO)
@@ -26,6 +27,7 @@ export function ButtonEditFuncionario({ funcionario, theme = "dynamic", onEditFu
   const [cargo, setCargo] = useState('');
   const [fotos, setFotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -40,6 +42,7 @@ export function ButtonEditFuncionario({ funcionario, theme = "dynamic", onEditFu
   const handleClose = () => {
     if (isSubmitting) return;
     setIsOpen(false);
+    setShowCamera(false);
   };
 
   const handleOpen = (e) => {
@@ -59,6 +62,10 @@ export function ButtonEditFuncionario({ funcionario, theme = "dynamic", onEditFu
     setFotos((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const handleCapture = (dataUrl) => {
+    setFotos((prev) => [...prev, dataUrl].slice(0, MAX_FOTOS));
+  };
+
   // Caminho salvo no disco → URL servível; data URL base64 (foto nova) já é exibível direto.
   const previewSrcFor = (foto) => (foto.startsWith('data:') ? foto : streamService.imagePathToUrl(foto));
 
@@ -76,6 +83,7 @@ export function ButtonEditFuncionario({ funcionario, theme = "dynamic", onEditFu
         fotos,
       });
       setIsOpen(false);
+      setShowCamera(false);
     } catch (err) {
       console.error("Erro ao atualizar funcionário:", err);
     } finally {
@@ -125,12 +133,32 @@ export function ButtonEditFuncionario({ funcionario, theme = "dynamic", onEditFu
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isSubmitting}
+                  title="Escolher foto do computador"
                   className="w-20 h-20 rounded-lg border-2 border-dashed border-theme-divider flex items-center justify-center overflow-hidden bg-[var(--p-bg)] hover:border-[var(--p-subtext)] transition-colors disabled:opacity-50 shrink-0"
                 >
                   <ImagePlus size={20} className="text-theme-muted" />
                 </button>
               )}
+              {fotos.length < MAX_FOTOS && !showCamera && (
+                <button
+                  type="button"
+                  onClick={() => setShowCamera(true)}
+                  disabled={isSubmitting}
+                  title="Tirar foto com a câmera do computador"
+                  className="w-20 h-20 rounded-lg border-2 border-dashed border-theme-divider flex items-center justify-center overflow-hidden bg-[var(--p-bg)] hover:border-[var(--p-subtext)] transition-colors disabled:opacity-50 shrink-0"
+                >
+                  <Camera size={20} className="text-theme-muted" />
+                </button>
+              )}
             </div>
+            {showCamera && (
+              <WebcamCapture
+                remaining={MAX_FOTOS - fotos.length}
+                disabled={isSubmitting}
+                onCapture={handleCapture}
+                onClose={() => setShowCamera(false)}
+              />
+            )}
             <input
               ref={fileInputRef}
               type="file"
