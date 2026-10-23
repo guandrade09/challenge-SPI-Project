@@ -233,6 +233,12 @@ def send_pose(ergo_pessoas: list, source: str = "frontal", setor: str = "", came
     _broadcast_threadsafe(msg)
 
 
+def send_gpu_queue_stats(stats: dict, window_s: float):
+    """Resumo da fila de inferência da GPU (ver orquestrador/inference_lock.py). O frontend
+    ignora este tipo; serve pra medir quem segura a GPU e quanto cada tarefa espera."""
+    _broadcast_threadsafe(json.dumps({"type": "gpu_fila", "janela_s": window_s, "tarefas": stats}))
+
+
 def send_faces(faces: list, setor: str = "", source: str = "facial", camera_id=None,
                frame_width: int | None = None, frame_height: int | None = None):
     """Envia as caixas + nomes do reconhecimento facial (ver ml_facial/face_recognizer.py).

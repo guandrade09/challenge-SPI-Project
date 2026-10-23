@@ -38,6 +38,7 @@ _ORCH_CORES = cpu_affinity.apply()
 cv2.setNumThreads(len(_ORCH_CORES))
 
 from thread_metrics import ml_thread_metrics_service
+from inference_lock import InstrumentedLock
 from incident_tracking import build_incident_tracking, synchronize_incident_view
 from incident_worker import IncidentEvidenceWorker
 
@@ -46,7 +47,7 @@ from ml_service.inference.detector import EPIDetector, IncidentDebouncer
 from ml_service.inference.model_loader import load_yolo_with_engine_fallback
 from ml_service.streaming.websocket_server import (
     send_tagged_frame, send_alert, send_pose, send_detections, send_zone,
-    send_verdict, send_metrics, send_queda, send_stream_status, send_faces,
+    send_verdict, send_metrics, send_queda, send_stream_status, send_faces, send_gpu_queue_stats,
     set_message_handler, start_server_in_thread,
 )
 import ml_service.streaming.websocket_server as _ws
@@ -1839,9 +1840,15 @@ def main():
         "pose_model":    pose_model,
         "pose_analyzer": pose_analyzer,
     }
-    inference_lock = threading.Lock()
+    inference_lock = InstrumentedLock()
+
+    def _gpu_queue_stats_worker(window_s: float = 5.0):
+        while True:
+            time.sleep(window_s)
+            send_gpu_queue_stats(inference_lock.snapshot_and_reset(window_s), window_s)
 
     threading.Thread(target=_post_worker, daemon=True).start()
+    threading.Thread(target=_gpu_queue_stats_worker, daemon=True, name="gpu-queue-stats").start()
     ml_thread_metrics_service.start()
 
     # Reconhecimento facial é opcional: se torch/facenet-pytorch não estiverem instalados
