@@ -10,3 +10,6 @@ psutil>=5.9.0
 # (ver ml_service/inference/pyav_camera.py e vlc_camera.py — ambos desativados hoje;
 # ml_service/inference/camera.py usa OpenCV/FFmpeg direto para RTSP/HTTP/webcam).
 av>=11.0.0
+# EPI local (EPI_MODE=local): roda o modelo do Roboflow em ONNX na GPU. A 1.22 é a build
+# para CUDA 12 (a mesma do torch cu124) — versões mais novas pedem CUDA 13 e caem pra CPU.
+onnxruntime-gpu==1.22.0
