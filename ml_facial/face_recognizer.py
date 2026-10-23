@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from contextlib import nullcontext
 
 import cv2
 import numpy as np
@@ -104,13 +105,10 @@ class FaceRecognizer:
 
         `lock` (opcional): o mesmo lock de inferência do EPI/pose. MTCNN e FaceNet rodando
         em paralelo com a pose disputam GPU e GIL e atrasam os dois — em fila, a pose caiu
-        de 65ms para 30ms em média (medido com o facial a cada 0.6s)."""
-        if lock is None:
-            return self._identify(frame, known)
-        with lock:
-            return self._identify(frame, known)
-
-    def _identify(self, frame: np.ndarray, known: dict[int, dict]) -> list[FaceMatch]:
+        de 65ms para 30ms em média (medido com o facial a cada 0.6s). O lock é pego duas
+        vezes, só nas etapas de GPU (detecção ~100ms, embedding ~20–50ms), e o recorte e a
+        comparação ficam fora: um bloco único de ~150ms fazia a pose esperar demais."""
+        gpu = lock if lock is not None else nullcontext()
         rgb = self._bgr_to_rgb(frame)
         height, width = rgb.shape[:2]
         scale = min(1.0, FACIAL_DETECT_WIDTH / width) if FACIAL_DETECT_WIDTH > 0 else 1.0
@@ -118,7 +116,8 @@ class FaceRecognizer:
             small = cv2.resize(rgb, (int(width * scale), int(height * scale)), interpolation=cv2.INTER_AREA)
         else:
             small = rgb
-        boxes, probs = self._mtcnn.detect(small)
+        with gpu:
+            boxes, probs = self._mtcnn.detect(small)
         if boxes is None:
             return []
 
@@ -134,7 +133,7 @@ class FaceRecognizer:
         if faces is None:
             return []
 
-        with self._torch.no_grad():
+        with gpu, self._torch.no_grad():
             embeddings = self._resnet(faces.to(self.device)).cpu().numpy()
 
         matches: list[FaceMatch] = []
