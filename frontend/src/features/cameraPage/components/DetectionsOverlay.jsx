@@ -58,15 +58,12 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                 ? '#f59e0b' // amarelo
                 : '#10b981'; // verde
 
-            // Cabeça/nariz (kp 0) para ancorar o badge de REBA
+            // Cabeça/nariz (kp 0) para ancorar a etiqueta com o nome. O REBA de cada pessoa
+            // fica na caixa de baixo do vídeo (LiveVerdictBadge), não aqui.
             const headKp = keypoints[0];
             const pessoaFace = nomesPorPessoa[pIdx];
             const nomeTag = pessoaFace ? (pessoaFace.reconhecido ? pessoaFace.nome : 'Desconhecido') : null;
-            const rebaTag = pessoa.queda
-              ? 'Queda'
-              : formatLiveIncidentLabel(`reba_${pessoa.reba_level || 'baixo'}_${pessoa.reba_score ?? 1}`);
-            const tagText = nomeTag ? `${nomeTag} · ${rebaTag}` : rebaTag;
-            const tagWidth = Math.max(90, tagText.length * TAG_CHAR_W + 16);
+            const tagWidth = nomeTag ? Math.max(50, nomeTag.length * TAG_CHAR_W + 16) : 0;
             // Etiqueta acima do topo da cabeça, não na testa: sobe proporcional ao tamanho da
             // cabeça na tela (distância entre as orelhas, ou entre os olhos x2), para ficar
             // certa com a pessoa perto ou longe da câmera.
@@ -100,8 +97,8 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                   );
                 })}
 
-                {/* Tag de REBA sobre a cabeça */}
-                {headKp && (headKp[2] ?? headKp.conf ?? 1) >= 0.3 && (
+                {/* Nome (reconhecimento facial) acima da cabeça */}
+                {nomeTag && headKp && (headKp[2] ?? headKp.conf ?? 1) >= 0.3 && (
                   <g transform={`translate(${toContainer(headKp).x}, ${Math.max(20, toContainer(headKp).y - tagOffsetY)})`}>
                     <rect
                       x={-tagWidth / 2}
@@ -117,15 +114,12 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                       x="0"
                       y="-3"
                       textAnchor="middle"
-                      fill="#ffffff"
+                      fill={pessoaFace.reconhecido ? '#34d399' : '#fbbf24'}
                       fontSize="9"
                       fontFamily="monospace"
                       fontWeight="bold"
                     >
-                      {nomeTag && (
-                        <tspan fill={pessoaFace.reconhecido ? '#34d399' : '#fbbf24'}>{`${nomeTag} · `}</tspan>
-                      )}
-                      <tspan>{rebaTag}</tspan>
+                      {nomeTag}
                     </text>
                   </g>
                 )}

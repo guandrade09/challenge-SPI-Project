@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Maximize2, Minimize2, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, Square, RefreshCw, Target } from 'lucide-react';
 import { useCameraPresetsStore } from '../../../store/useCameraPresetsStore';
 import { makeStreamKey, useCameraStreamStore } from '../../../store/useCameraStreamStore';
@@ -58,6 +58,16 @@ export function CameraView({
 
   const frameUrl  = useCameraStreamStore((s) => s.getFrame(cameraId, setor, source));
   const verdict = useCameraStreamStore((s) => s.getVerdict(cameraId, setor, source));
+  // REBA de cada pessoa (com o nome do reconhecimento facial, quando houver) para a caixa
+  // de baixo do vídeo; acima da cabeça fica só o nome (DetectionsOverlay).
+  const poseData = useCameraStreamStore((s) => s.getPose(cameraId, setor, source));
+  const nomesPorPessoa = useCameraStreamStore((s) => s.faceIdentity[makeStreamKey(cameraId, setor, source)]?.byPose);
+  const rebaPessoas = useMemo(() => poseData.map((pessoa, i) => ({
+    nome: nomesPorPessoa?.[i]?.reconhecido ? nomesPorPessoa[i].nome : null,
+    nivel: pessoa.reba_level,
+    score: pessoa.reba_score,
+    queda: Boolean(pessoa.queda),
+  })), [poseData, nomesPorPessoa]);
   const wsConnected = useCameraStreamStore((s) => s.connected);
   const streamStatus = useCameraStreamStore((s) => s.streamStatus[streamKey]);
   // resolução real do frame (vem no cabeçalho de cada frame) — necessária para mapear a
@@ -187,7 +197,7 @@ export function CameraView({
         )}
 
         {isStreamActive && showDetections && verdict && <div className="absolute bottom-3 left-3 right-14 z-30 pointer-events-auto">
-          <LiveVerdictBadge verdict={verdict} />
+          <LiveVerdictBadge verdict={verdict} rebaPessoas={rebaPessoas} />
         </div>}
 
         {!isStreamActive && (
