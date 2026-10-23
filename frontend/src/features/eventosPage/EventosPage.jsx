@@ -34,30 +34,8 @@ export function EventosPage() {
   
   const eventsRef = useRef([]);
   const validationOverridesRef = useRef(new Map());
-  const contentRef = useRef(null);
   const fetchVersionRef = useRef(0);
   const hasLoadedRef = useRef(false);
-
-  useEffect(() => {
-    const element = contentRef.current;
-    if (!element) return;
-    let frame;
-    const measure = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const documentTop = element.getBoundingClientRect().top + window.scrollY;
-        const height = `${Math.max(320, window.innerHeight - documentTop - 24)}px`;
-        if (element.style.getPropertyValue('--events-content-height') !== height) {
-          element.style.setProperty('--events-content-height', height);
-        }
-      });
-    };
-    const observer = new ResizeObserver(measure);
-    observer.observe(element.parentElement);
-    window.addEventListener('resize', measure);
-    measure();
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', measure); };
-  }, [isLoading]);
 
   const fetchEvents = useCallback(async () => {
     const version = ++fetchVersionRef.current;
@@ -188,14 +166,14 @@ export function EventosPage() {
       </section>
 
       {/* 3. CONTEÚDO PRINCIPAL */}
-      <main ref={contentRef} data-testid="events-content" className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-6 lg:min-h-0 lg:h-[var(--events-content-height)]">
+      <main data-testid="events-content" className="grid min-w-0 grid-cols-1 lg:grid-cols-3 items-start gap-6">
         <EventsTable
           events={events}
           selectedEventId={selectedEvent?.id}
           onSelectEvent={setSelectedEventId}
         />
 
-        <section className="flex min-w-0 flex-col gap-6 [&>*]:shrink-0 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain custom-scrollbar">
+        <section aria-label="Detalhes e validação de eventos" className="flex min-w-0 flex-col gap-6">
 
           <EventDetailsCard event={selectedEvent} onValidate={setValidationEvent} onDelete={(event) => {
             setDeleteError('');

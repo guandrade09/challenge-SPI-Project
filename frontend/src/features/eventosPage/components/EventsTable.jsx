@@ -179,7 +179,7 @@ export function EventsTable({ events, selectedEventId, onSelectEvent }) {
   }, [filters]);
 
   return (
-    <Card className="lg:col-span-2 min-w-0 min-h-80 h-[65dvh] lg:h-full lg:min-h-0 shadow-md flex flex-col">
+    <Card className="lg:col-span-2 min-w-0 min-h-80 h-[65dvh] shadow-md flex flex-col">
       <div className="flex min-h-0 min-w-0 flex-col flex-1">
         {/* HEADER UNIFICADO EM UMA FILEIRA (ESQUERDA: FILTROS / DIREITA: PAGINAÇÃO E ABAS) */}
         <CardHeader className="flex flex-wrap items-center justify-between gap-3 py-2.5 px-4 border-b border-theme-divider">
