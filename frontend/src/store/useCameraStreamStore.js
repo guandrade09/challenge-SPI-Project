@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { useSystemConfigStore } from './useSystemConfigStore.js';
 import { FACE_TRACK_TTL_MS, headPoint, updateFaceTracks } from '../utils/faceIdentity.js';
+import { POSE_HISTORY_MS, buildEpiTracks, placeEpiTracks } from '../utils/epiAnchor.js';
 
 const EMPTY_ARRAY = Object.freeze([]);
 
@@ -56,6 +57,10 @@ export const useCameraStreamStore = create((set, get) => ({
   faces: {},
   faceIdentity: {},
   pose: {},
+  // Poses do último ~1,5s por câmera ({capturedAt, pessoas}) e caixas de EPI ancoradas
+  // nelas (ver utils/epiAnchor.js).
+  poseHistory: {},
+  epiAnchored: {},
   verdict: {},
   metrics: {},
   alertas: {},
@@ -88,12 +93,22 @@ export const useCameraStreamStore = create((set, get) => ({
     return { frames, frameMeta };
   }),
   clearFrames: () => set({ frames: {}, frameMeta: {} }),
-  setDetections: (cameraId, setor, source, data) => set((state) => ({
-    detections: {
-      ...state.detections,
-      [makeStreamKey(cameraId, setor, source)]: data,
-    },
-  })),
+  // `capturedAt` (s): instante do frame analisado pelo EPI. A mesma análise é reenviada a
+  // cada frame pelo orquestrador; só uma análise nova recria a ancoragem na pose.
+  setDetections: (cameraId, setor, source, data, capturedAt = null) => set((state) => {
+    const key = makeStreamKey(cameraId, setor, source);
+    const detections = { ...state.detections, [key]: data };
+    const prev = state.epiAnchored[key];
+    if (!capturedAt) {
+      if (!prev) return { detections };
+      const epiAnchored = { ...state.epiAnchored };
+      delete epiAnchored[key];
+      return { detections, epiAnchored };
+    }
+    if (prev && prev.capturedAt === capturedAt && prev.tracks.length === data.length) return { detections };
+    const { tracks, boxes } = buildEpiTracks(data, capturedAt, state.poseHistory[key] || EMPTY_ARRAY);
+    return { detections, epiAnchored: { ...state.epiAnchored, [key]: { capturedAt, tracks, boxes } } };
+  }),
   // `meta.frameWidth`/`frameHeight` são as dimensões do frame em que as caixas foram
   // calculadas (o reconhecimento reutiliza frames da câmera numa análise separada)
   // para o overlay ajustar a escala na imagem exibida. `receivedAt` permite descartar
@@ -110,12 +125,25 @@ export const useCameraStreamStore = create((set, get) => ({
     const faceIdentity = { ...state.faceIdentity, [key]: computeFaceIdentity({ ...state, faces }, key, true) };
     return { faces, faceIdentity };
   }),
-  setPose: (setor, source, pessoas, cameraId = null) => set((state) => {
+  setPose: (setor, source, pessoas, cameraId = null, capturedAt = null) => set((state) => {
     const key = makeStreamKey(cameraId, setor, source);
     const pose = { ...state.pose, [key]: pessoas };
-    if (!state.faces[key] && !state.faceIdentity[key]) return { pose };
-    const faceIdentity = { ...state.faceIdentity, [key]: computeFaceIdentity({ ...state, pose }, key, false) };
-    return { pose, faceIdentity };
+    const updates = { pose };
+    if (capturedAt) {
+      const history = (state.poseHistory[key] || EMPTY_ARRAY).filter(
+        (h) => h.capturedAt !== capturedAt && capturedAt - h.capturedAt <= POSE_HISTORY_MS / 1000
+      );
+      updates.poseHistory = { ...state.poseHistory, [key]: [...history, { capturedAt, pessoas }] };
+    }
+    const epi = state.epiAnchored[key];
+    if (epi && epi.tracks.length) {
+      const { tracks, boxes } = placeEpiTracks(epi.tracks, pessoas);
+      updates.epiAnchored = { ...state.epiAnchored, [key]: { ...epi, tracks, boxes } };
+    }
+    if (state.faces[key] || state.faceIdentity[key]) {
+      updates.faceIdentity = { ...state.faceIdentity, [key]: computeFaceIdentity({ ...state, pose }, key, false) };
+    }
+    return updates;
   }),
   setVerdict: (setor, verdict) => set((state) => ({
     verdict: { ...state.verdict, [verdict.camera_id != null || verdict.source

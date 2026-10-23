@@ -11,9 +11,12 @@ const TAG_CHAR_W = 5.6;
 
 export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible = true }) {
   const rawDetections = useCameraStreamStore((s) => s.getDetections(cameraId, setor, source));
+  // Caixas de EPI ancoradas na pose (andam junto com a pessoa, ver utils/epiAnchor.js);
+  // sem ancoragem disponível, usa as caixas como o EPI viu.
+  const anchoredDetections = useCameraStreamStore((s) => s.epiAnchored[makeStreamKey(cameraId, setor, source)]?.boxes);
   const detections = useMemo(
-    () => rawDetections.filter(isMissingEpiDetection),
-    [rawDetections]
+    () => (anchoredDetections ?? rawDetections).filter(isMissingEpiDetection),
+    [anchoredDetections, rawDetections]
   );
   const poseData = useCameraStreamStore((s) => s.getPose(cameraId, setor, source));
   // seletores primitivos: o objeto de meta é recriado a cada frame e re-renderizaria sempre
