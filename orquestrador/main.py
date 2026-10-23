@@ -92,7 +92,13 @@ COOLDOWN_FACIAL = 90
 # _resolve_pessoa_label e a posição real das pessoas no momento em que um incidente de
 # EPI é confirmado (pipelines independentes, cada um amostra o mundo no seu próprio
 # ritmo) — com pessoas em movimento, isso é o que faz a caixa "PESSOA" errar o rosto.
-FACIAL_PROCESS_INTERVAL_S = 0.6
+FACIAL_PROCESS_INTERVAL_S = float(os.environ.get("FACIAL_INTERVAL_S", "0.6"))
+# Quando a pose não vê ninguém na câmera frontal, o facial roda neste ritmo mais lento em
+# vez de parar de vez — a pose pode não pegar alguém muito perto da câmera (só o rosto).
+FACIAL_IDLE_INTERVAL_S = float(os.environ.get("FACIAL_IDLE_INTERVAL_S", "3.0"))
+# Leitura de presença da pose mais velha que isso é ignorada (pose desligada/atrasada) →
+# o facial volta pro ritmo normal, como antes desta otimização.
+FACIAL_PRESENCE_MAX_AGE_S = 2.0
 
 REBA_RISCO_MINIMO = 4
 POSE_CONF_MINIMO  = 0.5
@@ -436,6 +442,21 @@ _latest_frontal_frames_lock = threading.Lock()
 # pelo nome do funcionário reconhecido ao montar o incidente (ver _resolve_pessoa_label).
 _latest_face_matches: dict[object, list[dict]] = {}
 _latest_face_matches_lock = threading.Lock()
+
+# Última vez (time.monotonic) e quantas pessoas a pose viu na câmera frontal, por camera_id.
+# O facial usa isso pra desacelerar quando a câmera está vazia (ver _run_facial_sector).
+_latest_person_presence: dict[object, tuple[float, int]] = {}
+_latest_person_presence_lock = threading.Lock()
+
+
+def _publish_person_presence(camera_id, raw_results) -> None:
+    try:
+        boxes = raw_results[0].boxes if raw_results else None
+        count = len(boxes) if boxes is not None else 0
+    except Exception:
+        return
+    with _latest_person_presence_lock:
+        _latest_person_presence[camera_id] = (time.monotonic(), count)
 
 
 def _resolve_pessoa_label(detection, camera_id) -> str:
@@ -1260,6 +1281,7 @@ def _run_sector_pipeline(
                             # Publica todas as vistas e seus snapshots juntas. O leitor nunca
                             # combina a pose frontal nova com a lateral do ciclo anterior.
                             _pose_state["result"] = result
+                            _publish_person_presence(primary_camera_id, result["raw_frontal"])
                         finally:
                             _pose_state["running"] = False
 
@@ -1638,7 +1660,20 @@ def _run_facial_sector(
             _facial_post_queue.put(payload)
             print(f"[FACIAL] '{match.nome}' reconhecido em '{setor}' (confiança {match.confidence:.2f}).")
 
-        time.sleep(FACIAL_PROCESS_INTERVAL_S)
+        # Câmera vazia segundo a pose (leitura recente com 0 pessoas) e nenhum rosto agora →
+        # ritmo lento. Sem leitura recente da pose (desligada/atrasada), mantém o ritmo normal.
+        with _latest_person_presence_lock:
+            presence = _latest_person_presence.get(camera_id)
+        camera_vazia = (
+            not matches
+            and presence is not None
+            and time.monotonic() - presence[0] <= FACIAL_PRESENCE_MAX_AGE_S
+            and presence[1] == 0
+        )
+        if camera_vazia:
+            stop_event.wait(FACIAL_IDLE_INTERVAL_S)
+        else:
+            stop_event.wait(FACIAL_PROCESS_INTERVAL_S)
 
     print(f"[FACIAL] setor '{setor}': encerrado.")
 
