@@ -1597,6 +1597,9 @@ def _run_facial_sector(
     debouncers: dict[object, SimpleDebouncer] = {}
     print(f"[FACIAL] setor '{setor}': reconhecimento facial ativo (câmera {camera_id}).")
 
+    perf_ms: list[float] = []
+    perf_idle_cycles = 0
+
     while not stop_event.is_set():
         with _latest_frontal_frames_lock:
             frame = _latest_frontal_frames.get(camera_id)
@@ -1610,7 +1613,16 @@ def _run_facial_sector(
         # atualiza a caixa+nome ao vivo) por vários segundos toda vez que precisasse
         # recalcular embeddings (leitura de foto + MTCNN/FaceNet na CPU não é instantâneo),
         # travando a transmissão — foi exatamente isso que causava a demora reportada.
+        t0 = time.perf_counter()
         matches = recognizer.identify(frame, registry.known_embeddings())
+        perf_ms.append((time.perf_counter() - t0) * 1000)
+        if len(perf_ms) >= 20:
+            print(
+                f"[FACIAL][PERF] '{setor}': identify médio {sum(perf_ms) / len(perf_ms):.0f} ms, "
+                f"máx {max(perf_ms):.0f} ms | ciclos em ritmo lento (pose sem pessoa): {perf_idle_cycles}"
+            )
+            perf_ms.clear()
+            perf_idle_cycles = 0
 
         # Transmite a cada ciclo (não só quando o debounce confirma) — é o que faz a
         # caixa + nome acompanhar o rosto ao vivo na tela de Câmeras, no mesmo espírito
@@ -1671,6 +1683,7 @@ def _run_facial_sector(
             and presence[1] == 0
         )
         if camera_vazia:
+            perf_idle_cycles += 1
             stop_event.wait(FACIAL_IDLE_INTERVAL_S)
         else:
             stop_event.wait(FACIAL_PROCESS_INTERVAL_S)
