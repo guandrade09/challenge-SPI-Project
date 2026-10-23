@@ -1,26 +1,22 @@
 import React, { useMemo, useState } from 'react';
-import { useCameraStreamStore } from '../../../store/useCameraStreamStore';
+import { makeStreamKey, useCameraStreamStore } from '../../../store/useCameraStreamStore';
 import { isMissingEpiDetection } from '../../../utils/epiConfig';
 import { useElementSize } from '../../../hooks/useElementSize';
 import { getCoverTransform, frameToContainer } from '../../../utils/coverTransform';
 import { formatLiveIncidentLabel } from '../../../utils/liveIncidentLabels';
 
-// Conexões do esqueleto COCO (pares de índices de keypoints)
-const SKELETON_CONNECTIONS = [
-  [0, 1], [0, 2], [1, 3], [2, 4],       // Cabeça
-  [5, 6],                               // Ombros
-  [5, 7], [7, 9],                       // Braço esquerdo
-  [6, 8], [8, 10],                      // Braço direito
-  [5, 11], [6, 12], [11, 12],           // Tronco
-  [11, 13], [13, 15],                   // Perna esquerda
-  [12, 14], [14, 16],                   // Perna direita
-];
+const EMPTY_LIST = Object.freeze([]);
+// Largura aproximada de um caractere monospace em fontSize 9 (para dimensionar a etiqueta).
+const TAG_CHAR_W = 5.6;
 
 export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible = true }) {
   const rawDetections = useCameraStreamStore((s) => s.getDetections(cameraId, setor, source));
+  // Caixas de EPI ancoradas na pose (andam junto com a pessoa, ver utils/epiAnchor.js);
+  // sem ancoragem disponível, usa as caixas como o EPI viu.
+  const anchoredDetections = useCameraStreamStore((s) => s.epiAnchored[makeStreamKey(cameraId, setor, source)]?.boxes);
   const detections = useMemo(
-    () => rawDetections.filter(isMissingEpiDetection),
-    [rawDetections]
+    () => (anchoredDetections ?? rawDetections).filter(isMissingEpiDetection),
+    [anchoredDetections, rawDetections]
   );
   const poseData = useCameraStreamStore((s) => s.getPose(cameraId, setor, source));
   // seletores primitivos: o objeto de meta é recriado a cada frame e re-renderizaria sempre
@@ -37,6 +33,12 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
   const transform = getCoverTransform(containerW, containerH, frameWidth, frameHeight);
   // só é chamado dentro de blocos protegidos por `transform` não nulo
   const toContainer = (kp) => frameToContainer(transform, kp[0] ?? kp.x, kp[1] ?? kp.y);
+
+  // Reconhecimento facial: vira nome na etiqueta do REBA (ligação rosto ↔ pessoa da pose
+  // feita no store, ver utils/faceIdentity.js), sem caixa no rosto.
+  const faceIdentity = useCameraStreamStore((s) => s.faceIdentity[makeStreamKey(cameraId, setor, source)]);
+  const nomesPorPessoa = faceIdentity?.byPose || EMPTY_LIST;
+  const rostosSemPose = faceIdentity?.semPose || EMPTY_LIST;
 
   if (!visible) return null;
 
@@ -59,36 +61,29 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                 ? '#f59e0b' // amarelo
                 : '#10b981'; // verde
 
-            // Cabeça/nariz (kp 0) para ancorar o badge de REBA
+            // Cabeça/nariz (kp 0) para ancorar a etiqueta com o nome. O REBA de cada pessoa
+            // fica na caixa de baixo do vídeo (LiveVerdictBadge), não aqui.
             const headKp = keypoints[0];
+            const pessoaFace = nomesPorPessoa[pIdx];
+            const nomeTag = pessoaFace ? (pessoaFace.reconhecido ? pessoaFace.nome : 'Desconhecido') : null;
+            const tagWidth = nomeTag ? Math.max(50, nomeTag.length * TAG_CHAR_W + 16) : 0;
+            // Etiqueta acima do topo da cabeça, não na testa: sobe proporcional ao tamanho da
+            // cabeça na tela (distância entre as orelhas, ou entre os olhos x2), para ficar
+            // certa com a pessoa perto ou longe da câmera.
+            const visivel = (kp) => kp && (kp[2] ?? kp.conf ?? 1) >= 0.3;
+            const [, , , orelhaE, orelhaD] = keypoints;
+            const [, olhoE, olhoD] = keypoints;
+            const larguraCabeca = transform && visivel(orelhaE) && visivel(orelhaD)
+              ? Math.abs(toContainer(orelhaE).x - toContainer(orelhaD).x)
+              : transform && visivel(olhoE) && visivel(olhoD)
+              ? Math.abs(toContainer(olhoE).x - toContainer(olhoD).x) * 2
+              : 0;
+            const tagOffsetY = Math.max(28, larguraCabeca * 1.3);
 
             return (
               <g key={`person-${pIdx}`}>
-                {/* Linhas do esqueleto */}
-                {SKELETON_CONNECTIONS.map(([i, j], lineIdx) => {
-                  const kp1 = keypoints[i];
-                  const kp2 = keypoints[j];
-                  if (!kp1 || !kp2 || (kp1[2] ?? kp1.conf ?? 1) < 0.3 || (kp2[2] ?? kp2.conf ?? 1) < 0.3) {
-                    return null;
-                  }
-                  const p1 = toContainer(kp1);
-                  const p2 = toContainer(kp2);
-                  return (
-                    <line
-                      key={`line-${pIdx}-${lineIdx}`}
-                      x1={p1.x}
-                      y1={p1.y}
-                      x2={p2.x}
-                      y2={p2.y}
-                      stroke={rebaColor}
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeOpacity="0.8"
-                    />
-                  );
-                })}
-
-                {/* Pontos das articulações */}
+                {/* Só os pontos das articulações, sem as linhas do esqueleto: deixa a
+                    imagem mais limpa. Sem as linhas, a cor do REBA vai no preenchimento. */}
                 {keypoints.map((kp, kpIdx) => {
                   if (!kp || (kp[2] ?? kp.conf ?? 1) < 0.3) return null;
                   const p = toContainer(kp);
@@ -97,21 +92,21 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                       key={`kp-${pIdx}-${kpIdx}`}
                       cx={p.x}
                       cy={p.y}
-                      r="3.5"
-                      fill="#ffffff"
-                      stroke={rebaColor}
+                      r="6"
+                      fill={rebaColor}
+                      stroke="#ffffff"
                       strokeWidth="1.5"
                     />
                   );
                 })}
 
-                {/* Tag de REBA sobre a cabeça */}
-                {headKp && (headKp[2] ?? headKp.conf ?? 1) >= 0.3 && (
-                  <g transform={`translate(${toContainer(headKp).x}, ${Math.max(20, toContainer(headKp).y - 15)})`}>
+                {/* Nome (reconhecimento facial) acima da cabeça */}
+                {nomeTag && headKp && (headKp[2] ?? headKp.conf ?? 1) >= 0.3 && (
+                  <g transform={`translate(${toContainer(headKp).x}, ${Math.max(20, toContainer(headKp).y - tagOffsetY)})`}>
                     <rect
-                      x="-45"
+                      x={-tagWidth / 2}
                       y="-14"
-                      width="90"
+                      width={tagWidth}
                       height="16"
                       rx="4"
                       fill="rgba(0,0,0,0.75)"
@@ -122,14 +117,12 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
                       x="0"
                       y="-3"
                       textAnchor="middle"
-                      fill="#ffffff"
+                      fill={pessoaFace.reconhecido ? '#34d399' : '#fbbf24'}
                       fontSize="9"
                       fontFamily="monospace"
                       fontWeight="bold"
                     >
-                      {pessoa.queda
-                        ? 'Queda'
-                        : formatLiveIncidentLabel(`reba_${pessoa.reba_level || 'baixo'}_${pessoa.reba_score ?? 1}`)}
+                      {nomeTag}
                     </text>
                   </g>
                 )}
@@ -137,6 +130,22 @@ export function DetectionsOverlay({ cameraId, setor, source = 'frontal', visible
             );
           })}
         </svg>
+      )}
+
+      {/* Rostos reconhecidos sem pose correspondente (ver faceIdentity.semPose no store) */}
+      {rostosSemPose.length > 0 && (
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
+          {rostosSemPose.map((face, fIdx) => (
+            <div
+              key={`face-chip-${fIdx}`}
+              className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold whitespace-nowrap backdrop-blur-sm ${
+                face.reconhecido ? 'bg-emerald-600/90 text-white' : 'bg-amber-600/90 text-white'
+              }`}
+            >
+              {face.reconhecido ? `${face.nome} está aqui` : 'Rosto desconhecido'}
+            </div>
+          ))}
+        </div>
       )}
 
       {/* ── 3. BOUNDING BOXES DE EPIS (DETECTADOS) ── */}

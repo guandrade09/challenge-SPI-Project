@@ -4,9 +4,14 @@ import cv2
 from ultralytics import YOLO
 from shapely.geometry import Point, Polygon
 
-# Ponto único que representa a posição da pessoa pra checagem de invasão (não mais
-# "qualquer keypoint dentro conta") — evita falso positivo de braço/mão esticados sobre
-# a zona sem a pessoa estar realmente lá: tornozelos → quadris → centro da bounding box.
+# Pontos que representam a posição da pessoa pra checagem de invasão (não "qualquer
+# keypoint dentro conta") — evita falso positivo de braço/mão esticados sobre a zona sem a
+# pessoa estar realmente lá. Basta UM tornozelo ou UM ombro dentro: pisar na zona com um pé
+# ou entrar com o tronco já é invasão (o ponto médio entre os dois tornozelos ficava fora
+# nesse caso e a invasão não era detectada). Sem tornozelo nem ombro visível: quadris →
+# centro da bounding box. Cotovelos e pulsos nunca contam.
+IDX_OMBRO_ESQ     = 5
+IDX_OMBRO_DIR     = 6
 IDX_TORNOZELO_ESQ = 15
 IDX_TORNOZELO_DIR = 16
 IDX_QUADRIL_ESQ   = 11
@@ -30,19 +35,23 @@ def _ponto_medio_valido(kps: np.ndarray, idx_a: int, idx_b: int) -> tuple[float,
     return None
 
 
-def _ponto_referencia(kps: np.ndarray, bbox: list) -> tuple[tuple[float, float] | None, str | None]:
-    """Ponto único (x, y) usado pra decidir invasão, e de onde ele veio (informativo).
-    Ordem: tornozelos → quadris → centro da bbox."""
-    ponto = _ponto_medio_valido(kps, IDX_TORNOZELO_ESQ, IDX_TORNOZELO_DIR)
-    if ponto is not None:
-        return ponto, "tornozelos"
+def _pontos_referencia(kps: np.ndarray, bbox: list) -> tuple[list[tuple[float, float]], str | None]:
+    """Pontos (x, y) usados pra decidir invasão — invadiu se QUALQUER um estiver dentro — e
+    de onde vieram (informativo). Ordem: cada tornozelo e ombro visível → quadris → centro
+    da bbox."""
+    nomes = {IDX_TORNOZELO_ESQ: "tornozelos", IDX_TORNOZELO_DIR: "tornozelos",
+             IDX_OMBRO_ESQ: "ombros", IDX_OMBRO_DIR: "ombros"}
+    visiveis = [i for i in nomes if float(kps[i][2]) >= KP_CONF_THRESHOLD]
+    if visiveis:
+        origem = "+".join(sorted({nomes[i] for i in visiveis}, reverse=True))
+        return [(float(kps[i][0]), float(kps[i][1])) for i in visiveis], origem
     ponto = _ponto_medio_valido(kps, IDX_QUADRIL_ESQ, IDX_QUADRIL_DIR)
     if ponto is not None:
-        return ponto, "quadris"
+        return [ponto], "quadris"
     if len(bbox) == 4:
         x1, y1, x2, y2 = bbox
-        return ((x1 + x2) / 2, (y1 + y2) / 2), "bbox"
-    return None, None
+        return [((x1 + x2) / 2, (y1 + y2) / 2)], "bbox"
+    return [], None
 
 
 def decode_frame(frame_b64: str) -> np.ndarray:
@@ -144,8 +153,8 @@ class ZoneChecker:
             else:
                 bbox = []
 
-            ponto, origem = _ponto_referencia(kps, bbox)
-            invadiu = ponto is not None and polygon.contains(Point(ponto[0], ponto[1]))
+            pontos, origem = _pontos_referencia(kps, bbox)
+            invadiu = any(polygon.contains(Point(x, y)) for x, y in pontos)
 
             pessoas.append({
                 "pessoa_id":         i,

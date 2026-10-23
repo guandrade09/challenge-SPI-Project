@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from contextlib import nullcontext
 
 import cv2
 import numpy as np
@@ -35,6 +36,16 @@ from core.entities import FaceMatch
 # "[FACIAL] rosto → '...' (distância: X.XXX, ...)".
 MAX_MATCH_DISTANCE_DEFAULT = 1.0
 DETECTION_PROB_MINIMO = 0.9
+
+# Largura máxima do frame usado só pra LOCALIZAR rostos (MTCNN). O MTCNN varre uma
+# pirâmide de escalas da imagem inteira — em 1080p/2K isso é o que mais pesa no facial.
+# Os rostos achados na imagem reduzida têm as caixas reescaladas e são recortados do
+# frame ORIGINAL em resolução cheia, então o embedding (identidade) não perde qualidade.
+FACIAL_DETECT_WIDTH = int(os.environ.get("FACIAL_DETECT_WIDTH", "640"))
+# Menor rosto procurado, em pixels da imagem reduzida (20 é o padrão do MTCNN; em 640px
+# a partir de 1920px equivale a ~60px no frame original). Subir deixa mais leve, mas
+# rostos longe da câmera deixam de ser encontrados.
+FACIAL_MIN_FACE = int(os.environ.get("FACIAL_MIN_FACE", "20"))
 
 
 def _confidence_from_distance(dist: float) -> float:
@@ -61,7 +72,8 @@ class FaceRecognizer:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.max_match_distance = max_match_distance
         self._torch = torch
-        self._mtcnn = MTCNN(keep_all=True, device=self.device, post_process=True)
+        self._mtcnn = MTCNN(keep_all=True, device=self.device, post_process=True,
+                            min_face_size=FACIAL_MIN_FACE)
         self._resnet = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
         print(f"[FACIAL] Modelo de reconhecimento facial carregado ({self.device}).")
 
@@ -80,7 +92,7 @@ class FaceRecognizer:
             embedding = self._resnet(face.unsqueeze(0).to(self.device))
         return embedding[0].cpu().numpy()
 
-    def identify(self, frame: np.ndarray, known: dict[int, dict]) -> list[FaceMatch]:
+    def identify(self, frame: np.ndarray, known: dict[int, dict], lock=None) -> list[FaceMatch]:
         """Detecta todos os rostos do frame e casa CADA UM independentemente com o
         funcionário cadastrado de embedding mais próximo. Só assume essa identidade se a
         distância for <= max_match_distance; caso contrário (ou se `known` estiver vazio)
@@ -89,23 +101,43 @@ class FaceRecognizer:
         único candidato disponível. `known`:
         {funcionario_id: {"nome": str, "embeddings": list[np.ndarray]}} — um funcionário
         pode ter até 3 fotos de referência, cada uma com seu embedding; casa contra a
-        MELHOR delas (menor distância)."""
+        MELHOR delas (menor distância).
+
+        `lock` (opcional): o mesmo lock de inferência do EPI/pose. MTCNN e FaceNet rodando
+        em paralelo com a pose disputam GPU e GIL e atrasam os dois — em fila, a pose caiu
+        de 65ms para 30ms em média (medido com o facial a cada 0.6s). O lock é pego duas
+        vezes, só nas etapas de GPU (detecção ~100ms, embedding ~20–50ms), e o recorte e a
+        comparação ficam fora: um bloco único de ~150ms fazia a pose esperar demais."""
+        gpu = lock if lock is not None else nullcontext()
         rgb = self._bgr_to_rgb(frame)
-        boxes, probs = self._mtcnn.detect(rgb)
+        height, width = rgb.shape[:2]
+        scale = min(1.0, FACIAL_DETECT_WIDTH / width) if FACIAL_DETECT_WIDTH > 0 else 1.0
+        if scale < 1.0:
+            small = cv2.resize(rgb, (int(width * scale), int(height * scale)), interpolation=cv2.INTER_AREA)
+        else:
+            small = rgb
+        with gpu:
+            boxes, probs = self._mtcnn.detect(small)
         if boxes is None:
             return []
+
+        # Descarta rostos de baixa confiança ANTES do FaceNet — evita gastar embedding com
+        # o que seria ignorado de qualquer jeito.
+        keep = [i for i, prob in enumerate(probs) if prob is not None and prob >= DETECTION_PROB_MINIMO]
+        if not keep:
+            return []
+        boxes = boxes[keep] / scale
+        probs = probs[keep]
 
         faces = self._mtcnn.extract(rgb, boxes, save_path=None)
         if faces is None:
             return []
 
-        with self._torch.no_grad():
+        with gpu, self._torch.no_grad():
             embeddings = self._resnet(faces.to(self.device)).cpu().numpy()
 
         matches: list[FaceMatch] = []
         for (x1, y1, x2, y2), prob, embedding in zip(boxes, probs, embeddings):
-            if prob is None or prob < DETECTION_PROB_MINIMO:
-                continue
             funcionario_id, nome, confidence, best_dist = self._best_match(embedding, known)
             print(f"[FACIAL] rosto → '{nome}' (distância: {best_dist:.3f}, confiança: {confidence:.2f}).")
             # Confiança só é um número com significado quando HÁ identidade atribuída — a

@@ -56,3 +56,5 @@ snapshot.json
 devices.json
 tinytuya.json
 tuya-raw.json
+# Modelos do Roboflow baixados em runtime (ver ml_service/inference/detector.py)
+ml_service/vision/models/roboflow/

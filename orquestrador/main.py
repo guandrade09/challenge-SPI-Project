@@ -16,6 +16,7 @@ import asyncio
 import queue
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 import base64
 import json
 import math
@@ -37,6 +38,7 @@ _ORCH_CORES = cpu_affinity.apply()
 cv2.setNumThreads(len(_ORCH_CORES))
 
 from thread_metrics import ml_thread_metrics_service
+from inference_lock import InstrumentedLock
 from incident_tracking import build_incident_tracking, synchronize_incident_view
 from incident_worker import IncidentEvidenceWorker
 
@@ -45,7 +47,7 @@ from ml_service.inference.detector import EPIDetector, IncidentDebouncer
 from ml_service.inference.model_loader import load_yolo_with_engine_fallback
 from ml_service.streaming.websocket_server import (
     send_tagged_frame, send_alert, send_pose, send_detections, send_zone,
-    send_verdict, send_metrics, send_queda, send_stream_status, send_faces,
+    send_verdict, send_metrics, send_queda, send_stream_status, send_faces, send_gpu_queue_stats,
     set_message_handler, start_server_in_thread,
 )
 import ml_service.streaming.websocket_server as _ws
@@ -93,7 +95,31 @@ COOLDOWN_FACIAL = 90
 # _resolve_pessoa_label e a posição real das pessoas no momento em que um incidente de
 # EPI é confirmado (pipelines independentes, cada um amostra o mundo no seu próprio
 # ritmo) — com pessoas em movimento, isso é o que faz a caixa "PESSOA" errar o rosto.
-FACIAL_PROCESS_INTERVAL_S = 0.6
+FACIAL_PROCESS_INTERVAL_S = float(os.environ.get("FACIAL_INTERVAL_S", "0.6"))
+# Quando a pose não vê ninguém na câmera frontal, o facial roda neste ritmo mais lento em
+# vez de parar de vez — a pose pode não pegar alguém muito perto da câmera (só o rosto).
+FACIAL_IDLE_INTERVAL_S = float(os.environ.get("FACIAL_IDLE_INTERVAL_S", "3.0"))
+# Leitura de presença da pose mais velha que isso é ignorada (pose desligada/atrasada) →
+# o facial volta pro ritmo normal, como antes desta otimização.
+FACIAL_PRESENCE_MAX_AGE_S = 2.0
+
+# Frames por segundo enviados ao frontend (vídeo ao vivo). Era fixo em ~8fps (envio a cada
+# 0.1s); os frames são pequenos (640x360, ~15KB), então 15fps deixa o vídeo mais fluido
+# sem custo relevante de CPU/rede. Não afeta a taxa de inferência.
+STREAM_FPS = float(os.environ.get("STREAM_FPS", "15"))
+
+# Teto de inferências por segundo POR CÂMERA. Antes era "a cada N frames" (pose a cada 2,
+# EPI a cada 5): com câmeras a ~30fps isso dava ~15 poses/s por câmera, e com 3 câmeras
+# pose+EPI+facial passavam de 1s de GPU por segundo na fila do inference_lock — o EPI
+# esperava ~200ms na fila. Os debouncers contam por frame do loop usando o último
+# resultado, então reduzir a taxa de inferência não atrasa a confirmação dos alertas.
+POSE_MAX_HZ = float(os.environ.get("POSE_MAX_HZ", "8"))
+EPI_MAX_HZ  = float(os.environ.get("EPI_MAX_HZ", "4"))
+
+# Logs [REALTIME] de cada frame (send_detections, send_verdict, estado dos debouncers).
+# Com 3 câmeras eram centenas de linhas/s no terminal — custo de CPU no processo e no
+# terminal que exibe. Desligados por padrão; ORCH_DEBUG=1 liga.
+ORCH_DEBUG = os.environ.get("ORCH_DEBUG") == "1"
 
 REBA_RISCO_MINIMO = 4
 POSE_CONF_MINIMO  = 0.5
@@ -437,6 +463,21 @@ _latest_frontal_frames_lock = threading.Lock()
 # pelo nome do funcionário reconhecido ao montar o incidente (ver _resolve_pessoa_label).
 _latest_face_matches: dict[object, list[dict]] = {}
 _latest_face_matches_lock = threading.Lock()
+
+# Última vez (time.monotonic) e quantas pessoas a pose viu na câmera frontal, por camera_id.
+# O facial usa isso pra desacelerar quando a câmera está vazia (ver _run_facial_sector).
+_latest_person_presence: dict[object, tuple[float, int]] = {}
+_latest_person_presence_lock = threading.Lock()
+
+
+def _publish_person_presence(camera_id, raw_results) -> None:
+    try:
+        boxes = raw_results[0].boxes if raw_results else None
+        count = len(boxes) if boxes is not None else 0
+    except Exception:
+        return
+    with _latest_person_presence_lock:
+        _latest_person_presence[camera_id] = (time.monotonic(), count)
 
 
 def _resolve_pessoa_label(detection, camera_id) -> str:
@@ -814,7 +855,7 @@ def _capture_loop(
             # Cada câmera publica por conta própria: uma frontal offline não pode
             # impedir o vídeo lateral nem a inferência atrasar a transmissão.
             now_frame = time.monotonic()
-            if now_frame - last_frame_sent_at >= 0.1:
+            if now_frame - last_frame_sent_at >= 1.0 / STREAM_FPS:
                 last_frame_sent_at = now_frame
                 if camera_id is not None:
                     _camera_frame_shapes[str(camera_id)] = (int(frame.shape[1]), int(frame.shape[0]))
@@ -1080,7 +1121,7 @@ def _run_sector_pipeline(
     _last_verdict_t   = 0.0
     _last_metrics_t   = 0.0
 
-    _epi_state         = {"counter": 0, "observation": None, "running": False}
+    _epi_state         = {"counter": 0, "observation": None, "running": False, "lat_ms": 0.0}
     _epi_state_lateral = {"counter": 0, "observation": None, "running": False}
     _empty_pose_result = {"raw": None, "raw_frontal": None, "raw_lateral": None,
                           "lat_ms": 0.0, "pck": None, "views": {},
@@ -1091,6 +1132,15 @@ def _run_sector_pipeline(
     }
     last_sent_pose_result = None
     _verdict_cooldown = 0
+
+    def _send_pose_result(result, with_lateral):
+        captured_at = result.get("captured_at")
+        if has_frontal_cam:
+            send_pose(result["pessoas_frontal"], source="frontal", setor=setor, camera_id=primary_camera_id, captured_at=captured_at)
+            if with_lateral:
+                send_pose(result["pessoas_lateral"], source="lateral", setor=setor, camera_id=lateral_camera_id, captured_at=captured_at)
+        else:
+            send_pose(result["pessoas_frontal"], source=primary_source, setor=setor, camera_id=primary_camera_id, captured_at=captured_at)
 
     configured_zone_ids = [zone_id for zone_id in zone_camera_ids if zone_checker.get(zone_id)]
     print(f"[CAMERA] {primary_camera_id}: pipeline ativo | setor='{setor}' | "
@@ -1107,6 +1157,13 @@ def _run_sector_pipeline(
     )
     incident_worker.start()
     hardware_key = f"{setor}/{primary_camera_id}"
+
+    # Threads fixas pra inferência em background, reaproveitadas a cada ciclo. Criar uma
+    # thread nova por chamada fazia o PyTorch recriar o estado de GPU (handles cuDNN/cuBLAS)
+    # toda vez: a pose ia de ~14ms para ~75ms só por isso (medido no RTX 2050).
+    _cam_key = primary_camera_id or setor
+    pose_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"pose-{_cam_key}")
+    epi_executor  = ThreadPoolExecutor(max_workers=2, thread_name_prefix=f"epi-{_cam_key}")
 
     try:
         while not stop_event.is_set():
@@ -1152,23 +1209,29 @@ def _run_sector_pipeline(
             if _primary_prefixes != []:
                 # EPI na câmera frontal
                 _epi_state["counter"] += 1
-                if _epi_state["counter"] >= 5 and not _epi_state["running"]:
+                if (_epi_state["counter"] >= 5 and not _epi_state["running"]
+                        and time.monotonic() - _epi_state.get("started_at", 0.0) >= 1.0 / EPI_MAX_HZ):
+                    _epi_state["started_at"] = time.monotonic()
                     _epi_state["counter"]  = 0
                     _epi_state["running"]  = True
                     _frame_snap = frame.copy()
                     _sampled_at = datetime.now().isoformat()
-                    def _epi_bg(snap=_frame_snap, sampled_at=_sampled_at):
+                    _captured_at = time.time()
+                    def _epi_bg(snap=_frame_snap, sampled_at=_sampled_at, captured_at=_captured_at):
                         try:
                             # o detector só segura o lock na inferência local (não durante o HTTP do Roboflow)
+                            _t_epi = time.perf_counter()
                             detections = epi_detector.run(snap, inference_lock)
+                            _epi_state["lat_ms"] = (time.perf_counter() - _t_epi) * 1000
                             _epi_state["observation"] = {
                                 "frame": snap, "detections": detections, "sampled_at": sampled_at,
+                                "captured_at": captured_at,
                             }
                         except Exception as e:
                             print(f"[EPI] {setor}: falha na inferência: {e}")
                         finally:
                             _epi_state["running"] = False
-                    threading.Thread(target=_epi_bg, daemon=True).start()
+                    epi_executor.submit(_epi_bg)
 
             else:
                 _epi_state["observation"] = None
@@ -1176,22 +1239,26 @@ def _run_sector_pipeline(
             # EPI na câmera lateral (quando disponível) — configuração independente
             if has_lateral and _lateral_prefixes != []:
                     _epi_state_lateral["counter"] += 1
-                    if _epi_state_lateral["counter"] >= 5 and not _epi_state_lateral["running"]:
+                    if (_epi_state_lateral["counter"] >= 5 and not _epi_state_lateral["running"]
+                            and time.monotonic() - _epi_state_lateral.get("started_at", 0.0) >= 1.0 / EPI_MAX_HZ):
+                        _epi_state_lateral["started_at"] = time.monotonic()
                         _epi_state_lateral["counter"] = 0
                         _epi_state_lateral["running"] = True
                         _frame_lat_snap = _last_lateral_frame["frame"].copy()
                         _sampled_at_lat = datetime.now().isoformat()
-                        def _epi_lat_bg(snap=_frame_lat_snap, sampled_at=_sampled_at_lat):
+                        _captured_at_lat = time.time()
+                        def _epi_lat_bg(snap=_frame_lat_snap, sampled_at=_sampled_at_lat, captured_at=_captured_at_lat):
                             try:
                                 detections = epi_detector.run(snap, inference_lock)
                                 _epi_state_lateral["observation"] = {
                                     "frame": snap, "detections": detections, "sampled_at": sampled_at,
+                                    "captured_at": captured_at,
                                 }
                             except Exception as e:
                                 print(f"[EPI] {setor}/lateral: falha na inferência: {e}")
                             finally:
                                 _epi_state_lateral["running"] = False
-                        threading.Thread(target=_epi_lat_bg, daemon=True).start()
+                        epi_executor.submit(_epi_lat_bg)
             else:
                 _epi_state_lateral["observation"] = None
 
@@ -1224,16 +1291,19 @@ def _run_sector_pipeline(
             zona_ativa_no_setor = any(zone_checker.get(zone_id) for zone_id in zone_camera_ids)
             if _ergonomia_ativa or zona_ativa_no_setor or queda_ativa:
                 _pose_state["counter"] += 1
-                if _pose_state["counter"] >= 2 and not _pose_state["running"]:
+                if (_pose_state["counter"] >= 2 and not _pose_state["running"]
+                        and time.monotonic() - _pose_state.get("started_at", 0.0) >= 1.0 / POSE_MAX_HZ):
+                    _pose_state["started_at"] = time.monotonic()
                     _pose_state["counter"] = 0
                     _pose_state["running"] = True
                     _snap_pose     = frame_pose.copy()
                     _snap_frontal  = frame.copy() if has_lateral else None
                     _dual          = has_lateral
                     _pose_sampled_at = datetime.now().isoformat()
+                    _pose_captured_at = time.time()
 
                     def _pose_bg(snap_pose=_snap_pose, snap_frontal=_snap_frontal, _has_lat=_dual,
-                                 sampled_at=_pose_sampled_at):
+                                 sampled_at=_pose_sampled_at, captured_at=_pose_captured_at):
                         try:
                             with inference_lock:
                                 raw_lat = pose_model(snap_pose, verbose=False, imgsz=MODEL_IMGSZ, conf=POSE_CONF_MINIMO)
@@ -1268,13 +1338,22 @@ def _run_sector_pipeline(
                             result["raw"] = raw_lat
                             result["lat_ms"] = raw_lat[0].speed.get("inference", 0.0)
                             result["pck"] = _calc_pck(raw_lat)
+                            result["captured_at"] = captured_at
                             # Publica todas as vistas e seus snapshots juntas. O leitor nunca
                             # combina a pose frontal nova com a lateral do ciclo anterior.
+                            # Envia já daqui, sem esperar o próximo frame chegar no loop
+                            # (até ~100ms a mais de atraso no REBA com câmeras a ~10fps).
+                            # Marcado antes de publicar pro loop nunca reenviar o mesmo resultado.
+                            result["enviado"] = True
                             _pose_state["result"] = result
+                            _publish_person_presence(primary_camera_id, result["raw_frontal"])
+                            _send_pose_result(result, _has_lat)
+                        except Exception as e:
+                            print(f"[POSE] {setor}: falha na inferência: {e}")
                         finally:
                             _pose_state["running"] = False
 
-                    threading.Thread(target=_pose_bg, daemon=True).start()
+                    pose_executor.submit(_pose_bg)
             else:
                 _pose_state.update({
                     "result": _empty_pose_result,
@@ -1349,19 +1428,21 @@ def _run_sector_pipeline(
             if _verdict_key != _last_verdict_key or (_now_t - _last_verdict_t >= 1.0):
                 _last_verdict_key = _verdict_key
                 _last_verdict_t   = _now_t
-                print("[REALTIME] send_verdict", live_verdict)
+                if ORCH_DEBUG:
+                    print("[REALTIME] send_verdict", live_verdict)
                 _send_verdict(live_verdict, setor=setor, camera_id=primary_camera_id, source=primary_source)
 
             # 4.5 Queda — checagem explícita antes do envio, além do gate já aplicado acima.
             # Mesmo ponto de decisão usado pro envio: beep só dispara se a label "Queda"
             # estiver ativa pra essa câmera/setor (Problema 1) e o latch confirmou (Problema 2).
-            print(
-                "[REALTIME][DEBUG] epi_confirmed=", epi_confirmed,
-                "ergo_confirmed=", ergo_confirmed,
-                "zona_confirmed=", zona_confirmed,
-                "queda_confirmed=", queda_confirmed,
-                "queda_ativa=", queda_ativa,
-            )
+            if ORCH_DEBUG:
+                print(
+                    "[REALTIME][DEBUG] epi_confirmed=", epi_confirmed,
+                    "ergo_confirmed=", ergo_confirmed,
+                    "zona_confirmed=", zona_confirmed,
+                    "queda_confirmed=", queda_confirmed,
+                    "queda_ativa=", queda_ativa,
+                )
             if queda_confirmed and queda_ativa:
                 print("[REALTIME] beep (queda)")
                 threading.Thread(target=_beep, daemon=True).start()
@@ -1395,38 +1476,41 @@ def _run_sector_pipeline(
                 d for d in lateral_epi_dets
                 if "AUSENTE" in d.label.upper() or "ERRADO" in d.label.upper()
             ]
-            print("[REALTIME] send_detections", len(primary_missing_epi))
+            if ORCH_DEBUG:
+                print("[REALTIME] send_detections", len(primary_missing_epi))
             send_detections(
                 [{"label": d.label, "confidence": round(float(d.confidence), 4),
                   "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
                  for d in primary_missing_epi],
                 setor=setor, source=primary_source, camera_id=primary_camera_id,
+                captured_at=primary_epi_observation.get("captured_at") if primary_epi_observation else None,
             )
             if has_lateral:
-                print("[REALTIME] send_detections", len(lateral_missing_epi))
+                if ORCH_DEBUG:
+                    print("[REALTIME] send_detections", len(lateral_missing_epi))
                 send_detections(
                     [{"label": d.label, "confidence": round(float(d.confidence), 4),
                       "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
                      for d in lateral_missing_epi],
                     setor=setor, source="lateral", camera_id=lateral_camera_id,
+                    captured_at=lateral_epi_observation.get("captured_at") if lateral_epi_observation else None,
                 )
+            # Resultados da pose em background já saem de _pose_bg assim que ficam prontos;
+            # aqui só sobra o resultado vazio (pose desligada), pra limpar o esqueleto na tela.
             if pose_result is not last_sent_pose_result:
                 last_sent_pose_result = pose_result
-                if has_frontal_cam:
-                    send_pose(pose_result["pessoas_frontal"], source="frontal", setor=setor, camera_id=primary_camera_id)
-                    if has_lateral:
-                        send_pose(pose_result["pessoas_lateral"], source="lateral", setor=setor, camera_id=lateral_camera_id)
-                else:
-                    send_pose(pose_result["pessoas_frontal"], source=primary_source, setor=setor, camera_id=primary_camera_id)
+                if not pose_result.get("enviado"):
+                    _send_pose_result(pose_result, has_lateral)
 
             # 6. Incident confirmado → beep + banco
-            print(
-                "[REALTIME][DEBUG bloco 6] epi_confirmed=", epi_confirmed,
-                "ergo_confirmed=", ergo_confirmed,
-                "zona_confirmed=", zona_confirmed,
-                "queda_confirmed=", queda_confirmed,
-                "queda_ativa=", queda_ativa,
-            )
+            if ORCH_DEBUG:
+                print(
+                    "[REALTIME][DEBUG bloco 6] epi_confirmed=", epi_confirmed,
+                    "ergo_confirmed=", ergo_confirmed,
+                    "zona_confirmed=", zona_confirmed,
+                    "queda_confirmed=", queda_confirmed,
+                    "queda_ativa=", queda_ativa,
+                )
             if epi_confirmed or ergo_confirmed or zona_confirmed:
                 timestamp = datetime.now().isoformat()
                 for source, camera_id, detections in (
@@ -1480,11 +1564,13 @@ def _run_sector_pipeline(
             if _now_t - _last_metrics_t >= 0.5:
                 _last_metrics_t = _now_t
                 lat_total_ms = (time.perf_counter() - t_start) * 1000
-                _send_metrics(lat_total_ms, 0.0, lat_pose_ms, pck_pose, conf_media_epi, setor=setor, camera_id=primary_camera_id, source=primary_source)
+                _send_metrics(lat_total_ms, _epi_state["lat_ms"], lat_pose_ms, pck_pose, conf_media_epi, setor=setor, camera_id=primary_camera_id, source=primary_source)
     finally:
         # Não deixa flag velha desta câmera travando o sinaleiro fora do verde.
         hardware_alert.remover_setor(hardware_key)
         incident_worker.stop()
+        pose_executor.shutdown(wait=False, cancel_futures=True)
+        epi_executor.shutdown(wait=False, cancel_futures=True)
 
 # ── Gerenciador de setores ─────────────────────────────────────────────────────
 _active_sectors: dict[str, dict] = {}
@@ -1584,6 +1670,7 @@ def _run_facial_sector(
     stop_event: threading.Event,
     recognizer: FaceRecognizer,
     registry:   FuncionarioFaceRegistry,
+    inference_lock: threading.Lock,
 ):
     cam_frontal = next((c for c in cameras if c.get("papel") == "frontal"), None)
     if cam_frontal is None and cameras:
@@ -1600,6 +1687,9 @@ def _run_facial_sector(
     debouncers: dict[object, SimpleDebouncer] = {}
     print(f"[FACIAL] setor '{setor}': reconhecimento facial ativo (câmera {camera_id}).")
 
+    perf_ms: list[float] = []
+    perf_idle_cycles = 0
+
     while not stop_event.is_set():
         with _latest_frontal_frames_lock:
             frame = _latest_frontal_frames.get(camera_id)
@@ -1613,7 +1703,16 @@ def _run_facial_sector(
         # atualiza a caixa+nome ao vivo) por vários segundos toda vez que precisasse
         # recalcular embeddings (leitura de foto + MTCNN/FaceNet na CPU não é instantâneo),
         # travando a transmissão — foi exatamente isso que causava a demora reportada.
-        matches = recognizer.identify(frame, registry.known_embeddings())
+        t0 = time.perf_counter()
+        matches = recognizer.identify(frame, registry.known_embeddings(), inference_lock)
+        perf_ms.append((time.perf_counter() - t0) * 1000)
+        if len(perf_ms) >= 20:
+            print(
+                f"[FACIAL][PERF] '{setor}': identify médio {sum(perf_ms) / len(perf_ms):.0f} ms, "
+                f"máx {max(perf_ms):.0f} ms | ciclos em ritmo lento (pose sem pessoa): {perf_idle_cycles}"
+            )
+            perf_ms.clear()
+            perf_idle_cycles = 0
 
         # Transmite a cada ciclo (não só quando o debounce confirma) — é o que faz a
         # caixa + nome acompanhar o rosto ao vivo na tela de Câmeras, no mesmo espírito
@@ -1663,7 +1762,21 @@ def _run_facial_sector(
             _facial_post_queue.put(payload)
             print(f"[FACIAL] '{match.nome}' reconhecido em '{setor}' (confiança {match.confidence:.2f}).")
 
-        time.sleep(FACIAL_PROCESS_INTERVAL_S)
+        # Câmera vazia segundo a pose (leitura recente com 0 pessoas) e nenhum rosto agora →
+        # ritmo lento. Sem leitura recente da pose (desligada/atrasada), mantém o ritmo normal.
+        with _latest_person_presence_lock:
+            presence = _latest_person_presence.get(camera_id)
+        camera_vazia = (
+            not matches
+            and presence is not None
+            and time.monotonic() - presence[0] <= FACIAL_PRESENCE_MAX_AGE_S
+            and presence[1] == 0
+        )
+        if camera_vazia:
+            perf_idle_cycles += 1
+            stop_event.wait(FACIAL_IDLE_INTERVAL_S)
+        else:
+            stop_event.wait(FACIAL_PROCESS_INTERVAL_S)
 
     print(f"[FACIAL] setor '{setor}': encerrado.")
 
@@ -1683,7 +1796,7 @@ _active_facial_sectors: dict[str, dict] = {}
 _active_facial_sectors_lock = threading.Lock()
 
 
-def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry):
+def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry, inference_lock: threading.Lock):
     """Uma thread facial por ID, reutilizando a captura da própria câmera."""
     while True:
         sectors = _resolve_sectors()
@@ -1694,13 +1807,13 @@ def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFace
                     existing = _active_facial_sectors.get(key)
                     signature = _camera_pipeline_signature(setor, cameras)
                     if existing is None:
-                        _start_facial_sector(setor, cameras, recognizer, registry)
+                        _start_facial_sector(setor, cameras, recognizer, registry, inference_lock)
                     elif existing["cam_ids"] != signature:
                         existing["stop_event"].set()
                         if not existing["thread"].is_alive():
-                            _start_facial_sector(setor, cameras, recognizer, registry)
+                            _start_facial_sector(setor, cameras, recognizer, registry, inference_lock)
                     elif not existing["thread"].is_alive():
-                        _start_facial_sector(setor, cameras, recognizer, registry)
+                        _start_facial_sector(setor, cameras, recognizer, registry, inference_lock)
 
                 for key in list(_active_facial_sectors):
                     if key not in desired:
@@ -1711,12 +1824,12 @@ def _facial_sector_manager(recognizer: FaceRecognizer, registry: FuncionarioFace
         time.sleep(SECTOR_CHECK_INTERVAL_S)
 
 
-def _start_facial_sector(setor: str, cameras: list[dict], recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry):
+def _start_facial_sector(setor: str, cameras: list[dict], recognizer: FaceRecognizer, registry: FuncionarioFaceRegistry, inference_lock: threading.Lock):
     key = _camera_pipeline_key(setor, cameras)
     stop_event = threading.Event()
     thread = threading.Thread(
         target=_run_facial_sector,
-        args=(setor, cameras, stop_event, recognizer, registry),
+        args=(setor, cameras, stop_event, recognizer, registry, inference_lock),
         daemon=True, name=f"facial-{key}",
     )
     _active_facial_sectors[key] = {
@@ -1758,9 +1871,15 @@ def main():
         "pose_model":    pose_model,
         "pose_analyzer": pose_analyzer,
     }
-    inference_lock = threading.Lock()
+    inference_lock = InstrumentedLock()
+
+    def _gpu_queue_stats_worker(window_s: float = 5.0):
+        while True:
+            time.sleep(window_s)
+            send_gpu_queue_stats(inference_lock.snapshot_and_reset(window_s), window_s)
 
     threading.Thread(target=_post_worker, daemon=True).start()
+    threading.Thread(target=_gpu_queue_stats_worker, daemon=True, name="gpu-queue-stats").start()
     ml_thread_metrics_service.start()
 
     # Reconhecimento facial é opcional: se torch/facenet-pytorch não estiverem instalados
@@ -1789,7 +1908,7 @@ def main():
         ).start()
         threading.Thread(
             target=_facial_sector_manager,
-            args=(face_recognizer, face_registry),
+            args=(face_recognizer, face_registry, inference_lock),
             daemon=True,
             name="facial-sector-manager",
         ).start()

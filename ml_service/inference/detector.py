@@ -14,6 +14,40 @@ ROBOFLOW_MODEL    = "spi-challenge/11"
 ROBOFLOW_BASE_URL = os.environ.get("ROBOFLOW_BASE_URL", "https://serverless.roboflow.com")
 ROBOFLOW_URL      = f"{ROBOFLOW_BASE_URL}/{ROBOFLOW_MODEL}?api_key={ROBOFLOW_API_KEY}"
 
+# EPI_MODE=local (padrão): roda o MESMO modelo do Roboflow (ROBOFLOW_MODEL) na GPU local, em
+# ONNX — ~15ms por frame contra ~260ms da API na nuvem, com detecções equivalentes (medido:
+# só diferenças com confiança 0.50–0.53, no limite do corte). O ONNX é baixado do Roboflow
+# na primeira execução (mesmo endpoint que o pacote oficial `inference` usa pra rodar local)
+# e fica em cache em ml_service/vision/models/roboflow/. EPI_MODE=roboflow força a API.
+EPI_MODE           = os.environ.get("EPI_MODE", "local").lower()
+ROBOFLOW_ONNX_DIR  = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "vision", "models", "roboflow", ROBOFLOW_MODEL.replace("/", "-"),
+)
+# Pré-processamento do treino no Roboflow: "Stretch to" 640x640 (sem letterbox). Usar o
+# letterbox padrão do Ultralytics mudava bastante as detecções perto do limiar.
+ROBOFLOW_ONNX_SIZE = 640
+
+
+def _ensure_roboflow_onnx() -> str:
+    """Caminho do ONNX de ROBOFLOW_MODEL em cache local; baixa do Roboflow se faltar."""
+    path = os.path.join(ROBOFLOW_ONNX_DIR, "weights.onnx")
+    if os.path.exists(path):
+        return path
+    os.makedirs(ROBOFLOW_ONNX_DIR, exist_ok=True)
+    meta = requests.get(
+        f"https://api.roboflow.com/ort/{ROBOFLOW_MODEL}",
+        params={"api_key": ROBOFLOW_API_KEY, "device": "local"}, timeout=30,
+    )
+    meta.raise_for_status()
+    weights = requests.get(meta.json()["ort"]["model"], timeout=120)
+    weights.raise_for_status()
+    tmp = path + ".part"
+    with open(tmp, "wb") as f:
+        f.write(weights.content)
+    os.replace(tmp, path)
+    return path
+
 
 class IncidentDebouncer:
     # Não existe tracking real no projeto (sem track_id/ByteTrack/DeepSort) — este é um
@@ -116,10 +150,30 @@ class EPIDetector:
         self.model = load_yolo_with_engine_fallback(model_path, imgsz=imgsz)
         print(f"[EPI] Modelo local carregado: {model_path} (fallback)")
 
+        self.onnx_model = None
+        if EPI_MODE == "local":
+            try:
+                from ultralytics import YOLO
+                onnx_path = _ensure_roboflow_onnx()
+                self.onnx_model = YOLO(onnx_path, task="detect")
+                self._mode = "onnx"
+                print(f"[EPI] {ROBOFLOW_MODEL} rodando localmente (ONNX): {onnx_path}")
+            except Exception as e:
+                print(f"[EPI] Não foi possível usar {ROBOFLOW_MODEL} localmente ({e}) — usando a API do Roboflow.")
+
     def run(self, frame: np.ndarray, lock=None) -> list[Detection]:
         """`lock` (opcional): lock de inferência compartilhado. Só é segurado durante a
         inferência local na GPU — a chamada HTTP do Roboflow roda sem ele, pra não
         bloquear os outros setores enquanto espera a rede."""
+        if self._mode == "onnx":
+            try:
+                if lock is None:
+                    return self._run_onnx(frame)
+                with lock:
+                    return self._run_onnx(frame)
+            except Exception as e:
+                print(f"[EPI] Modelo ONNX local falhou ({e}) — alternando para a API do Roboflow.")
+                self._mode = "roboflow"
         if self._mode == "roboflow":
             try:
                 return self._run_roboflow(frame)
@@ -157,6 +211,20 @@ class EPIDetector:
             detections.append(Detection(
                 label=label, confidence=confidence,
                 x1=x1, y1=y1, x2=x2, y2=y2,
+            ))
+        return detections
+
+    def _run_onnx(self, frame: np.ndarray) -> list[Detection]:
+        height, width = frame.shape[:2]
+        sx, sy = width / ROBOFLOW_ONNX_SIZE, height / ROBOFLOW_ONNX_SIZE
+        stretched = cv2.resize(frame, (ROBOFLOW_ONNX_SIZE, ROBOFLOW_ONNX_SIZE))
+        result = self.onnx_model(stretched, conf=self.conf, verbose=False, imgsz=ROBOFLOW_ONNX_SIZE)[0]
+        detections = []
+        for box in result.boxes:
+            x1, y1, x2, y2 = box.xyxy[0].tolist()
+            detections.append(Detection(
+                label=result.names[int(box.cls[0])], confidence=float(box.conf[0]),
+                x1=int(x1 * sx), y1=int(y1 * sy), x2=int(x2 * sx), y2=int(y2 * sy),
             ))
         return detections
 
