@@ -114,6 +114,11 @@ STREAM_FPS = float(os.environ.get("STREAM_FPS", "15"))
 POSE_MAX_HZ = float(os.environ.get("POSE_MAX_HZ", "8"))
 EPI_MAX_HZ  = float(os.environ.get("EPI_MAX_HZ", "4"))
 
+# Logs [REALTIME] de cada frame (send_detections, send_verdict, estado dos debouncers).
+# Com 3 câmeras eram centenas de linhas/s no terminal — custo de CPU no processo e no
+# terminal que exibe. Desligados por padrão; ORCH_DEBUG=1 liga.
+ORCH_DEBUG = os.environ.get("ORCH_DEBUG") == "1"
+
 REBA_RISCO_MINIMO = 4
 POSE_CONF_MINIMO  = 0.5
 MODEL_IMGSZ       = 320
@@ -1395,19 +1400,21 @@ def _run_sector_pipeline(
             if _verdict_key != _last_verdict_key or (_now_t - _last_verdict_t >= 1.0):
                 _last_verdict_key = _verdict_key
                 _last_verdict_t   = _now_t
-                print("[REALTIME] send_verdict", live_verdict)
+                if ORCH_DEBUG:
+                    print("[REALTIME] send_verdict", live_verdict)
                 _send_verdict(live_verdict, setor=setor, camera_id=primary_camera_id, source=primary_source)
 
             # 4.5 Queda — checagem explícita antes do envio, além do gate já aplicado acima.
             # Mesmo ponto de decisão usado pro envio: beep só dispara se a label "Queda"
             # estiver ativa pra essa câmera/setor (Problema 1) e o latch confirmou (Problema 2).
-            print(
-                "[REALTIME][DEBUG] epi_confirmed=", epi_confirmed,
-                "ergo_confirmed=", ergo_confirmed,
-                "zona_confirmed=", zona_confirmed,
-                "queda_confirmed=", queda_confirmed,
-                "queda_ativa=", queda_ativa,
-            )
+            if ORCH_DEBUG:
+                print(
+                    "[REALTIME][DEBUG] epi_confirmed=", epi_confirmed,
+                    "ergo_confirmed=", ergo_confirmed,
+                    "zona_confirmed=", zona_confirmed,
+                    "queda_confirmed=", queda_confirmed,
+                    "queda_ativa=", queda_ativa,
+                )
             if queda_confirmed and queda_ativa:
                 print("[REALTIME] beep (queda)")
                 threading.Thread(target=_beep, daemon=True).start()
@@ -1441,7 +1448,8 @@ def _run_sector_pipeline(
                 d for d in lateral_epi_dets
                 if "AUSENTE" in d.label.upper() or "ERRADO" in d.label.upper()
             ]
-            print("[REALTIME] send_detections", len(primary_missing_epi))
+            if ORCH_DEBUG:
+                print("[REALTIME] send_detections", len(primary_missing_epi))
             send_detections(
                 [{"label": d.label, "confidence": round(float(d.confidence), 4),
                   "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
@@ -1449,7 +1457,8 @@ def _run_sector_pipeline(
                 setor=setor, source=primary_source, camera_id=primary_camera_id,
             )
             if has_lateral:
-                print("[REALTIME] send_detections", len(lateral_missing_epi))
+                if ORCH_DEBUG:
+                    print("[REALTIME] send_detections", len(lateral_missing_epi))
                 send_detections(
                     [{"label": d.label, "confidence": round(float(d.confidence), 4),
                       "x1": int(d.x1), "y1": int(d.y1), "x2": int(d.x2), "y2": int(d.y2)}
@@ -1464,13 +1473,14 @@ def _run_sector_pipeline(
                     _send_pose_result(pose_result, has_lateral)
 
             # 6. Incident confirmado → beep + banco
-            print(
-                "[REALTIME][DEBUG bloco 6] epi_confirmed=", epi_confirmed,
-                "ergo_confirmed=", ergo_confirmed,
-                "zona_confirmed=", zona_confirmed,
-                "queda_confirmed=", queda_confirmed,
-                "queda_ativa=", queda_ativa,
-            )
+            if ORCH_DEBUG:
+                print(
+                    "[REALTIME][DEBUG bloco 6] epi_confirmed=", epi_confirmed,
+                    "ergo_confirmed=", ergo_confirmed,
+                    "zona_confirmed=", zona_confirmed,
+                    "queda_confirmed=", queda_confirmed,
+                    "queda_ativa=", queda_ativa,
+                )
             if epi_confirmed or ergo_confirmed or zona_confirmed:
                 timestamp = datetime.now().isoformat()
                 for source, camera_id, detections in (
