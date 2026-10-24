@@ -2,17 +2,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Camera, FileText, Home, AlertTriangle, ScanFace,
-  User, Settings, LogOut, ShieldCheck, Bell, Menu, X
+  User, LogOut, ShieldCheck, Bell, Menu, X, ChevronDown
 } from 'lucide-react';
 import { ThemeToggleButton } from '../components/ui/ThemeToggleButton';
 import { useAuthStore } from '../store/useAuthStore';
 import logoCodexis from '../assets/Codexis/logo_codexis.svg';
+import NotificationSettings from '../components/alerts/NotificationSettings';
 
 export const NavBar = ({ theme }) => {
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const location = useLocation();
+  const [menuPath, setMenuPath] = useState(location.pathname);
   const configRef = useRef(null);
+  const configButtonRef = useRef(null);
+  const notificationsButtonRef = useRef(null);
 
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
@@ -26,19 +31,22 @@ export const NavBar = ({ theme }) => {
     { label: 'Cadastro Facial', path: '/cadastro-facial', icon: ScanFace },
   ];
 
-  useEffect(() => {
+  if (menuPath !== location.pathname) {
+    setMenuPath(location.pathname);
     setIsNavMenuOpen(false);
     setIsConfigOpen(false);
-  }, [location.pathname]);
+    setIsNotificationsOpen(false);
+  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (configRef.current && !configRef.current.contains(event.target)) {
         setIsConfigOpen(false);
+        setIsNotificationsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -50,9 +58,21 @@ export const NavBar = ({ theme }) => {
     <nav className="w-full px-4 py-3 flex items-center justify-between relative bg-transparent border-b border-white/10 z-50">
       
       {/* 1. LADO ESQUERDO: Botão de Logo Circulado */}
-      <div className="flex items-center gap-3 relative" ref={configRef}>
+      <div className="flex items-center gap-3 relative" ref={configRef} onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.stopPropagation();
+        if (isNotificationsOpen) {
+          setIsNotificationsOpen(false);
+          notificationsButtonRef.current?.focus();
+        } else {
+          setIsConfigOpen(false);
+          configButtonRef.current?.focus();
+        }
+      }}>
         <button
-          onClick={() => setIsConfigOpen((prev) => !prev)}
+          ref={configButtonRef}
+          type="button"
+          onClick={() => { setIsConfigOpen((prev) => !prev); setIsNotificationsOpen(false); }}
           className={`group flex items-center justify-center p-1.5 rounded-full transition-all focus:outline-none ${
             isConfigOpen 
               ? 'ring-2 ring-blue-500/60 bg-blue-500/10 shadow-[0_0_12px_rgba(59,130,246,0.3)]' 
@@ -60,6 +80,8 @@ export const NavBar = ({ theme }) => {
           }`}
           title="Menu do Usuário e Configurações"
           aria-label="Abrir Menu do Usuário"
+          aria-expanded={isConfigOpen}
+          aria-controls="user-settings-menu"
         >
           <img 
             src={logoCodexis} 
@@ -70,7 +92,7 @@ export const NavBar = ({ theme }) => {
 
         {/* --- DROPDOWN DE CONFIGURAÇÕES DO USUÁRIO --- */}
         {isConfigOpen && (
-          <div className="absolute top-12 left-0 w-72 bg-[#0a0f1d]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl p-4 z-50 animate-[fadeIn_0.15s_ease-out]">
+          <div id="user-settings-menu" className="absolute top-12 left-0 w-72 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-6rem)] overflow-y-auto custom-scrollbar bg-[#0a0f1d]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl p-4 z-50 animate-[fadeIn_0.15s_ease-out]">
             {/* Perfil do Usuário */}
             <div className="flex items-center gap-3 pb-3 mb-3 border-b border-white/5">
               <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-semibold shrink-0">
@@ -88,15 +110,6 @@ export const NavBar = ({ theme }) => {
 
             {/* Opções de Configuração */}
             <div className="flex flex-col gap-1">
-              <Link
-                to="/configuracoes"
-                onClick={() => setIsConfigOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors w-full text-left"
-              >
-                <Settings size={16} className="text-gray-400" />
-                <span>Configurações do Sistema</span>
-              </Link>
-
               <button 
                 onClick={() => setIsConfigOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors w-full text-left"
@@ -106,12 +119,19 @@ export const NavBar = ({ theme }) => {
               </button>
 
               <button 
-                onClick={() => setIsConfigOpen(false)}
+                ref={notificationsButtonRef}
+                id="notification-settings-button"
+                type="button"
+                aria-expanded={isNotificationsOpen}
+                aria-controls="notification-settings"
+                onClick={() => setIsNotificationsOpen((prev) => !prev)}
                 className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors w-full text-left"
               >
                 <Bell size={16} className="text-gray-400" />
                 <span>Notificações</span>
+                <ChevronDown size={14} className={`ml-auto transition-transform ${isNotificationsOpen ? 'rotate-180' : ''}`} />
               </button>
+              {isNotificationsOpen && <NotificationSettings />}
 
               <div className="my-1 border-t border-white/5" />
 

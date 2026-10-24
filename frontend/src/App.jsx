@@ -12,7 +12,6 @@ import IncidentesPage from './features/incidentesPage/IncidentesPage';
 import EventosPage from './features/eventosPage/EventosPage';
 import AnalisePage from './features/analisePage/AnalisePage';
 import CadastroFacialPage from './features/cadastroFacialPage/CadastroFacialPage';
-import SystemConfigPage from './features/systemConfigPage/SystemConfigPage';
 
 export function App() {
   return (
@@ -36,7 +35,7 @@ export function App() {
             <Route path="/camera" element={<CameraPage />} />
             <Route path="/analise" element={<AnalisePage />} />
             <Route path="/cadastro-facial" element={<CadastroFacialPage />} />
-            <Route path="/configuracoes" element={<SystemConfigPage />} />
+            <Route path="/configuracoes" element={<Navigate to="/" replace />} />
           </Route>
         </Route>
 

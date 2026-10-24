@@ -7,19 +7,19 @@ import { getPendingValidationEvents, getValidationUrgency } from '../../../utils
 
 const PRIORITY_STYLES = {
   critica: {
-    panel: 'border-[var(--risk-alert-border)] bg-[var(--risk-alert-bg)]',
+    panel: 'border-[var(--risk-alert-border)]',
     text: 'text-red-500', badge: 'bg-red-500/20 text-red-400 border-red-500/30', ribbon: 'bg-red-600', label: 'Ação Imediata',
   },
   alerta: {
-    panel: 'border-amber-500/40 bg-amber-500/10',
+    panel: 'border-amber-500/40',
     text: 'text-amber-500', badge: 'bg-amber-500/20 text-amber-500 border-amber-500/30', ribbon: 'bg-amber-600', label: 'Alerta',
   },
   epi: {
-    panel: 'border-blue-500/40 bg-blue-500/10',
+    panel: 'border-blue-500/40',
     text: 'text-blue-500', badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30', ribbon: 'bg-blue-600', label: 'Alerta de EPI',
   },
   empty: {
-    panel: 'border-theme-divider bg-[var(--p-header-bg)]',
+    panel: 'border-theme-divider',
     text: 'text-theme-main', badge: '', ribbon: 'bg-emerald-600', label: 'Sem Pendências',
   },
 };
@@ -57,7 +57,7 @@ export function CriticalActionCard({ events = [], selectedEventId, onValidate })
 
   return (
     <>
-      <div data-testid="validation-card" className={`flex min-w-0 flex-col p-4 rounded-2xl border ${style.panel} shadow-md transition-colors`}>
+      <div data-testid="validation-card" className={`flex min-w-0 flex-col p-4 rounded-2xl border bg-[var(--p-bg)] ${style.panel} shadow-md transition-colors`}>
         <div className={`self-start mb-3 rounded px-3 py-1 ${style.ribbon} text-white text-[9px] font-mono font-bold uppercase tracking-wider`}>
           {style.label}
         </div>
