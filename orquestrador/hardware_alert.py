@@ -135,21 +135,73 @@ def _comando_tomada(led: str, state: str) -> "str | None":
     return None
 
 
+# Modo USB: uma thread só envia pra tomada, sempre o pedido MAIS RECENTE.
+# Antes, um pedido que chegava enquanto outro ainda era enviado (ex.: o "verde"
+# repetido a cada 2 s) era descartado — e se fosse o "tomada off" de uma queda,
+# a tomada só desligava no próximo reenvio, até ~2 s depois do popup.
+# Agora nada é descartado: o pedido novo substitui o antigo e sai assim que o
+# envio em andamento (~100 ms) termina. O estado também é reenviado a cada
+# TOMADA_REENVIO_S, pra tomada se acertar se o C6 reiniciar ou o cabo voltar.
+TOMADA_REENVIO_S = 2.0
+_tomada_lock      = threading.Lock()
+_tomada_evento    = threading.Event()
+_tomada_desejada: "tuple[str, str, float] | None" = None   # (comando, motivo, quando pediu)
+_tomada_worker_ok = False
+
+
+def _pedir_tomada(comando: str, motivo: str) -> None:
+    global _tomada_desejada, _tomada_worker_ok
+    with _tomada_lock:
+        _tomada_desejada = (comando, motivo, time.perf_counter())
+        if not _tomada_worker_ok:
+            _tomada_worker_ok = True
+            threading.Thread(target=_tomada_worker, daemon=True, name="tomada-usb").start()
+    _tomada_evento.set()
+
+
+def _tomada_worker() -> None:
+    ultimo_ok = None     # último comando confirmado pelo C6
+    ultimo_erro = None   # evita repetir a mesma mensagem de erro a cada 2 s
+    while True:
+        _tomada_evento.wait(timeout=TOMADA_REENVIO_S)
+        _tomada_evento.clear()
+        with _tomada_lock:
+            pedido = _tomada_desejada
+        if pedido is None:
+            continue
+        comando, motivo, pedido_em = pedido
+        try:
+            resposta = _serial_comando(comando)
+        except Exception as e:
+            erro = str(e)
+            if erro != ultimo_erro:
+                print(f"[TOMADA] falha ao enviar '{comando}': {erro}")
+                ultimo_erro = erro
+            ultimo_ok = None
+            continue
+        if resposta == "@ok":
+            if comando != ultimo_ok or ultimo_erro:
+                atraso_ms = (time.perf_counter() - pedido_em) * 1000
+                print(f"[TOMADA] {comando} ({motivo}): ok em {atraso_ms:.0f} ms")
+            ultimo_ok, ultimo_erro = comando, None
+        else:
+            print(f"[TOMADA] {comando} ({motivo}): {resposta or 'sem resposta do C6'}")
+            ultimo_ok = None
+
+
 def notify_esp_led(led: str, state: str) -> None:
-    comando = _comando_tomada(led, state) if ESP_SERIAL else None
-    if ESP_SERIAL and comando is None:
-        return  # nada a fazer na tomada
+    if ESP_SERIAL:
+        comando = _comando_tomada(led, state)
+        if comando is not None:
+            _pedir_tomada(comando, led)
+        return  # amarelo / apagar LEDs: nada a fazer na tomada
     if _esp_busy.is_set():
         print(f"[ESP32] aviso ({led} {state}) ignorado — chamada anterior ainda em andamento")
         return
     _esp_busy.set()
     try:
-        if ESP_SERIAL:
-            resposta = _serial_comando(comando)
-            print(f"[TOMADA] {comando} ({led}): {resposta or 'sem resposta'}")
-        else:
-            r = requests.post(f"http://{ESP_IP}/led", json={"led": led, "state": state}, timeout=2)
-            print(f"[ESP32] {led} -> {state}: {r.status_code}")
+        r = requests.post(f"http://{ESP_IP}/led", json={"led": led, "state": state}, timeout=2)
+        print(f"[ESP32] {led} -> {state}: {r.status_code}")
     except Exception as e:
         print(f"[ESP32] falha ao avisar ({led} {state}): {e}")
     finally:
