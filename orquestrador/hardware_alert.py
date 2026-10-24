@@ -1,10 +1,16 @@
 """
 Integração com o sinaleiro físico (ESP32: LEDs vermelho/laranja/amarelo/verde + buzzer).
 
-A tomada que corta a energia NÃO é mais controlada daqui. O próprio ESP32 do
-sinaleiro avisa um ESP32-C6 via ESP-NOW, e o C6 liga/desliga uma tomada Zigbee
-(ver esp32__script/esp32_alert_v4 e esp32__script/TomadaZigbee na Fase 03).
-Isso tirou a latência da tomada Tuya Wi-Fi (tinytuya), que era chamada daqui.
+A tomada que corta a energia NÃO é mais controlada daqui: o firmware do
+sinaleiro cuida dela via Zigbee. Isso tirou a latência da tomada Tuya Wi-Fi
+(tinytuya), que era chamada daqui. Montagens suportadas (Fase 03/esp32__script):
+  - SÓ A TOMADA pelo cabo USB (quando ESP_SERIAL está definida, ex.
+    ESP_SERIAL=COM5): ESP32-C6 coordenador Zigbee (tomada_usb_c6), sem LEDs.
+    Os estados abaixo viram "tomada off" (vermelho/laranja) e "tomada on"
+    (verde); amarelo não manda nada. Não depende de Wi-Fi.
+  - placa única pelo Wi-Fi: o mesmo sinaleiro_c6 com USAR_WIFI = true (ESP_IP).
+  - duas placas pelo Wi-Fi: ESP32 do sinaleiro avisa um ESP32-C6 via ESP-NOW
+    (esp32_alert_v4 + TomadaZigbee) (ESP_IP).
 
 Portado da Fase 03 (ver Fase 03/main.py e Fase 03/esp32-leds.md), adaptado pro
 orquestrador multi-setor atual — lá era um único setor/câmera com uma causa de
@@ -28,14 +34,19 @@ Regras (definidas com a usuária):
     (qualquer setor em risco já é vermelho) e AND entre setores pra "tudo
     limpo" (todos os setores com gente têm que estar limpos pra ir pro verde).
 """
+import json
 import os
 import threading
 import time
 
 import requests
 
-# ── Mesmo hardware da Fase 03 — atualizar aqui se o IP mudar ────────────────
-ESP_IP         = os.getenv("ESP_IP", "10.198.250.62")  # sobrescreva com a env ESP_IP ao trocar de wifi
+# ── Conexão com o sinaleiro ──────────────────────────────────────────────────
+# ESP_SERIAL definida (ex.: "COM5") -> fala com o ESP32-C6 pelo cabo USB.
+# Sem ESP_SERIAL -> fala por HTTP no ESP_IP (sobrescreva com a env ao trocar de wifi).
+ESP_SERIAL     = os.getenv("ESP_SERIAL") or None
+ESP_BAUD       = int(os.getenv("ESP_BAUD", "115200"))
+ESP_IP         = os.getenv("ESP_IP", "10.198.250.62")
 
 # Bem menor que o TIMEOUT_MS (5s) do watchdog do ESP32 — ver esp32_alert_v4.ino
 LED_REFRESH_INTERVAL  = 2.0
@@ -53,15 +64,93 @@ CLEAR_FRAMES_TO_GREEN = 15
 _esp_busy = threading.Event()
 
 
+# ── ESP32 (cabo USB) ─────────────────────────────────────────────────────────
+# Protocolo de linhas do tomada_usb_c6.ino: envia "tomada on|off" / "status" e
+# espera uma resposta que começa com "@" ("@ok", "@erro ...", "@status {json}").
+# As outras linhas que o C6 imprime (logs) são ignoradas.
+_serial_lock = threading.Lock()
+_serial_port = None
+
+
+def _serial_abrir():
+    global _serial_port
+    if _serial_port is None:
+        import serial  # pyserial — só necessário no modo USB
+
+        s = serial.Serial()
+        s.port = ESP_SERIAL
+        s.baudrate = ESP_BAUD
+        s.timeout = 0.1
+        s.write_timeout = 1
+        s.dtr = False  # DTR/RTS desligados: abrir a porta não reinicia a placa
+        s.rts = False
+        s.open()
+        _serial_port = s
+    return _serial_port
+
+
+def _serial_fechar() -> None:
+    global _serial_port
+    if _serial_port is not None:
+        try:
+            _serial_port.close()
+        except Exception:
+            pass
+        _serial_port = None
+
+
+def _serial_comando(linha: str, timeout: float = 1.5) -> "str | None":
+    """Envia uma linha pro C6 e devolve a resposta "@..." (ou None se não veio).
+    Levanta exceção se a porta não abrir — quem chama trata."""
+    with _serial_lock:
+        try:
+            s = _serial_abrir()
+            s.reset_input_buffer()
+            s.write((linha + "\n").encode())
+            fim = time.time() + timeout
+            buf = b""
+            while time.time() < fim:
+                buf += s.read(256)
+                while b"\n" in buf:
+                    bruto, buf = buf.split(b"\n", 1)
+                    resposta = bruto.decode(errors="replace").strip()
+                    if resposta.startswith("@"):
+                        return resposta
+            return None
+        except Exception:
+            _serial_fechar()  # tenta reabrir na próxima chamada (cabo pode ter sido religado)
+            raise
+
+
+def _comando_tomada(led: str, state: str) -> "str | None":
+    """Modo USB (só tomada): traduz o estado do sinaleiro num comando pra tomada.
+    Vermelho (queda/zona) ou laranja (EPI ausente) desligam; verde liga;
+    apagar LEDs (volta pro amarelo) não muda a tomada."""
+    if state != "on":
+        return None
+    if led in ("vermelho", "laranja"):
+        return "tomada off"
+    if led == "verde":
+        return "tomada on"
+    return None
+
+
 def notify_esp_led(led: str, state: str) -> None:
+    comando = _comando_tomada(led, state) if ESP_SERIAL else None
+    if ESP_SERIAL and comando is None:
+        return  # nada a fazer na tomada
     if _esp_busy.is_set():
         print(f"[ESP32] aviso ({led} {state}) ignorado — chamada anterior ainda em andamento")
         return
     _esp_busy.set()
     try:
-        r = requests.post(f"http://{ESP_IP}/led", json={"led": led, "state": state}, timeout=2)
-        print(f"[ESP32] {led} -> {state}: {r.status_code}")
-    except requests.exceptions.RequestException as e:
+        if ESP_SERIAL:
+            resposta = _serial_comando(comando)
+            print(f"[TOMADA] {comando} ({led}): {resposta or 'sem resposta'}")
+        else:
+            r = requests.post(f"http://{ESP_IP}/led", json={"led": led, "state": state}, timeout=2)
+            print(f"[ESP32] {led} -> {state}: {r.status_code}")
+    except Exception as e:
         print(f"[ESP32] falha ao avisar ({led} {state}): {e}")
     finally:
         _esp_busy.clear()
@@ -89,16 +178,31 @@ def notify_esp_analyzing():
     notify_esp_led("verde", "off")
 
 
-# ── Verificação do hardware (sinaleiro + ESP32-C6 da tomada) ─────────────────
-# O firmware do sinaleiro expõe GET /status. Ele sabe se o C6 está conectado
-# porque o C6 responde via ESP-NOW a cada 2 s, confirmando a última mensagem
-# recebida. Verificado ao iniciar o orquestrador e depois a cada
+# ── Verificação do hardware (sinaleiro + tomada) ─────────────────────────────
+# Pelo cabo: comando "status". Pelo Wi-Fi: GET /status. Na montagem de duas
+# placas, o sinaleiro sabe se o C6 está conectado porque o C6 responde via
+# ESP-NOW a cada 2 s. Verificado ao iniciar o orquestrador e depois a cada
 # HARDWARE_CHECK_INTERVAL segundos (só loga quando algo muda).
 HARDWARE_CHECK_INTERVAL = 30.0
 
 
+def _onde() -> str:
+    return f"USB {ESP_SERIAL}" if ESP_SERIAL else ESP_IP
+
+
 def consultar_status_hardware() -> "dict | None":
-    """GET /status no ESP32 do sinaleiro. None se ele não respondeu."""
+    """Pergunta o estado ao sinaleiro. None se ele não respondeu."""
+    if ESP_SERIAL:
+        try:
+            resposta = _serial_comando("status", timeout=2.5)
+        except Exception:
+            return None
+        if not resposta or not resposta.startswith("@status "):
+            return None
+        try:
+            return json.loads(resposta[len("@status "):])
+        except ValueError:
+            return {"status": "sem_status"}
     try:
         r = requests.get(f"http://{ESP_IP}/status", timeout=3)
     except requests.exceptions.RequestException:
@@ -113,12 +217,32 @@ def consultar_status_hardware() -> "dict | None":
 
 def _resumo_hardware(st: "dict | None") -> list[str]:
     if st is None:
+        if ESP_SERIAL:
+            return [f"⚠ ESP32-C6 não respondeu na porta {ESP_SERIAL} — confira o cabo USB, o "
+                    "ESP_SERIAL e se o Monitor Serial da Arduino IDE está fechado"]
         return [f"⚠ Sinaleiro ESP32 não respondeu em http://{ESP_IP} — confira se está ligado e o ESP_IP"]
     if st.get("status") != "ok":
         return [f"Sinaleiro ESP32 online em {ESP_IP}, mas com firmware antigo (sem /status) — "
                 "grave o esp32_alert_v3.ino atualizado pra verificar a tomada"]
 
     canal = st.get("canal")
+
+    # Placa única (ESP32-C6 com LEDs + Zigbee): não há ESP-NOW nem segunda placa
+    if st.get("placa") == "c6":
+        if st.get("modo") == "tomada":
+            linhas = [f"ESP32-C6 da tomada conectado via {_onde()}"]
+        elif ESP_SERIAL:
+            linhas = [f"Sinaleiro ESP32-C6 conectado via {_onde()} (LED atual: {st.get('led')})"]
+        else:
+            linhas = [f"Sinaleiro ESP32-C6 online em {ESP_IP} (Wi-Fi no canal {canal}, sinal {st.get('rssi')} dBm)"]
+        if st.get("tomada_pareada"):
+            linhas.append("Tomada Zigbee pareada ✓")
+        else:
+            linhas.append("⚠ Tomada Zigbee NÃO está pareada com o C6 — segure o BOOT do C6 3 s e "
+                          "o botão da tomada 5 s para parear")
+        return linhas
+
+    # Montagem com duas placas (ESP32 sinaleiro + ESP32-C6 via ESP-NOW)
     linhas = [f"Sinaleiro ESP32 online em {ESP_IP} (Wi-Fi no canal {canal})"]
     if not st.get("espnow"):
         linhas.append("⚠ ESP-NOW não iniciou no sinaleiro — a tomada não será controlada")
@@ -139,7 +263,7 @@ def _verificar_e_logar() -> list[str]:
     linhas = _resumo_hardware(st)
     for linha in linhas:
         print(f"[HARDWARE] {linha}")
-    if st and st.get("c6_online"):
+    if st and (st.get("c6_online") or st.get("placa") == "c6"):
         print(f"[HARDWARE] Tomada: {st.get('tomada', 'indefinida')}")
     return linhas
 
