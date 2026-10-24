@@ -22,7 +22,6 @@ Este README é o documento-âncora do projeto: reúne a proposta de solução, o
 11. [Limitações conhecidas](#-limitações-conhecidas)
 12. [Normas, conformidade e LGPD](#-normas-conformidade-e-lgpd)
 13. [Documentação técnica](#-documentação-técnica)
-14. [Próximos passos](#-próximos-passos)
 
 ---
 
@@ -45,7 +44,7 @@ Este README é o documento-âncora do projeto: reúne a proposta de solução, o
 |---|---|
 | 🎨 Protótipo (Figma — Roteiro de Telas) | [Abrir no Figma](https://www.figma.com/proto/uGj3qxy9ClUpzskzSfyO2s/Roteiro-de-Telas?node-id=0-1&t=aR0EgGS9eaSZBB8Z-1) |
 | 📋 Quadro Trello | [Abrir no Trello](https://trello.com/invite/b/6ab1c9be546ef9ccb3434a3a/ATTI7a4a2886cd1df385d417024ac0c7c85dFFCF3FC0/codexis-challenge) |
-| 🎬 Vídeo final (demonstração) | [Abrir no Youtube](https://www.youtube.com/) |
+| 🎬 Vídeo final (demonstração) | [Abrir no Youtube]([https://www.youtube.com/](https://youtu.be/CfZBCFgpgyU)) |
 | 🗺️ Roadmap (Miro) | [Abrir no Miro](https://miro.com/app/board/uXjVHG1bIBw=/?share_link_id=985870160011) |
 
 ---
@@ -325,15 +324,3 @@ As metas vêm do Descritivo Técnico do Challenge. **Os valores medidos de pose 
 - [💻 Mapeamento de Telas](docs/mapeamento.md)
 - [🎨 Roteiro de Telas (Figma)](https://www.figma.com/proto/uGj3qxy9ClUpzskzSfyO2s/Roteiro-de-Telas?node-id=0-1&t=aR0EgGS9eaSZBB8Z-1)
 - [📝 Relatórios Técnicos](https://github.com/guandrade09/challenge-SPI-Project/tree/3a7f32a993899ecd607997e4b41dda4191c6613d/docs/Relat%C3%B3rios%20T%C3%A9cnicos)
-
----
-
-## 🔭 Próximos passos
-
-- Anotar vídeos próprios (mínimo de 3 cenários, com termo de consentimento) e calcular PCK, acurácia e recall.
-- Medir a latência E2E em hardware-alvo e otimizar o streaming da câmera.
-- Testar e documentar o cenário de múltiplas pessoas sobrepostas.
-- Gravar o vídeo de demonstração com os três cenários: postura inadequada, queda e aproximação de zona crítica.
-- Implementar as telas de auditoria e inventário de incidentes e a notificação com ESP32.
-- Evoluir a UX: score de risco contextualizado, hierarquia avançada de alertas e visualização da pose.
-- Consolidar os relatórios das Fases 1 a 3 no documento técnico único da Fase 4.
