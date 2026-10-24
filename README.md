@@ -111,7 +111,7 @@ Além do alerta na tela, o sistema aciona um **sinaleiro físico** e pode **cort
 | 🟢 Verde | Tudo limpo por 15 frames seguidos | Não soa | **Liga** |
 
 - **Componentes:** ESP32 com LEDs vermelho/laranja/amarelo/verde + buzzer (controlado por HTTP) e tomada Zigbee.
-- **Como a tomada é controlada:** tudo local, sem nuvem — substituiu a tomada Tuya Wi-Fi (`tinytuya`), que tinha latência alta. Firmwares em `Fase 03/esp32__script`.
+- **Como a tomada é controlada:** tudo local, sem nuvem — substituiu a tomada Tuya Wi-Fi (`tinytuya`), que tinha latência alta. Firmwares e instruções em [`firmware/`](firmware/).
   - **Só a tomada, pelo cabo USB (montagem atual):** o PC fala com um ESP32-C6 pela USB (`ESP_SERIAL`), e o C6 liga/desliga a tomada via Zigbee (`tomada_usb_c6`). Sem Wi-Fi e sem LEDs.
   - **Sinaleiro pelo Wi-Fi:** o orquestrador fala com o ESP32 do sinaleiro por HTTP (`ESP_IP`), que avisa um ESP32-C6 via ESP-NOW (`esp32_alert_v4` + `TomadaZigbee`).
 - **Várias câmeras, um só sinaleiro:** basta uma câmera em risco para alertar; o verde só acende quando todas as câmeras com pessoas estão limpas.

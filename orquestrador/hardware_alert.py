@@ -3,14 +3,14 @@ Integração com o sinaleiro físico (ESP32: LEDs vermelho/laranja/amarelo/verde
 
 A tomada que corta a energia NÃO é mais controlada daqui: o firmware do
 sinaleiro cuida dela via Zigbee. Isso tirou a latência da tomada Tuya Wi-Fi
-(tinytuya), que era chamada daqui. Montagens suportadas (Fase 03/esp32__script):
+(tinytuya), que era chamada daqui. Montagens suportadas (firmwares em firmware/):
   - SÓ A TOMADA pelo cabo USB (quando ESP_SERIAL está definida, ex.
     ESP_SERIAL=COM5): ESP32-C6 coordenador Zigbee (tomada_usb_c6), sem LEDs.
     Os estados abaixo viram "tomada off" (vermelho/laranja) e "tomada on"
     (verde); amarelo não manda nada. Não depende de Wi-Fi.
   - placa única pelo Wi-Fi: o mesmo sinaleiro_c6 com USAR_WIFI = true (ESP_IP).
   - duas placas pelo Wi-Fi: ESP32 do sinaleiro avisa um ESP32-C6 via ESP-NOW
-    (esp32_alert_v4 + TomadaZigbee) (ESP_IP).
+    (duas_placas/esp32_alert_v3 + duas_placas/TomadaZigbee) (ESP_IP).
 
 Portado da Fase 03 (ver Fase 03/main.py e Fase 03/esp32-leds.md), adaptado pro
 orquestrador multi-setor atual — lá era um único setor/câmera com uma causa de
