@@ -39,5 +39,15 @@ Thumbs.db
 
 # Imagens geradas
 backend/src/uploads/
+backend/src/api/uploads/
 ml_service/incidents/
 
+# Arquivos de testes
+tests/
+
+# Arquivos de contextos
+context/
+
+
+# Modelos do Roboflow baixados em runtime (ver ml_service/inference/detector.py)
+ml_service/vision/models/roboflow/

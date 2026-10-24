@@ -1,0 +1,8 @@
+processo de export saiu com código 1: porter.py", line 215, in outer_func
+    raise e
+  File "C:\Users\Geovana\Documents\codexis-spi\.venv\Lib\site-packages\ultralytics\engine\exporter.py", line 207, in outer_func
+    f = inner_func(*args, **kwargs)  # exported file/dir or tuple of (file/dir, *)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Geovana\Documents\codexis-spi\.venv\Lib\site-packages\ultralytics\engine\exporter.py", line 897, in export_engine
+    import tensorrt as trt
+ModuleNotFoundError: No module named 'tensorrt'

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="header">
+        <div class="header-content">
+            <div class="header-text">
+                <h1>Relatório de Segurança e Conformidade de EPIs</h1>
+                <h2>Monitoramento Inteligente com Visão Computacional</h2>
+                <div class="header-meta">
+                    <span>Gerado em: <strong>{{gerado_em}}</strong></span>
+                    <span>Período: <strong>{{periodo}}</strong></span>
+                    <span>Filtro: <strong>{{filtro}}</strong></span>
+                </div>
+            </div>
+
+            <img src="{{logo}}" class="logo" />
+        </div>
+    </div>
+
+    {{banner_sem_dados}}
+
+    {{content}}
+
+    <div class="disclaimer">
+        Este relatório foi gerado automaticamente pelo Sistema Sentinel SPI com base nos registros de detecção
+        disponíveis até o momento de sua geração. Os indicadores de conformidade consideram a presença do
+        equipamento e a confiança mínima do modelo de visão computacional. Documento de uso interno.
+    </div>
+
+  </div>
+</body>
+</html>

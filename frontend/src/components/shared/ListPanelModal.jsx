@@ -3,7 +3,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 
-export const ListPanel = ({ 
+export const ListPanelModal = ({ 
   title, 
   isOpen, 
   onClose, 
@@ -52,4 +52,4 @@ export const ListPanel = ({
   );
 };
 
-export default ListPanel;
+export default ListPanelModal;

@@ -1,0 +1,12 @@
+# ATENÇÃO: facenet-pytorch 2.6.0 exige torch<2.3 e, instalado normalmente, REBAIXA o torch
+# para a versão só-CPU — YOLO, pose e facial passam a rodar na CPU (latência bem maior).
+# Instale o facenet sem dependências e o torch com CUDA separado:
+#   pip install --no-deps facenet-pytorch
+#   pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124
+# Confira depois: python -c "import torch; print(torch.cuda.is_available())"  → True
+facenet-pytorch>=2.5.3
+torch>=2.0.0
+torchvision>=0.15.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+requests>=2.31.0

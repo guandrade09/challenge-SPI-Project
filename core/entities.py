@@ -3,6 +3,21 @@ from datetime import datetime
 from dataclasses import dataclass
 
 
+# Classes do modelo que representam risco 
+RISK_LABELS = {
+    "AURICULAR - AUSENTE",
+    "AURICULAR - ERRADO",
+    "BOTAS - AUSENTE",
+    "CAPACETE - AUSENTE",
+    "CAPACETE - ERRADO",
+    "COLETE - AUSENTE",
+    "MASCARA - AUSENTE",
+    "MASCARA - ERRADO",
+    "OCULOS - AUSENTE",
+    "OCULOS - ERRADO",
+}
+
+
 @dataclass
 class Detection:
     label: str
@@ -22,16 +37,40 @@ class Detection:
 
     @property
     def width(self) -> float:
-        return (self.x2 - self.x1)
+        return self.x2 - self.x1
 
     @property
     def height(self) -> float:
-        return (self.y2 - self.y1)
+        return self.y2 - self.y1
 
     @property
     def is_risk(self) -> bool:
-        RISK_LABELS = {"NO-Hardhat", "NO-Mask", "NO-Safety Vest"}
         return self.label in RISK_LABELS
+
+
+@dataclass
+class FaceMatch:
+    """Resultado de uma identificação facial (ml_facial). `funcionario_id` None = rosto
+    detectado mas não reconhecido (abaixo do limiar de confiança de match)."""
+    nome: str
+    confidence: float
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    funcionario_id: int | None = None
+
+    @property
+    def center_x(self) -> float:
+        return (self.x1 + self.x2) / 2
+
+    @property
+    def center_y(self) -> float:
+        return (self.y1 + self.y2) / 2
+
+    @property
+    def reconhecido(self) -> bool:
+        return self.funcionario_id is not None
 
 
 @dataclass
