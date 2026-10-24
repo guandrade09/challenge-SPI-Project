@@ -89,6 +89,86 @@ def notify_esp_analyzing():
     notify_esp_led("verde", "off")
 
 
+# ── Verificação do hardware (sinaleiro + ESP32-C6 da tomada) ─────────────────
+# O firmware do sinaleiro expõe GET /status. Ele sabe se o C6 está conectado
+# porque o C6 responde via ESP-NOW a cada 2 s, confirmando a última mensagem
+# recebida. Verificado ao iniciar o orquestrador e depois a cada
+# HARDWARE_CHECK_INTERVAL segundos (só loga quando algo muda).
+HARDWARE_CHECK_INTERVAL = 30.0
+
+
+def consultar_status_hardware() -> "dict | None":
+    """GET /status no ESP32 do sinaleiro. None se ele não respondeu."""
+    try:
+        r = requests.get(f"http://{ESP_IP}/status", timeout=3)
+    except requests.exceptions.RequestException:
+        return None
+    if r.status_code != 200:
+        return {"status": "sem_status"}
+    try:
+        return r.json()
+    except ValueError:
+        return {"status": "sem_status"}
+
+
+def _resumo_hardware(st: "dict | None") -> list[str]:
+    if st is None:
+        return [f"⚠ Sinaleiro ESP32 não respondeu em http://{ESP_IP} — confira se está ligado e o ESP_IP"]
+    if st.get("status") != "ok":
+        return [f"Sinaleiro ESP32 online em {ESP_IP}, mas com firmware antigo (sem /status) — "
+                "grave o esp32_alert_v3.ino atualizado pra verificar a tomada"]
+
+    canal = st.get("canal")
+    linhas = [f"Sinaleiro ESP32 online em {ESP_IP} (Wi-Fi no canal {canal})"]
+    if not st.get("espnow"):
+        linhas.append("⚠ ESP-NOW não iniciou no sinaleiro — a tomada não será controlada")
+    elif not st.get("c6_online"):
+        linhas.append(f"⚠ ESP32-C6 da tomada NÃO conectado — confira se ele está ligado e "
+                      f"se mostra 'ESP-NOW pronto no canal {canal}' no Monitor Serial")
+    elif not st.get("c6_recebe_comandos"):
+        linhas.append("⚠ ESP32-C6 responde, mas não está confirmando os comandos do sinaleiro")
+    elif not st.get("tomada_pareada"):
+        linhas.append("⚠ ESP32-C6 conectado, mas a tomada NÃO está pareada com ele")
+    else:
+        linhas.append("ESP32-C6 da tomada conectado e tomada pareada ✓")
+    return linhas
+
+
+def _verificar_e_logar() -> list[str]:
+    st = consultar_status_hardware()
+    linhas = _resumo_hardware(st)
+    for linha in linhas:
+        print(f"[HARDWARE] {linha}")
+    if st and st.get("c6_online"):
+        print(f"[HARDWARE] Tomada: {st.get('tomada', 'indefinida')}")
+    return linhas
+
+
+def verificar_hardware() -> bool:
+    """Consulta o sinaleiro e mostra no log. Retorna True se sinaleiro, C6 e tomada estão OK."""
+    linhas = _verificar_e_logar()
+    return not any(l.startswith("⚠") for l in linhas) and "firmware antigo" not in linhas[0]
+
+
+def _monitor_hardware_worker(anteriores: list[str]) -> None:
+    while True:
+        time.sleep(HARDWARE_CHECK_INTERVAL)
+        linhas = _resumo_hardware(consultar_status_hardware())
+        if linhas != anteriores:
+            for linha in linhas:
+                print(f"[HARDWARE] {linha}")
+            anteriores = linhas
+
+
+def iniciar_monitor_hardware() -> None:
+    """Chamar uma vez ao subir o orquestrador: verifica agora e segue monitorando."""
+    print("[HARDWARE] Verificando sinaleiro e tomada...")
+    anteriores = _verificar_e_logar()
+    threading.Thread(
+        target=_monitor_hardware_worker, args=(anteriores,), daemon=True, name="hardware-monitor"
+    ).start()
+
+
 # ── Máquina de estados agregada (todos os setores ativos compartilham o mesmo
 #    sinaleiro físico) ───────────────────────────────────────────────────────
 _lock          = threading.Lock()

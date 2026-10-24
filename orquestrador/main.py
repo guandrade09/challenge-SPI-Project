@@ -1879,6 +1879,9 @@ def main():
     set_message_handler(_make_ws_message_handler(zone_checker))
     start_server_in_thread()
 
+    # Sinaleiro (ESP32) + ESP32-C6 da tomada: mostra no log se estão conectados
+    hardware_alert.iniciar_monitor_hardware()
+
     print("[INIT] Carregando modelos...")
     try:
         epi_detector  = EPIDetector(model_path=model_epi, imgsz=MODEL_IMGSZ)
